@@ -192,8 +192,8 @@ class RcloneWrapper:
             remote_path = f"current:{path}"
             config_arg = '/dev/null'  # Don't use config file with env vars
         else:
-            # Local path
-            remote_path = path
+            # Local path (use expanded path with tilde resolved)
+            remote_path = clean_path
 
         command = [
             self.rclone_path,
@@ -237,8 +237,8 @@ class RcloneWrapper:
             remote_path = f"current:{path}"
             config_arg = '/dev/null'
         else:
-            # Local path
-            remote_path = path
+            # Local path (use expanded path with tilde resolved)
+            remote_path = clean_path
 
         # Use rclone touch to create a .keep file (creates dir implicitly)
         command = [
@@ -346,8 +346,8 @@ class RcloneWrapper:
             remote_path = f"current:{path}"
             config_arg = '/dev/null'
         else:
-            # Local path
-            remote_path = path
+            # Local path (use expanded path with tilde resolved)
+            remote_path = clean_path
 
         # Check if path exists and is a directory
         try:
@@ -448,7 +448,7 @@ class RcloneWrapper:
 
         # Exclude .snapshot directories (NFS) - only for local sources
         if not src_remote_name and not src_config:
-            if os.path.isdir(src_path):
+            if os.path.isdir(src):
                 command.append('--exclude=.snapshot/')
 
         self._log_command(command, credentials)
