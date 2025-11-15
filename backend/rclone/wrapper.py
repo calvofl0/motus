@@ -32,6 +32,7 @@ class RcloneWrapper:
         self.rclone_config_file = rclone_config_file
         self._job_queue = JobQueue()
         self._next_job_id = 1
+        self._job_id_lock = __import__('threading').Lock()  # Thread-safe job ID generation
 
         # Verify rclone is installed
         self._verify_rclone()
@@ -385,8 +386,11 @@ class RcloneWrapper:
         """
         credentials = {}
         config_arg = self.rclone_config_file
-        job_id = self._next_job_id
-        self._next_job_id += 1
+
+        # Thread-safe job ID generation
+        with self._job_id_lock:
+            job_id = self._next_job_id
+            self._next_job_id += 1
 
         # Parse source path
         src_remote_name, src_clean_path = self._parse_path(src_path)
@@ -399,8 +403,8 @@ class RcloneWrapper:
             src = f"src:{src_path}"
             config_arg = '/dev/null'
         else:
-            # Local path
-            src = src_path
+            # Local path (use expanded path with tilde resolved)
+            src = src_clean_path
 
         # Parse destination path
         dst_remote_name, dst_clean_path = self._parse_path(dst_path)
@@ -413,8 +417,8 @@ class RcloneWrapper:
             dst = f"dst:{dst_path}"
             config_arg = '/dev/null'
         else:
-            # Local path
-            dst = dst_path
+            # Local path (use expanded path with tilde resolved)
+            dst = dst_clean_path
 
         # Build command
         rclone_cmd = 'copyto' if operation == 'copy' else 'moveto'

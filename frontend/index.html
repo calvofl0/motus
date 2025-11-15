@@ -240,8 +240,8 @@
             </div>
             <button onclick="getJobStatus()">Get Status</button>
             <button onclick="stopJob()">Stop Job</button>
-            <button onclick="listJobs()">List All Jobs</button>
             <button onclick="listRunningJobs()">List Running Jobs</button>
+            <button onclick="listJobs()">List All Jobs</button>
             <div id="job-output" class="output" style="display:none"></div>
         </div>
     </div>
@@ -496,6 +496,47 @@
         if (urlToken) {
             document.getElementById('token').value = urlToken;
         }
+
+        // Add ENTER key support for input fields
+        document.addEventListener('DOMContentLoaded', function() {
+            // Browse Files - ENTER triggers List Files
+            document.getElementById('browse-path').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    listFiles();
+                }
+            });
+
+            // Create Directory - ENTER triggers Create Directory
+            document.getElementById('mkdir-path').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    makeDir();
+                }
+            });
+
+            // Copy Files - ENTER on either field triggers Start Copy
+            document.getElementById('copy-src').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    copyFiles();
+                }
+            });
+            document.getElementById('copy-dst').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    copyFiles();
+                }
+            });
+
+            // Job Status - ENTER triggers Get Status
+            document.getElementById('job-id').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    getJobStatus();
+                }
+            });
+        });
     </script>
 </body>
 </html>
