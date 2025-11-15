@@ -140,13 +140,14 @@ class RcloneWrapper:
         Parse a path to detect remote syntax
 
         Args:
-            path: Path string (e.g., 'myS3:/bucket/file' or '/local/path')
+            path: Path string (e.g., 'myS3:/bucket/file' or '/local/path' or '~/docs')
 
         Returns:
             Tuple of (remote_name, path) where remote_name is None for local paths
             Examples:
                 'myS3:/bucket/file' -> ('myS3', '/bucket/file')
                 '/local/path' -> (None, '/local/path')
+                '~/docs' -> (None, '/home/user/docs')
                 'remote:path' -> ('remote', 'path')
         """
         if ':' in path:
@@ -160,8 +161,8 @@ class RcloneWrapper:
                 if remote_name and not ('\\' in remote_name or '/' in remote_name):
                     return (remote_name, remote_path)
 
-        # Local path
-        return (None, path)
+        # Local path - expand tilde for home directory
+        return (None, os.path.expanduser(path))
 
     def ls(self, path: str, remote_config: Optional[Dict] = None) -> List[Dict]:
         """

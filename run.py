@@ -7,6 +7,8 @@ import argparse
 import logging
 import socket
 import sys
+import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -185,12 +187,16 @@ def main():
     # Print banner
     print_banner(config, original_port if original_port != config.port else None)
 
-    # Open browser if requested
+    # Open browser after server starts (delayed)
     if not args.no_browser:
-        try:
-            webbrowser.open(config.get_url(token=True))
-        except:
-            pass  # Ignore browser open failures
+        def open_browser():
+            time.sleep(1.5)  # Wait for server to start
+            try:
+                webbrowser.open(config.get_url(token=True))
+            except:
+                pass  # Ignore browser open failures
+
+        threading.Thread(target=open_browser, daemon=True).start()
 
     # Run server
     try:

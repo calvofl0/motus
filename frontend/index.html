@@ -241,6 +241,7 @@
             <button onclick="getJobStatus()">Get Status</button>
             <button onclick="stopJob()">Stop Job</button>
             <button onclick="listJobs()">List All Jobs</button>
+            <button onclick="listRunningJobs()">List Running Jobs</button>
             <div id="job-output" class="output" style="display:none"></div>
         </div>
     </div>
@@ -461,6 +462,21 @@
             try {
                 const data = await apiCall('/api/jobs');
                 showOutput('job-output', `Recent Jobs:\n\n${JSON.stringify(data.jobs, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function listRunningJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=running');
+                const runningJobs = data.jobs.filter(job => job.status === 'running');
+
+                if (runningJobs.length === 0) {
+                    showOutput('job-output', `No running jobs found.`);
+                } else {
+                    showOutput('job-output', `Running Jobs (${runningJobs.length}):\n\n${JSON.stringify(runningJobs, null, 2)}`);
+                }
             } catch (error) {
                 showOutput('job-output', `❌ Error: ${error.message}`, true);
             }
