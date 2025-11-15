@@ -5,6 +5,7 @@ A simplified, single-user web application for file transfers using rclone, desig
 ## Features
 
 - **Simple Token Authentication**: Jupyter-style token authentication (auto-generated or configurable)
+- **rclone Remote Support**: Use configured remotes with `remote_name:/path` syntax
 - **rclone Backend**: Supports all rclone backends (S3, SFTP, Azure, Google Cloud, local filesystem, etc.)
 - **Async File Transfers**: Background copy/move operations with real-time progress tracking
 - **REST API**: Clean REST API for file operations and job management
@@ -92,6 +93,43 @@ Example output:
 ======================================================================
 ```
 
+### Using rclone Remotes
+
+Configure remotes using standard rclone workflow:
+
+```bash
+# Configure a remote (interactive)
+rclone config
+
+# List configured remotes
+rclone listremotes
+```
+
+Use remotes in the UI with `remote_name:/path` syntax:
+
+```bash
+# Examples:
+myS3:/bucket/folder         # Browse S3 bucket
+mySFTP:/remote/file.txt     # Access SFTP file
+/tmp/local/file             # Local filesystem
+
+# Copy operations:
+myS3:/bucket/data.csv  →  /tmp/downloads/       # S3 to local
+/tmp/file.txt  →  myS3:/bucket/backup/          # Local to S3
+myS3:/data/  →  mySFTP:/backup/                 # S3 to SFTP
+```
+
+**Configuration Priority**: `RCLONE_CONFIG` env var > `~/.motuz/config.yml` > rclone default
+
+```bash
+# Use custom rclone config
+export RCLONE_CONFIG=/path/to/rclone.conf
+python run.py
+
+# Or in ~/.motuz/config.yml:
+# rclone_config_file: /path/to/rclone.conf
+```
+
 ### Configuration Options
 
 #### Command Line Arguments
@@ -158,14 +196,30 @@ All API endpoints require authentication via token:
 GET /api/health
 ```
 
+#### List Remotes
+```http
+GET /api/remotes
+
+Response:
+{
+  "remotes": ["myS3", "mySFTP", ...],
+  "count": 2
+}
+```
+
 #### List Files
 ```http
 POST /api/files/ls
 Content-Type: application/json
 
 {
+  "path": "/path/to/list"  // Local: /tmp or Remote: myS3:/bucket
+}
+
+# Legacy mode (still supported):
+{
   "path": "/path/to/list",
-  "remote_config": {  // Optional, for remote storage
+  "remote_config": {
     "type": "s3",
     "region": "us-west-2",
     "access_key_id": "...",
@@ -180,8 +234,7 @@ POST /api/files/mkdir
 Content-Type: application/json
 
 {
-  "path": "/path/to/new/directory",
-  "remote_config": {...}  // Optional
+  "path": "/path/to/dir"  // Local: /tmp/newdir or Remote: myS3:/bucket/newdir
 }
 ```
 
@@ -191,8 +244,7 @@ POST /api/files/delete
 Content-Type: application/json
 
 {
-  "path": "/path/to/delete",
-  "remote_config": {...}  // Optional
+  "path": "/path/to/delete"  // Supports remote syntax
 }
 ```
 
@@ -202,11 +254,9 @@ POST /api/jobs/copy
 Content-Type: application/json
 
 {
-  "src_path": "/source/path",
-  "dst_path": "/destination/path",
-  "src_config": {...},  // Optional, for remote source
-  "dst_config": {...},  // Optional, for remote destination
-  "copy_links": false   // Optional, follow symlinks
+  "src_path": "myS3:/bucket/file.txt",  // Remote or local
+  "dst_path": "/tmp/backup/",            // Remote or local
+  "copy_links": false                    // Optional, follow symlinks
 }
 
 Response:
@@ -264,30 +314,22 @@ Content-Type: text/event-stream
 data: {"progress": 45, "text": "...", "finished": false}
 ```
 
-### Remote Configuration Examples
+### Remote Configuration (Legacy Mode)
 
-#### S3 (AWS)
+**Recommended**: Use `rclone config` and the `remote_name:/path` syntax instead.
+
+For programmatic access, the legacy `remote_config` parameter is still supported:
+
 ```json
+// S3 example
 {
   "type": "s3",
   "region": "us-west-2",
-  "access_key_id": "AKIAIOSFODNN7EXAMPLE",
-  "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-}
-```
-
-#### S3-Compatible (MinIO, etc.)
-```json
-{
-  "type": "s3",
-  "endpoint": "https://minio.example.com",
   "access_key_id": "...",
   "secret_access_key": "..."
 }
-```
 
-#### SFTP
-```json
+// SFTP example
 {
   "type": "sftp",
   "host": "example.com",
@@ -297,14 +339,7 @@ data: {"progress": 45, "text": "...", "finished": false}
 }
 ```
 
-#### Azure Blob
-```json
-{
-  "type": "azureblob",
-  "account": "myaccount",
-  "key": "base64key=="
-}
-```
+See rclone documentation for all supported backends and options.
 
 ## Open OnDemand Integration
 
