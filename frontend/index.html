@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OOD-Motuz - File Transfer Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+
+        .section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .output {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .success {
+            color: #28a745;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OOD-Motuz</h1>
+        <p class="subtitle">Simple File Transfer Interface (Demo Frontend)</p>
+
+        <!-- Authentication -->
+        <div class="section">
+            <h2>🔐 Authentication</h2>
+            <div class="form-group">
+                <label>Access Token:</label>
+                <input type="text" id="token" placeholder="Enter your token (check server logs)" />
+            </div>
+            <button onclick="testAuth()">Test Connection</button>
+            <div id="auth-output" class="output" style="display:none"></div>
+        </div>
+
+        <!-- File Browser -->
+        <div class="section">
+            <h2>📁 Browse Files</h2>
+            <div class="form-group">
+                <label>Path:</label>
+                <input type="text" id="browse-path" value="/tmp" placeholder="/path/to/browse" />
+            </div>
+            <button onclick="listFiles()">List Files</button>
+            <div id="browse-output" class="output" style="display:none"></div>
+        </div>
+
+        <!-- Create Directory -->
+        <div class="section">
+            <h2>➕ Create Directory</h2>
+            <div class="form-group">
+                <label>Directory Path:</label>
+                <input type="text" id="mkdir-path" placeholder="/path/to/new/directory" />
+            </div>
+            <button onclick="makeDir()">Create Directory</button>
+            <div id="mkdir-output" class="output" style="display:none"></div>
+        </div>
+
+        <!-- Copy Files -->
+        <div class="section">
+            <h2>📋 Copy Files</h2>
+            <div class="form-group">
+                <label>Source Path:</label>
+                <input type="text" id="copy-src" placeholder="/path/to/source" />
+            </div>
+            <div class="form-group">
+                <label>Destination Path:</label>
+                <input type="text" id="copy-dst" placeholder="/path/to/destination" />
+            </div>
+            <button onclick="copyFiles()">Start Copy</button>
+            <div id="copy-output" class="output" style="display:none"></div>
+            <div id="copy-progress" style="display:none">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="copy-progress-fill">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Status -->
+        <div class="section">
+            <h2>📊 Job Status</h2>
+            <div class="form-group">
+                <label>Job ID:</label>
+                <input type="number" id="job-id" placeholder="123" />
+            </div>
+            <button onclick="getJobStatus()">Get Status</button>
+            <button onclick="stopJob()">Stop Job</button>
+            <button onclick="listJobs()">List All Jobs</button>
+            <div id="job-output" class="output" style="display:none"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function getToken() {
+            const token = document.getElementById('token').value.trim();
+            if (!token) {
+                alert('Please enter an access token');
+                return null;
+            }
+            return token;
+        }
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const token = getToken();
+            if (!token) return null;
+
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function showOutput(elementId, content, isError = false) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'output ' + (isError ? 'error' : 'success');
+            el.textContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        }
+
+        async function testAuth() {
+            try {
+                const data = await apiCall('/api/health');
+                showOutput('auth-output', `✅ Connected successfully!\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showOutput('auth-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function listFiles() {
+            const path = document.getElementById('browse-path').value.trim();
+            try {
+                const data = await apiCall('/api/files/ls', 'POST', { path });
+
+                let output = `Files in ${data.path}:\n\n`;
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(file => {
+                        const icon = file.IsDir ? '📁' : '📄';
+                        const size = file.IsDir ? '' : ` (${formatBytes(file.Size)})`;
+                        output += `${icon} ${file.Name}${size}\n`;
+                    });
+                } else {
+                    output += '(empty directory)';
+                }
+
+                showOutput('browse-output', output);
+            } catch (error) {
+                showOutput('browse-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function makeDir() {
+            const path = document.getElementById('mkdir-path').value.trim();
+            try {
+                const data = await apiCall('/api/files/mkdir', 'POST', { path });
+                showOutput('mkdir-output', `✅ ${data.message}\nPath: ${data.path}`);
+            } catch (error) {
+                showOutput('mkdir-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        let currentJobId = null;
+
+        async function copyFiles() {
+            const src = document.getElementById('copy-src').value.trim();
+            const dst = document.getElementById('copy-dst').value.trim();
+
+            if (!src || !dst) {
+                alert('Please enter both source and destination paths');
+                return;
+            }
+
+            try {
+                const data = await apiCall('/api/jobs/copy', 'POST', {
+                    src_path: src,
+                    dst_path: dst
+                });
+
+                currentJobId = data.job_id;
+                showOutput('copy-output', `✅ ${data.message}\nJob ID: ${data.job_id}`);
+                document.getElementById('copy-progress').style.display = 'block';
+                document.getElementById('job-id').value = data.job_id;
+
+                // Start monitoring progress
+                monitorJob(data.job_id);
+            } catch (error) {
+                showOutput('copy-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function monitorJob(jobId) {
+            const interval = setInterval(async () => {
+                try {
+                    const token = getToken();
+                    const response = await fetch(`${API_BASE}/api/jobs/${jobId}?token=${token}`);
+                    const data = await response.json();
+
+                    const progress = data.progress || 0;
+                    const fill = document.getElementById('copy-progress-fill');
+                    fill.style.width = `${progress}%`;
+                    fill.textContent = `${progress}%`;
+
+                    if (data.finished) {
+                        clearInterval(interval);
+                        if (data.exit_status === 0) {
+                            showOutput('copy-output', `✅ Copy completed!\n\n${data.text}`);
+                        } else {
+                            showOutput('copy-output', `❌ Copy failed!\n\n${data.error_text}`, true);
+                        }
+                    }
+                } catch (error) {
+                    clearInterval(interval);
+                }
+            }, 2000);
+        }
+
+        async function getJobStatus() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}`);
+                showOutput('job-output', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function stopJob() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
+                showOutput('job-output', `✅ ${data.message}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function listJobs() {
+            try {
+                const data = await apiCall('/api/jobs');
+                showOutput('job-output', `Recent Jobs:\n\n${JSON.stringify(data.jobs, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Auto-fill token from URL if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+            document.getElementById('token').value = urlToken;
+        }
+    </script>
+</body>
+</html>
