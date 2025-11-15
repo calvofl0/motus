@@ -96,6 +96,14 @@ class Config:
             default=None
         )
 
+        # Rclone config file path
+        # Priority: RCLONE_CONFIG env var > motuz config > rclone default
+        self.rclone_config_file = self._get_config(
+            'rclone_config_file',
+            env_var='RCLONE_CONFIG',
+            default=None
+        )
+
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
             'base_url',

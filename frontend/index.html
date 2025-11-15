@@ -131,6 +131,29 @@
             color: white;
             font-size: 12px;
         }
+
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .remote-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .remote-badge {
+            background: #007bff;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -149,12 +172,26 @@
             <div id="auth-output" class="output" style="display:none"></div>
         </div>
 
+        <!-- Available Remotes -->
+        <div class="section">
+            <h2>☁️ Available Remotes</h2>
+            <p class="hint">
+                💡 Use remote syntax in paths: <code>remote_name:/path</code> (e.g., <code>myS3:/bucket/file.txt</code>)<br>
+                For local paths, use regular syntax: <code>/local/path</code>
+            </p>
+            <button onclick="listRemotes()">List Available Remotes</button>
+            <div id="remotes-output" style="display:none">
+                <div class="remote-list" id="remotes-list"></div>
+            </div>
+        </div>
+
         <!-- File Browser -->
         <div class="section">
             <h2>📁 Browse Files</h2>
             <div class="form-group">
                 <label>Path:</label>
-                <input type="text" id="browse-path" value="/tmp" placeholder="/path/to/browse" />
+                <input type="text" id="browse-path" value="/tmp" placeholder="/path or myS3:/bucket/path" />
+                <p class="hint">Examples: /tmp or myS3:/bucket/folder</p>
             </div>
             <button onclick="listFiles()">List Files</button>
             <div id="browse-output" class="output" style="display:none"></div>
@@ -165,7 +202,8 @@
             <h2>➕ Create Directory</h2>
             <div class="form-group">
                 <label>Directory Path:</label>
-                <input type="text" id="mkdir-path" placeholder="/path/to/new/directory" />
+                <input type="text" id="mkdir-path" placeholder="/path/to/dir or myS3:/bucket/newdir" />
+                <p class="hint">Examples: /tmp/newdir or myS3:/bucket/newfolder</p>
             </div>
             <button onclick="makeDir()">Create Directory</button>
             <div id="mkdir-output" class="output" style="display:none"></div>
@@ -176,11 +214,13 @@
             <h2>📋 Copy Files</h2>
             <div class="form-group">
                 <label>Source Path:</label>
-                <input type="text" id="copy-src" placeholder="/path/to/source" />
+                <input type="text" id="copy-src" placeholder="/local/file or myS3:/bucket/file" />
+                <p class="hint">Examples: /tmp/file.txt or myS3:/bucket/data.csv</p>
             </div>
             <div class="form-group">
                 <label>Destination Path:</label>
-                <input type="text" id="copy-dst" placeholder="/path/to/destination" />
+                <input type="text" id="copy-dst" placeholder="/local/dest or myS3:/bucket/dest" />
+                <p class="hint">Examples: /tmp/backup/ or mySFTP:/remote/backup/</p>
             </div>
             <button onclick="copyFiles()">Start Copy</button>
             <div id="copy-output" class="output" style="display:none"></div>
@@ -260,6 +300,43 @@
                 showOutput('auth-output', `✅ Connected successfully!\n\n${JSON.stringify(data, null, 2)}`);
             } catch (error) {
                 showOutput('auth-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function listRemotes() {
+            try {
+                const data = await apiCall('/api/remotes');
+
+                const remotesDiv = document.getElementById('remotes-output');
+                const remotesList = document.getElementById('remotes-list');
+
+                if (data.remotes && data.remotes.length > 0) {
+                    remotesList.innerHTML = '';
+                    data.remotes.forEach(remote => {
+                        const badge = document.createElement('div');
+                        badge.className = 'remote-badge';
+                        badge.textContent = `${remote}:`;
+                        badge.title = `Click to copy "${remote}:" to clipboard`;
+                        badge.style.cursor = 'pointer';
+                        badge.onclick = () => {
+                            navigator.clipboard.writeText(`${remote}:`);
+                            badge.textContent = `✓ ${remote}:`;
+                            setTimeout(() => {
+                                badge.textContent = `${remote}:`;
+                            }, 1500);
+                        };
+                        remotesList.appendChild(badge);
+                    });
+                    remotesDiv.style.display = 'block';
+                } else {
+                    remotesList.innerHTML = '<p>No remotes configured. Configure remotes using: <code>rclone config</code></p>';
+                    remotesDiv.style.display = 'block';
+                }
+            } catch (error) {
+                const remotesDiv = document.getElementById('remotes-output');
+                const remotesList = document.getElementById('remotes-list');
+                remotesList.innerHTML = `<p style="color: #dc3545;">❌ Error: ${error.message}</p>`;
+                remotesDiv.style.display = 'block';
             }
         }
 

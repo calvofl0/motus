@@ -60,7 +60,7 @@ def create_app(config: Config = None):
     # Initialize rclone wrapper
     try:
         logging.info("Initializing rclone wrapper...")
-        rclone = RcloneWrapper(config.rclone_path)
+        rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file)
         logging.info("rclone initialized successfully")
     except RcloneNotFoundError as e:
         logging.error(f"rclone initialization failed: {e}")

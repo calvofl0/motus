@@ -20,19 +20,27 @@ class RcloneWrapper:
     Supports local filesystem and cloud backends (S3, SFTP, etc.)
     """
 
-    def __init__(self, rclone_path: str = None):
+    def __init__(self, rclone_path: str = None, rclone_config_file: str = None):
         """
         Initialize rclone wrapper
 
         Args:
             rclone_path: Path to rclone executable (default: searches PATH)
+            rclone_config_file: Path to rclone config file (default: rclone default)
         """
         self.rclone_path = rclone_path or self._find_rclone()
+        self.rclone_config_file = rclone_config_file
         self._job_queue = JobQueue()
         self._next_job_id = 1
 
         # Verify rclone is installed
         self._verify_rclone()
+
+        # Discover rclone config file path if not provided
+        if not self.rclone_config_file:
+            self.rclone_config_file = self._get_rclone_config_path()
+
+        logging.info(f"Using rclone config: {self.rclone_config_file}")
 
     def _find_rclone(self) -> str:
         """Find rclone executable in PATH"""
@@ -66,27 +74,128 @@ class RcloneWrapper:
         except subprocess.TimeoutExpired:
             raise RcloneNotFoundError("rclone version check timed out")
 
+    def _get_rclone_config_path(self) -> str:
+        """Get the rclone config file path using rclone itself"""
+        try:
+            result = subprocess.run(
+                [self.rclone_path, 'config', 'file'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Output format: "Configuration file is stored at:\n/path/to/rclone.conf"
+                lines = result.stdout.strip().split('\n')
+                if len(lines) >= 2:
+                    return lines[1].strip()
+                elif len(lines) == 1:
+                    return lines[0].strip()
+
+            # Fallback to default location
+            return os.path.expanduser('~/.config/rclone/rclone.conf')
+        except Exception as e:
+            logging.warning(f"Failed to get rclone config path: {e}, using default")
+            return os.path.expanduser('~/.config/rclone/rclone.conf')
+
+    def list_remotes(self) -> List[str]:
+        """
+        List configured rclone remotes
+
+        Returns:
+            List of remote names (e.g., ['myS3', 'mySFTP', ...])
+        """
+        try:
+            command = [self.rclone_path, 'listremotes']
+
+            # Use custom config file if specified
+            if self.rclone_config_file:
+                command.extend(['--config', self.rclone_config_file])
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                raise RcloneException(f"Failed to list remotes: {result.stderr}")
+
+            # Parse output - each line is a remote name ending with ':'
+            remotes = []
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line and line.endswith(':'):
+                    remotes.append(line[:-1])  # Remove trailing ':'
+
+            return remotes
+
+        except subprocess.TimeoutExpired:
+            raise RcloneException("List remotes command timed out")
+        except Exception as e:
+            raise RcloneException(f"Failed to list remotes: {e}")
+
+    def _parse_path(self, path: str) -> tuple[Optional[str], str]:
+        """
+        Parse a path to detect remote syntax
+
+        Args:
+            path: Path string (e.g., 'myS3:/bucket/file' or '/local/path')
+
+        Returns:
+            Tuple of (remote_name, path) where remote_name is None for local paths
+            Examples:
+                'myS3:/bucket/file' -> ('myS3', '/bucket/file')
+                '/local/path' -> (None, '/local/path')
+                'remote:path' -> ('remote', 'path')
+        """
+        if ':' in path:
+            # Check if this looks like a remote path (remote_name:path)
+            parts = path.split(':', 1)
+            if len(parts) == 2:
+                remote_name = parts[0]
+                remote_path = parts[1]
+
+                # Validate it's not a Windows path (C:\...) or URL (http://...)
+                if remote_name and not ('\\' in remote_name or '/' in remote_name):
+                    return (remote_name, remote_path)
+
+        # Local path
+        return (None, path)
+
     def ls(self, path: str, remote_config: Optional[Dict] = None) -> List[Dict]:
         """
         List files and directories at path
 
         Args:
-            path: Path to list (local or remote)
-            remote_config: Optional remote configuration dict
+            path: Path to list (local, remote syntax, or with remote_config)
+                  Examples: '/local/path', 'myS3:/bucket/path'
+            remote_config: Optional remote configuration dict (legacy support)
 
         Returns:
             List of file/directory dicts with 'Name', 'Size', 'IsDir', etc.
         """
         credentials = {}
-        remote_path = path
+        config_arg = self.rclone_config_file
 
-        if remote_config:
+        # Check if path uses remote syntax (remote_name:/path)
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            # Use named remote from rclone config
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            # Legacy: use provided credentials
             credentials = self._format_credentials(remote_config, 'current')
             remote_path = f"current:{path}"
+            config_arg = '/dev/null'  # Don't use config file with env vars
+        else:
+            # Local path
+            remote_path = path
 
         command = [
             self.rclone_path,
-            '--config=/dev/null',
+            '--config', config_arg if config_arg else '/dev/null',
             'lsjson',
             remote_path,
         ]
@@ -107,20 +216,32 @@ class RcloneWrapper:
         Create a directory
 
         Args:
-            path: Directory path to create
-            remote_config: Optional remote configuration dict
+            path: Directory path to create (local, remote syntax, or with remote_config)
+                  Examples: '/local/path', 'myS3:/bucket/path'
+            remote_config: Optional remote configuration dict (legacy support)
         """
         credentials = {}
-        remote_path = path
+        config_arg = self.rclone_config_file
 
-        if remote_config:
+        # Check if path uses remote syntax
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            # Use named remote from rclone config
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            # Legacy: use provided credentials
             credentials = self._format_credentials(remote_config, 'current')
             remote_path = f"current:{path}"
+            config_arg = '/dev/null'
+        else:
+            # Local path
+            remote_path = path
 
         # Use rclone touch to create a .keep file (creates dir implicitly)
         command = [
             self.rclone_path,
-            '--config=/dev/null',
+            '--config', config_arg if config_arg else '/dev/null',
             'touch',
             f"{remote_path}/.motuz_keep",
         ]
@@ -204,24 +325,36 @@ class RcloneWrapper:
         Delete a file or directory
 
         Args:
-            path: Path to delete
-            remote_config: Optional remote configuration dict
+            path: Path to delete (local, remote syntax, or with remote_config)
+                  Examples: '/local/path', 'myS3:/bucket/path'
+            remote_config: Optional remote configuration dict (legacy support)
         """
         credentials = {}
-        remote_path = path
+        config_arg = self.rclone_config_file
 
-        if remote_config:
+        # Check if path uses remote syntax
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            # Use named remote from rclone config
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            # Legacy: use provided credentials
             credentials = self._format_credentials(remote_config, 'current')
             remote_path = f"current:{path}"
+            config_arg = '/dev/null'
+        else:
+            # Local path
+            remote_path = path
 
         # Check if path exists and is a directory
         try:
             info = self.ls(path, remote_config)
             # If ls succeeds, it's a directory
-            command = [self.rclone_path, '--config=/dev/null', 'purge', remote_path]
+            command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'purge', remote_path]
         except:
             # Assume it's a file
-            command = [self.rclone_path, '--config=/dev/null', 'deletefile', remote_path]
+            command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'deletefile', remote_path]
 
         self._log_command(command, credentials)
 
@@ -239,30 +372,54 @@ class RcloneWrapper:
         dst_config: Optional[Dict],
         copy_links: bool,
     ) -> int:
-        """Internal method for copy/move operations"""
+        """
+        Internal method for copy/move operations
+
+        Supports both named remotes and legacy remote_config
+        Examples:
+            - Local to local: ('/src/file', '/dst/file', None, None)
+            - Remote to local: ('myS3:/bucket/file', '/dst/file', None, None)
+            - Local to remote: ('/src/file', 'myS3:/bucket/file', None, None)
+            - Legacy with config: ('/file', '/file', src_config, dst_config)
+        """
         credentials = {}
+        config_arg = self.rclone_config_file
         job_id = self._next_job_id
         self._next_job_id += 1
 
-        # Format source
-        if src_config:
+        # Parse source path
+        src_remote_name, src_clean_path = self._parse_path(src_path)
+        if src_remote_name:
+            # Use named remote from rclone config
+            src = f"{src_remote_name}:{src_clean_path}"
+        elif src_config:
+            # Legacy: use provided credentials
             credentials.update(self._format_credentials(src_config, 'src'))
             src = f"src:{src_path}"
+            config_arg = '/dev/null'
         else:
+            # Local path
             src = src_path
 
-        # Format destination
-        if dst_config:
+        # Parse destination path
+        dst_remote_name, dst_clean_path = self._parse_path(dst_path)
+        if dst_remote_name:
+            # Use named remote from rclone config
+            dst = f"{dst_remote_name}:{dst_clean_path}"
+        elif dst_config:
+            # Legacy: use provided credentials
             credentials.update(self._format_credentials(dst_config, 'dst'))
             dst = f"dst:{dst_path}"
+            config_arg = '/dev/null'
         else:
+            # Local path
             dst = dst_path
 
         # Build command
         rclone_cmd = 'copyto' if operation == 'copy' else 'moveto'
         command = [
             self.rclone_path,
-            '--config=/dev/null',
+            '--config', config_arg if config_arg else '/dev/null',
             rclone_cmd,
             src,
             dst,
@@ -271,7 +428,7 @@ class RcloneWrapper:
             '--contimeout=5m',
         ]
 
-        # Add S3-specific options
+        # Add S3-specific options (for legacy mode only)
         if (src_config and src_config.get('type') == 's3') or \
            (dst_config and dst_config.get('type') == 's3'):
             command.extend([
@@ -284,8 +441,8 @@ class RcloneWrapper:
         if copy_links:
             command.append('--copy-links')
 
-        # Exclude .snapshot directories (NFS)
-        if not src_config:  # Local source
+        # Exclude .snapshot directories (NFS) - only for local sources
+        if not src_remote_name and not src_config:
             if os.path.isdir(src_path):
                 command.append('--exclude=.snapshot/')
 

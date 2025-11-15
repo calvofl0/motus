@@ -167,3 +167,33 @@ def delete_file():
     except Exception as e:
         logging.error(f"Unexpected error in delete_file: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+
+@files_bp.route('/api/remotes', methods=['GET'])
+@token_required
+def list_remotes():
+    """
+    List configured rclone remotes
+
+    Response:
+    {
+        "remotes": ["myS3", "mySFTP", "myGCS", ...],
+        "count": 3
+    }
+    """
+    try:
+        logging.info("Listing configured rclone remotes")
+
+        remotes = rclone.list_remotes()
+
+        return jsonify({
+            'remotes': remotes,
+            'count': len(remotes),
+        })
+
+    except RcloneException as e:
+        logging.error(f"List remotes error: {e}")
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logging.error(f"Unexpected error in list_remotes: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
