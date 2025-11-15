@@ -188,6 +188,14 @@ class Database:
             conn.commit()
             return cursor.rowcount
 
+    def get_max_job_id(self) -> int:
+        """Get the maximum job_id in the database"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT MAX(job_id) FROM jobs')
+            result = cursor.fetchone()
+            return result[0] if result[0] is not None else 0
+
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:
         """Convert sqlite Row to dict"""
         d = dict(row)

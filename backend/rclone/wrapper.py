@@ -43,6 +43,18 @@ class RcloneWrapper:
 
         logging.info(f"Using rclone config: {self.rclone_config_file}")
 
+    def initialize_job_counter(self, db):
+        """
+        Initialize job ID counter from database to avoid UNIQUE constraint errors
+
+        Args:
+            db: Database instance to query for max job_id
+        """
+        with self._job_id_lock:
+            max_job_id = db.get_max_job_id()
+            self._next_job_id = max_job_id + 1
+            logging.info(f"Initialized job counter to {self._next_job_id} (max existing job_id: {max_job_id})")
+
     def _find_rclone(self) -> str:
         """Find rclone executable in PATH"""
         rclone = shutil.which('rclone')
@@ -160,10 +172,14 @@ class RcloneWrapper:
 
                 # Validate it's not a Windows path (C:\...) or URL (http://...)
                 if remote_name and not ('\\' in remote_name or '/' in remote_name):
+                    logging.debug(f"Path '{path}' parsed as remote: {remote_name}:{remote_path}")
                     return (remote_name, remote_path)
 
         # Local path - expand tilde for home directory
-        return (None, os.path.expanduser(path))
+        expanded = os.path.expanduser(path)
+        if path != expanded:
+            logging.info(f"Expanded tilde path '{path}' -> '{expanded}'")
+        return (None, expanded)
 
     def ls(self, path: str, remote_config: Optional[Dict] = None) -> List[Dict]:
         """
@@ -432,6 +448,9 @@ class RcloneWrapper:
             '--stats', '2s',
             '--contimeout=5m',
         ]
+
+        logging.info(f"Starting {operation}: '{src}' -> '{dst}'")
+        logging.debug(f"Original paths: src_path='{src_path}', dst_path='{dst_path}'")
 
         # Add S3-specific options (for legacy mode only)
         if (src_config and src_config.get('type') == 's3') or \

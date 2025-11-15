@@ -499,6 +499,14 @@
 
         // Add ENTER key support for input fields
         document.addEventListener('DOMContentLoaded', function() {
+            // Token - ENTER triggers Test Connection
+            document.getElementById('token').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    testAuth();
+                }
+            });
+
             // Browse Files - ENTER triggers List Files
             document.getElementById('browse-path').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {

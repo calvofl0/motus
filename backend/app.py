@@ -61,6 +61,8 @@ def create_app(config: Config = None):
     try:
         logging.info("Initializing rclone wrapper...")
         rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file)
+        # Initialize job counter from database to avoid ID conflicts
+        rclone.initialize_job_counter(db)
         logging.info("rclone initialized successfully")
     except RcloneNotFoundError as e:
         logging.error(f"rclone initialization failed: {e}")
