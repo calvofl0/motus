@@ -529,7 +529,15 @@ def clear_stopped_jobs():
     }
     """
     try:
-        count = db.delete_stopped_jobs()
+        count, deleted_job_ids = db.delete_stopped_jobs()
+
+        # Clean up JobQueue in-memory state for deleted jobs
+        for job_id in deleted_job_ids:
+            try:
+                rclone.job_delete(job_id)
+            except Exception as e:
+                # Job might not be in queue anymore, that's OK
+                logging.debug(f"Could not delete job {job_id} from queue: {e}")
 
         # Reinitialize job counter to max_id + 1
         rclone.initialize_job_counter(db)
