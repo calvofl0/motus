@@ -280,6 +280,37 @@
             border-bottom: 2px solid #dee2e6;
             cursor: pointer;
             user-select: none;
+            position: relative;
+        }
+
+        .file-list th.col-name {
+            width: auto; /* Take remaining space */
+        }
+
+        .file-list th.col-size {
+            width: 100px;
+            min-width: 80px;
+        }
+
+        .file-list th.col-date {
+            width: 180px;
+            min-width: 150px;
+        }
+
+        .file-list th .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 1;
+        }
+
+        .file-list th .resize-handle:hover {
+            background: #007bff;
+            opacity: 0.5;
         }
 
         .file-list th:hover {
@@ -766,7 +797,7 @@
                 </button>
                 <div class="view-dropdown-menu hidden" id="view-dropdown">
                     <div class="view-menu-item" onclick="switchViewMode()" id="view-mode-option">
-                        <span id="view-mode-icon">⊞</span> <span id="view-mode-text">Grid</span>
+                        <span id="view-mode-icon">⊞</span> <span id="view-mode-text">Grid layout</span>
                     </div>
                     <div class="view-menu-item" onclick="toggleHiddenFilesOption()" id="hidden-files-option">
                         <span id="hidden-files-text">Show hidden files</span>
@@ -1164,10 +1195,10 @@
             const modeText = document.getElementById('view-mode-text');
             if (viewMode === 'grid') {
                 modeIcon.textContent = '☰';
-                modeText.textContent = 'List';
+                modeText.textContent = 'List layout';
             } else {
                 modeIcon.textContent = '⊞';
-                modeText.textContent = 'Grid';
+                modeText.textContent = 'Grid layout';
             }
 
             // Update hidden files text based on current state
@@ -1258,6 +1289,42 @@
                 state.sortAsc = true;
             }
             renderFiles(pane);
+        }
+
+        // Column resizing
+        let resizingColumn = null;
+        let startX = 0;
+        let startWidth = 0;
+
+        function startColumnResize(e, th) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            resizingColumn = th;
+            startX = e.pageX;
+            startWidth = th.offsetWidth;
+
+            document.addEventListener('mousemove', doColumnResize);
+            document.addEventListener('mouseup', stopColumnResize);
+        }
+
+        function doColumnResize(e) {
+            if (!resizingColumn) return;
+
+            const diff = e.pageX - startX;
+            const newWidth = startWidth + diff;
+
+            // Enforce minimum width
+            const minWidth = parseInt(window.getComputedStyle(resizingColumn).minWidth) || 50;
+            if (newWidth >= minWidth) {
+                resizingColumn.style.width = newWidth + 'px';
+            }
+        }
+
+        function stopColumnResize() {
+            resizingColumn = null;
+            document.removeEventListener('mousemove', doColumnResize);
+            document.removeEventListener('mouseup', stopColumnResize);
         }
 
         function formatFileSize(bytes) {
@@ -1421,9 +1488,18 @@
         }
 
         // Remote change handler
+        let isReverting = false;
+
         async function onRemoteChange(pane) {
+            // Prevent recursion during revert
+            if (isReverting) {
+                isReverting = false;
+                return;
+            }
+
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const select = document.getElementById(`${pane}-remote`);
+            const pathInput = document.getElementById(`${pane}-path`);
             const oldRemote = state.remote;
             const oldPath = state.path;
             const newRemote = select.value;
@@ -1433,16 +1509,18 @@
 
             state.remote = newRemote;
             state.path = newPath;
-            document.getElementById(`${pane}-path`).value = newPath;
+            pathInput.value = newPath;
 
             try {
                 await refreshPane(pane);
             } catch (error) {
                 // Revert to old remote and path on error
+                isReverting = true;
                 state.remote = oldRemote;
                 state.path = oldPath;
                 select.value = oldRemote;
-                document.getElementById(`${pane}-path`).value = oldPath;
+                pathInput.value = oldPath;
+
                 alert(`Failed to access remote: ${error.message}`);
             }
         }
@@ -1528,13 +1606,14 @@
             const headerRow = document.createElement('tr');
 
             const headers = [
-                { label: 'Name', field: 'name' },
-                { label: 'Size', field: 'size' },
-                { label: 'Date', field: 'date' }
+                { label: 'Name', field: 'name', className: 'col-name' },
+                { label: 'Size', field: 'size', className: 'col-size' },
+                { label: 'Date', field: 'date', className: 'col-date' }
             ];
 
-            headers.forEach(h => {
+            headers.forEach((h, idx) => {
                 const th = document.createElement('th');
+                th.className = h.className;
                 th.textContent = h.label;
                 if (state.sortBy === h.field) {
                     const indicator = document.createElement('span');
@@ -1542,7 +1621,21 @@
                     indicator.textContent = state.sortAsc ? '▲' : '▼';
                     th.appendChild(indicator);
                 }
-                th.onclick = () => setSortBy(pane, h.field);
+                th.onclick = (e) => {
+                    // Don't sort if clicking on resize handle
+                    if (!e.target.classList.contains('resize-handle')) {
+                        setSortBy(pane, h.field);
+                    }
+                };
+
+                // Add resize handle (except for last column)
+                if (idx < headers.length - 1) {
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle';
+                    resizeHandle.addEventListener('mousedown', (e) => startColumnResize(e, th));
+                    th.appendChild(resizeHandle);
+                }
+
                 headerRow.appendChild(th);
             });
 
