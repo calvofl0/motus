@@ -370,7 +370,9 @@
             width: 24px;
             height: 24px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -448,14 +450,6 @@
 
         .interrupted-job-btn:hover {
             background: #0056b3;
-        }
-
-        .interrupted-job-btn.cancel {
-            background: #dc3545;
-        }
-
-        .interrupted-job-btn.cancel:hover {
-            background: #c82333;
         }
 
         /* Expert Mode */
@@ -774,21 +768,22 @@
                         <input type="checkbox" id="copy-links" /> Follow Symlinks
                     </label>
                 </div>
-                <button onclick="startCopyOrResumeJob()">Start/Resume</button>
+                <button onclick="startCopyJob()">Copy</button>
                 <button onclick="startMoveJob()" style="background: #ffc107; color: #000;">Move</button>
                 <button onclick="checkIntegrity()" style="background: #17a2b8;">Check Integrity</button>
-                <button onclick="syncJob()" style="background: #dc3545;">Sync Job (Destructive)</button>
+                <button onclick="syncJob()" style="background: #dc3545;">Sync (Destructive)</button>
                 <div id="job-start-status"></div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
                 <div class="form-group">
                     <label>Job ID:</label>
-                    <input type="number" id="job-id" placeholder="Enter job ID" 
+                    <input type="number" id="job-id" placeholder="Enter job ID"
                            onkeypress="if(event.key === 'Enter') getJobStatus()" />
                     <div class="hint">Press ENTER to get status</div>
                 </div>
                 <button onclick="getJobStatus()">Get Status</button>
+                <button onclick="resumeJobById()" style="background: #28a745;">Resume</button>
                 <button onclick="stopJob()" style="background: #dc3545;">Stop Job</button>
                 <div class="output" id="job-status-output"></div>
 
@@ -1021,13 +1016,13 @@
                         document.getElementById('job-dst').focus();
                     } else if (srcValue && dstValue) {
                         // Both filled, start copy
-                        startCopyOrResumeJob();
+                        startCopyJob();
                     }
                 } else if (field === 'dst') {
                     // If in destination field
                     if (srcValue && dstValue) {
                         // Both filled, start copy
-                        startCopyOrResumeJob();
+                        startCopyJob();
                     }
                 }
             }
@@ -1518,7 +1513,7 @@
                         </div>
                         <div class="job-actions">
                             <span class="job-status">${job.status}</span>
-                            <button class="job-cancel-btn" onclick="cancelJob(${job.job_id})" title="Cancel job">❌</button>
+                            <button class="job-cancel-btn" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
                         </div>
                     </div>
                     <div class="job-path">${job.src_path} → ${job.dst_path}</div>
@@ -1574,9 +1569,7 @@
                         <button class="interrupted-job-btn" onclick="resumeInterruptedJobFromDropdown(${job.job_id})" title="Resume this job">
                             ▶️ Resume
                         </button>
-                        <button class="interrupted-job-btn cancel" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">
-                            ❌ Cancel
-                        </button>
+                        <button class="job-cancel-btn" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">×</button>
                     </div>
                 </div>
             `).join('');
@@ -1736,54 +1729,50 @@
             }
         }
 
-        async function startCopyOrResumeJob() {
-            const jobIdValue = document.getElementById('job-id').value.trim();
+        async function startCopyJob() {
             const src = document.getElementById('job-src').value.trim();
             const dst = document.getElementById('job-dst').value.trim();
 
-            // Determine whether to copy or resume
-            if (jobIdValue && !src && !dst) {
-                // Resume mode: job ID provided, no src/dst
-                const jobId = parseInt(jobIdValue);
-                if (!jobId) {
-                    alert('Please enter a valid job ID');
-                    return;
-                }
+            if (!src || !dst) {
+                alert('Please provide both source and destination paths');
+                return;
+            }
 
-                try {
-                    const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
-                    document.getElementById('job-id').value = data.job_id;
-                    document.getElementById('job-start-status').innerHTML =
-                        `<div class="success">✓ Resume job started (New ID: ${data.job_id})</div>`;
-                } catch (error) {
-                    document.getElementById('job-start-status').innerHTML =
-                        `<div class="error">✗ Error: ${error.message}</div>`;
-                }
-            } else if (src && dst) {
-                // Copy mode: src and dst provided
-                const copyLinks = document.getElementById('copy-links').checked;
+            const copyLinks = document.getElementById('copy-links').checked;
 
-                try {
-                    const data = await apiCall('/api/jobs/copy', 'POST', {
-                        src_path: src,
-                        dst_path: dst,
-                        copy_links: copyLinks
-                    });
-                    document.getElementById('job-id').value = data.job_id;
-                    document.getElementById('job-start-status').innerHTML =
-                        `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
-                } catch (error) {
-                    document.getElementById('job-start-status').innerHTML =
-                        `<div class="error">✗ Error: ${error.message}</div>`;
-                }
-            } else {
-                alert('Please provide either:\n- Source and Destination paths to start a copy\n- Job ID to resume a job');
+            try {
+                const data = await apiCall('/api/jobs/copy', 'POST', {
+                    src_path: src,
+                    dst_path: dst,
+                    copy_links: copyLinks
+                });
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML =
+                    `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML =
+                    `<div class="error">✗ Error: ${error.message}</div>`;
             }
         }
 
-        // Keep old function for compatibility (not used in UI anymore)
-        async function startCopyJob() {
-            startCopyOrResumeJob();
+        async function resumeJobById() {
+            const jobIdValue = document.getElementById('job-id').value.trim();
+            const jobId = parseInt(jobIdValue);
+
+            if (!jobId) {
+                alert('Please enter a valid job ID');
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML =
+                    `<div class="success">✓ Job resumed (New ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML =
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
         }
 
         async function startMoveJob() {
