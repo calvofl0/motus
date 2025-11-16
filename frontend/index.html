@@ -1261,7 +1261,7 @@
         }
 
         function formatFileSize(bytes) {
-            if (bytes === undefined || bytes === null) return '';
+            if (bytes === undefined || bytes === null || bytes < 0) return '';
             if (bytes === 0) return '0 B';
             const units = ['B', 'KB', 'MB', 'GB', 'TB'];
             let size = bytes;
@@ -1636,15 +1636,7 @@
             // Size column
             const sizeCell = document.createElement('td');
             sizeCell.className = 'file-size-col';
-            if (file.IsDir) {
-                sizeCell.textContent = '';
-            } else {
-                // Debug: log the file object to see what fields it has
-                if (file.Size === undefined) {
-                    console.log('File missing Size field:', file);
-                }
-                sizeCell.textContent = formatFileSize(file.Size);
-            }
+            sizeCell.textContent = file.IsDir ? '' : formatFileSize(file.Size);
             tr.appendChild(sizeCell);
 
             // Date column
