@@ -136,6 +136,7 @@
             font-size: 12px;
             color: #666;
             margin-top: 5px;
+            margin-bottom: 15px;
             font-style: italic;
         }
 
@@ -691,17 +692,16 @@
                 const jobsData = await apiCall('/api/jobs?status=running');
                 const runningCount = jobsData.jobs ? jobsData.jobs.length : 0;
 
-                // Confirmation dialog
-                let message = 'Are you sure you want to quit the server?';
+                // Confirmation dialog only if jobs are running
                 if (runningCount > 0) {
-                    message = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-                              `These jobs will be stopped and marked as interrupted.\n\n` +
-                              `Do you want to quit?`;
-                }
+                    const message = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
+                                    `These jobs will be stopped and marked as interrupted.\n\n` +
+                                    `Do you want to quit?`;
 
-                const confirmed = confirm(message);
-                if (!confirmed) {
-                    return;
+                    const confirmed = confirm(message);
+                    if (!confirmed) {
+                        return;
+                    }
                 }
 
                 // Call shutdown endpoint
