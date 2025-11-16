@@ -356,6 +356,108 @@
             font-weight: 600;
         }
 
+        .job-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .job-cancel-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .job-cancel-btn:hover {
+            background: #c82333;
+        }
+
+        /* Interrupted Jobs Dropdown */
+        .interrupted-jobs-dropdown {
+            background: #fff8e1;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            margin: 15px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .interrupted-jobs-header {
+            background: #ffc107;
+            color: #000;
+            padding: 10px 15px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .interrupted-jobs-header:hover {
+            background: #ffb300;
+        }
+
+        .interrupted-jobs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .interrupted-job-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #ffc107;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .interrupted-job-info {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .interrupted-job-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .interrupted-job-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .interrupted-job-btn:hover {
+            background: #0056b3;
+        }
+
+        .interrupted-job-btn.cancel {
+            background: #dc3545;
+        }
+
+        .interrupted-job-btn.cancel:hover {
+            background: #c82333;
+        }
+
         /* Expert Mode */
         #expert-mode {
             flex: 1;
@@ -532,7 +634,8 @@
                         </select>
                     </div>
                     <div class="toolbar-row">
-                        <input type="text" id="left-path" value="/" placeholder="Path..." />
+                        <input type="text" id="left-path" value="/" placeholder="Path..."
+                               onkeypress="handlePathKeypress(event, 'left')" />
                         <button class="toolbar-button" onclick="browsePath('left')">Go</button>
                         <button class="toolbar-button secondary" onclick="refreshPane('left')">🔄 Refresh</button>
                         <button class="toolbar-button secondary" onclick="createFolder('left')">📁 New Folder</button>
@@ -556,7 +659,8 @@
                         </select>
                     </div>
                     <div class="toolbar-row">
-                        <input type="text" id="right-path" value="/" placeholder="Path..." />
+                        <input type="text" id="right-path" value="/" placeholder="Path..."
+                               onkeypress="handlePathKeypress(event, 'right')" />
                         <button class="toolbar-button" onclick="browsePath('right')">Go</button>
                         <button class="toolbar-button secondary" onclick="refreshPane('right')">🔄 Refresh</button>
                         <button class="toolbar-button secondary" onclick="createFolder('right')">📁 New Folder</button>
@@ -579,6 +683,17 @@
             </div>
             <div class="job-list" id="job-list">
                 <!-- Jobs will be populated here -->
+            </div>
+        </div>
+
+        <!-- Interrupted Jobs Dropdown -->
+        <div class="interrupted-jobs-dropdown hidden" id="interrupted-jobs-dropdown">
+            <div class="interrupted-jobs-header" onclick="toggleInterruptedJobsDropdown()">
+                <span>⚠️ Interrupted Jobs (<span id="interrupted-count">0</span>)</span>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="interrupted-jobs-list hidden" id="interrupted-jobs-list">
+                <!-- Interrupted jobs will be populated here -->
             </div>
         </div>
     </div>
@@ -646,21 +761,22 @@
                 
                 <div class="form-group">
                     <label>Source Path:</label>
-                    <input type="text" id="job-src" placeholder="/source or remote:/source" />
+                    <input type="text" id="job-src" placeholder="/source or remote:/source"
+                           onkeypress="handleJobPathKeypress(event, 'src')" />
                 </div>
                 <div class="form-group">
                     <label>Destination Path:</label>
-                    <input type="text" id="job-dst" placeholder="/destination or remote:/destination" />
+                    <input type="text" id="job-dst" placeholder="/destination or remote:/destination"
+                           onkeypress="handleJobPathKeypress(event, 'dst')" />
                 </div>
                 <div class="form-group">
                     <label>
                         <input type="checkbox" id="copy-links" /> Follow Symlinks
                     </label>
                 </div>
-                <button onclick="startCopyJob()">Start Copy</button>
-                <button onclick="startMoveJob()" style="background: #ffc107; color: #000;">Start Move</button>
+                <button onclick="startCopyOrResumeJob()">Start/Resume</button>
+                <button onclick="startMoveJob()" style="background: #ffc107; color: #000;">Move</button>
                 <button onclick="checkIntegrity()" style="background: #17a2b8;">Check Integrity</button>
-                <button onclick="resumeJob()" style="background: #28a745;">Resume Job</button>
                 <button onclick="syncJob()" style="background: #dc3545;">Sync Job (Destructive)</button>
                 <div id="job-start-status"></div>
 
@@ -771,7 +887,11 @@
         let jobsData = {
             jobs: []
         };
+        let interruptedJobsData = {
+            jobs: []
+        };
         let jobUpdateInterval = null;
+        let interruptedJobsInterval = null;
         let createFolderPane = null;
 
         // Initialize
@@ -813,9 +933,10 @@
                 await refreshPane('left');
                 await refreshPane('right');
                 startJobUpdates();
+                startInterruptedJobsUpdates();
             }
 
-            // Check for interrupted jobs
+            // Check for interrupted jobs modal (only on startup)
             checkInterruptedJobs();
 
             // Hide context menu on click outside
@@ -849,6 +970,69 @@
             return response.json();
         }
 
+        // Utility functions
+        function expandTildePath(path) {
+            // Expand ~ to home directory (platform-aware)
+            if (path.startsWith('~')) {
+                // On Linux/Mac, replace with /home/username or /Users/username
+                // We'll use a simple heuristic - if path starts with ~, replace with empty
+                // The backend will handle actual expansion via os.path.expanduser or similar
+                return path;  // Send as-is, backend should handle ~
+            }
+            return path;
+        }
+
+        function resolveRelativePath(basePath, relativePath) {
+            // If relative path starts with /, it's absolute
+            if (relativePath.startsWith('/')) {
+                return relativePath;
+            }
+            // Otherwise, join with base path
+            const base = basePath.endsWith('/') ? basePath : basePath + '/';
+            return base + relativePath;
+        }
+
+        // ENTER key handlers
+        function handlePathKeypress(event, pane) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const state = pane === 'left' ? leftPaneState : rightPaneState;
+                const inputPath = document.getElementById(`${pane}-path`).value;
+
+                // Check if path changed
+                if (inputPath !== state.path) {
+                    browsePath(pane);
+                } else {
+                    refreshPane(pane);
+                }
+            }
+        }
+
+        function handleJobPathKeypress(event, field) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const srcValue = document.getElementById('job-src').value.trim();
+                const dstValue = document.getElementById('job-dst').value.trim();
+
+                if (field === 'src') {
+                    // If in source field
+                    if (srcValue && !dstValue) {
+                        // Move to destination field
+                        document.getElementById('job-dst').focus();
+                    } else if (srcValue && dstValue) {
+                        // Both filled, start copy
+                        startCopyOrResumeJob();
+                    }
+                } else if (field === 'dst') {
+                    // If in destination field
+                    if (srcValue && dstValue) {
+                        // Both filled, start copy
+                        startCopyOrResumeJob();
+                    }
+                }
+            }
+        }
+
         // Mode switching
         function toggleMode() {
             setMode(currentMode === 'easy' ? 'expert' : 'easy');
@@ -865,6 +1049,7 @@
                     refreshPane('left');
                     refreshPane('right');
                     startJobUpdates();
+                    startInterruptedJobsUpdates();
                 }
             } else {
                 document.getElementById('easy-mode').classList.add('hidden');
@@ -873,6 +1058,10 @@
                 if (jobUpdateInterval) {
                     clearInterval(jobUpdateInterval);
                     jobUpdateInterval = null;
+                }
+                if (interruptedJobsInterval) {
+                    clearInterval(interruptedJobsInterval);
+                    interruptedJobsInterval = null;
                 }
             }
         }
@@ -898,19 +1087,34 @@
         }
 
         // Remote change handler
-        function onRemoteChange(pane) {
+        async function onRemoteChange(pane) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const select = document.getElementById(`${pane}-remote`);
-            state.remote = select.value;
+            const oldRemote = state.remote;
+            const newRemote = select.value;
+
+            state.remote = newRemote;
             state.path = '/';
             document.getElementById(`${pane}-path`).value = '/';
-            refreshPane(pane);
+
+            try {
+                await refreshPane(pane);
+            } catch (error) {
+                // Revert to old remote on error
+                state.remote = oldRemote;
+                select.value = oldRemote;
+                alert(`Failed to access remote: ${error.message}`);
+            }
         }
 
         // Browse path
         function browsePath(pane) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
-            state.path = document.getElementById(`${pane}-path`).value;
+            let path = document.getElementById(`${pane}-path`).value;
+            // Expand tilde
+            path = expandTildePath(path);
+            state.path = path;
+            document.getElementById(`${pane}-path`).value = path;
             refreshPane(pane);
         }
 
@@ -1230,20 +1434,24 @@
         }
 
         async function confirmCreateFolder() {
-            const name = document.getElementById('create-folder-input').value.trim();
+            let name = document.getElementById('create-folder-input').value.trim();
             if (!name) {
                 alert('Please enter a folder name');
                 return;
             }
-            
+
             const pane = createFolderPane;
             const state = pane === 'left' ? leftPaneState : rightPaneState;
+
+            // Support relative paths - resolve against current directory
+            const resolvedName = resolveRelativePath(state.path, name);
+
             const path = state.remote ?
-                `${state.remote}:${state.path}/${name}` :
-                `${state.path}/${name}`;
-            
+                `${state.remote}:${resolvedName}` :
+                resolvedName;
+
             try {
-                await apiCall('/api/files/mkdir', 'POST', { path });
+                await apiCall('/api/files/mkdir', 'POST', { path: expandTildePath(path) });
                 closeCreateFolderModal();
                 refreshPane(pane);
             } catch (error) {
@@ -1265,10 +1473,30 @@
         async function updateJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=running');
+                const oldCount = jobsData.jobs.length;
                 jobsData.jobs = data.jobs || [];
+                const newCount = jobsData.jobs.length;
+
+                // Auto-expand/collapse panel
+                const panel = document.getElementById('job-panel');
+                if (newCount > 0 && panel.classList.contains('collapsed')) {
+                    panel.classList.remove('collapsed');
+                } else if (newCount === 0 && !panel.classList.contains('collapsed')) {
+                    panel.classList.add('collapsed');
+                }
+
                 renderJobs();
             } catch (error) {
                 console.error('Failed to update jobs:', error);
+            }
+        }
+
+        async function cancelJob(jobId) {
+            try {
+                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
+                updateJobs();
+            } catch (error) {
+                alert(`Failed to cancel job: ${error.message}`);
             }
         }
 
@@ -1276,17 +1504,22 @@
             const container = document.getElementById('job-list');
             const count = document.getElementById('job-count');
             count.textContent = jobsData.jobs.length;
-            
+
             if (jobsData.jobs.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #999;">No active jobs</p>';
                 return;
             }
-            
+
             container.innerHTML = jobsData.jobs.map(job => `
                 <div class="job-item ${job.status}">
                     <div class="job-header">
-                        <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
-                        <span class="job-status">${job.status}</span>
+                        <div class="job-actions">
+                            <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
+                        </div>
+                        <div class="job-actions">
+                            <span class="job-status">${job.status}</span>
+                            <button class="job-cancel-btn" onclick="cancelJob(${job.job_id})" title="Cancel job">❌</button>
+                        </div>
                     </div>
                     <div class="job-path">${job.src_path} → ${job.dst_path}</div>
                     <div class="progress-bar-container">
@@ -1298,7 +1531,77 @@
             `).join('');
         }
 
-        // Interrupted jobs
+        // Interrupted Jobs Dropdown
+        function toggleInterruptedJobsDropdown() {
+            const list = document.getElementById('interrupted-jobs-list');
+            list.classList.toggle('hidden');
+        }
+
+        function startInterruptedJobsUpdates() {
+            updateInterruptedJobs();
+            interruptedJobsInterval = setInterval(updateInterruptedJobs, 5000);
+        }
+
+        async function updateInterruptedJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=interrupted');
+                interruptedJobsData.jobs = data.jobs || [];
+                renderInterruptedJobs();
+            } catch (error) {
+                console.error('Failed to update interrupted jobs:', error);
+            }
+        }
+
+        function renderInterruptedJobs() {
+            const dropdown = document.getElementById('interrupted-jobs-dropdown');
+            const list = document.getElementById('interrupted-jobs-list');
+            const count = document.getElementById('interrupted-count');
+
+            if (interruptedJobsData.jobs.length === 0) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            dropdown.classList.remove('hidden');
+            count.textContent = interruptedJobsData.jobs.length;
+
+            list.innerHTML = interruptedJobsData.jobs.map(job => `
+                <div class="interrupted-job-item">
+                    <div class="interrupted-job-info">
+                        Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
+                    </div>
+                    <div class="interrupted-job-actions">
+                        <button class="interrupted-job-btn" onclick="resumeInterruptedJobFromDropdown(${job.job_id})" title="Resume this job">
+                            ▶️ Resume
+                        </button>
+                        <button class="interrupted-job-btn cancel" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">
+                            ❌ Cancel
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function cancelInterruptedJob(jobId) {
+            try {
+                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
+                updateInterruptedJobs();
+            } catch (error) {
+                alert(`Failed to cancel job: ${error.message}`);
+            }
+        }
+
+        async function resumeInterruptedJobFromDropdown(jobId) {
+            try {
+                await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
+                updateInterruptedJobs();
+                updateJobs();  // Refresh active jobs too
+            } catch (error) {
+                alert(`Failed to resume job: ${error.message}`);
+            }
+        }
+
+        // Interrupted jobs modal (startup)
         async function checkInterruptedJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=resumable');
@@ -1331,7 +1634,8 @@
                     await apiCall('/api/jobs/resume', 'POST', { job_id: job.job_id });
                 }
                 closeInterruptedJobsModal();
-                updateJobs();
+                updateJobs();  // Will auto-expand panel
+                updateInterruptedJobs();  // Update interrupted jobs list
             } catch (error) {
                 alert(`Failed to resume jobs: ${error.message}`);
             }
@@ -1431,24 +1735,54 @@
             }
         }
 
-        async function startCopyJob() {
-            const src = document.getElementById('job-src').value;
-            const dst = document.getElementById('job-dst').value;
-            const copyLinks = document.getElementById('copy-links').checked;
-            
-            try {
-                const data = await apiCall('/api/jobs/copy', 'POST', { 
-                    src_path: src, 
-                    dst_path: dst,
-                    copy_links: copyLinks
-                });
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="error">✗ Error: ${error.message}</div>`;
+        async function startCopyOrResumeJob() {
+            const jobIdValue = document.getElementById('job-id').value.trim();
+            const src = document.getElementById('job-src').value.trim();
+            const dst = document.getElementById('job-dst').value.trim();
+
+            // Determine whether to copy or resume
+            if (jobIdValue && !src && !dst) {
+                // Resume mode: job ID provided, no src/dst
+                const jobId = parseInt(jobIdValue);
+                if (!jobId) {
+                    alert('Please enter a valid job ID');
+                    return;
+                }
+
+                try {
+                    const data = await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
+                    document.getElementById('job-id').value = data.new_job_id;
+                    document.getElementById('job-start-status').innerHTML =
+                        `<div class="success">✓ Resume job started (New ID: ${data.new_job_id})</div>`;
+                } catch (error) {
+                    document.getElementById('job-start-status').innerHTML =
+                        `<div class="error">✗ Error: ${error.message}</div>`;
+                }
+            } else if (src && dst) {
+                // Copy mode: src and dst provided
+                const copyLinks = document.getElementById('copy-links').checked;
+
+                try {
+                    const data = await apiCall('/api/jobs/copy', 'POST', {
+                        src_path: src,
+                        dst_path: dst,
+                        copy_links: copyLinks
+                    });
+                    document.getElementById('job-id').value = data.job_id;
+                    document.getElementById('job-start-status').innerHTML =
+                        `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
+                } catch (error) {
+                    document.getElementById('job-start-status').innerHTML =
+                        `<div class="error">✗ Error: ${error.message}</div>`;
+                }
+            } else {
+                alert('Please provide either:\n- Source and Destination paths to start a copy\n- Job ID to resume a job');
             }
+        }
+
+        // Keep old function for compatibility (not used in UI anymore)
+        async function startCopyJob() {
+            startCopyOrResumeJob();
         }
 
         async function startMoveJob() {
@@ -1487,22 +1821,9 @@
             }
         }
 
+        // Keep old function for compatibility (not used in UI anymore)
         async function resumeJob() {
-            const jobId = parseInt(document.getElementById('job-id').value);
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-            
-            try {
-                const data = await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
-                document.getElementById('job-id').value = data.new_job_id;
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="success">✓ Resume job started (New ID: ${data.new_job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
+            startCopyOrResumeJob();
         }
 
         async function syncJob() {
