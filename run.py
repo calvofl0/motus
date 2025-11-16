@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OOD-Motuz startup script
+Motus startup script
 Handles port allocation, token generation, and server startup
 """
 import argparse
@@ -66,7 +66,7 @@ def find_available_port(host: str, start_port: int, max_retries: int = 100) -> i
 def print_banner(config: Config, original_port: int = None):
     """Print startup banner with access information"""
     print("\n" + "=" * 70)
-    print("  OOD-Motuz - Web-based File Transfer Interface")
+    print("  Motus - Motus et bouche cousue File Transfer Interface")
     print("=" * 70)
     print()
 
@@ -127,7 +127,7 @@ def check_existing_instance(config: Config) -> dict:
         return None  # Skip check if psutil not available
 
     data_dir = Path(config.data_dir)
-    pid_file = data_dir / 'motuz.pid'
+    pid_file = data_dir / 'motus.pid'
     connection_file = data_dir / 'connection.json'
 
     if not pid_file.exists():
@@ -170,7 +170,7 @@ def write_connection_info(config: Config):
     data_dir = Path(config.data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    pid_file = data_dir / 'motuz.pid'
+    pid_file = data_dir / 'motus.pid'
     connection_file = data_dir / 'connection.json'
 
     # Write PID
@@ -195,27 +195,27 @@ def write_connection_info(config: Config):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='OOD-Motuz - Web-based File Transfer Interface'
+        description='Motus - Motus et bouche cousue File Transfer Interface'
     )
     parser.add_argument(
         '--port',
         type=int,
-        help='Port to run on (default: 8888, or MOTUZ_PORT env var)'
+        help='Port to run on (default: 8888, or MOTUS_PORT env var)'
     )
     parser.add_argument(
         '--host',
         type=str,
-        help='Host to bind to (default: 127.0.0.1, or MOTUZ_HOST env var)'
+        help='Host to bind to (default: 127.0.0.1, or MOTUS_HOST env var)'
     )
     parser.add_argument(
         '--token',
         type=str,
-        help='Access token (default: auto-generated, or MOTUZ_TOKEN env var)'
+        help='Access token (default: auto-generated, or MOTUS_TOKEN env var)'
     )
     parser.add_argument(
         '--data-dir',
         type=str,
-        help='Data directory (default: ~/.motuz, or MOTUZ_DATA_DIR env var)'
+        help='Data directory (default: ~/.motuz, or MOTUS_DATA_DIR env var)'
     )
     parser.add_argument(
         '--config',
@@ -226,7 +226,7 @@ def main():
         '--log-level',
         type=str,
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Log level (default: WARNING, or MOTUZ_LOG_LEVEL env var)'
+        help='Log level (default: WARNING, or MOTUS_LOG_LEVEL env var)'
     )
     parser.add_argument(
         '--no-browser',
@@ -263,7 +263,7 @@ def main():
     existing = check_existing_instance(config)
     if existing:
         print("\n" + "=" * 70)
-        print("  OOD-Motuz is already running!")
+        print("  Motus is already running!")
         print("=" * 70)
         print(f"\n  An instance is already running on this data directory:")
         print(f"    Data dir: {existing.get('data_dir', config.data_dir)}")

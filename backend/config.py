@@ -1,5 +1,5 @@
 """
-Configuration management for OOD-Motuz
+Configuration management for Motus
 Handles environment variables, config files, and defaults
 """
 import os
@@ -24,32 +24,32 @@ class Config:
             with open(config_file, 'r') as f:
                 self.config_data = yaml.safe_load(f) or {}
 
-        # Data directory (default: ~/.motuz)
+        # Data directory (default: ~/.motus)
         self.data_dir = self._get_config(
             'data_dir',
-            env_var='MOTUZ_DATA_DIR',
-            default=str(Path.home() / '.motuz')
+            env_var='MOTUS_DATA_DIR',
+            default=str(Path.home() / '.motus')
         )
         os.makedirs(self.data_dir, exist_ok=True)
 
         # Port configuration (like Jupyter)
         self.port = int(self._get_config(
             'port',
-            env_var='MOTUZ_PORT',
+            env_var='MOTUS_PORT',
             default=8888
         ))
 
         # Port search range for fallback
         self.port_retries = int(self._get_config(
             'port_retries',
-            env_var='MOTUZ_PORT_RETRIES',
+            env_var='MOTUS_PORT_RETRIES',
             default=100
         ))
 
         # Authentication token
         self.token = self._get_config(
             'token',
-            env_var='MOTUZ_TOKEN',
+            env_var='MOTUS_TOKEN',
             default=None
         )
 
@@ -61,22 +61,22 @@ class Config:
             self.token_auto_generated = False
 
         # Database path
-        self.database_path = os.path.join(self.data_dir, 'motuz.db')
+        self.database_path = os.path.join(self.data_dir, 'motus.db')
 
         # Log level
         self.log_level = self._get_config(
             'log_level',
-            env_var='MOTUZ_LOG_LEVEL',
+            env_var='MOTUS_LOG_LEVEL',
             default='WARNING'
         ).upper()
 
         # Log file
-        self.log_file = os.path.join(self.data_dir, 'motuz.log')
+        self.log_file = os.path.join(self.data_dir, 'motus.log')
 
         # Flask secret key (for sessions)
         self.secret_key = self._get_config(
             'secret_key',
-            env_var='MOTUZ_SECRET_KEY',
+            env_var='MOTUS_SECRET_KEY',
             default=None
         )
         if not self.secret_key:
@@ -85,14 +85,14 @@ class Config:
         # Allow CORS (for development)
         self.allow_cors = self._get_config(
             'allow_cors',
-            env_var='MOTUZ_ALLOW_CORS',
+            env_var='MOTUS_ALLOW_CORS',
             default='false'
         ).lower() == 'true'
 
         # Rclone path
         self.rclone_path = self._get_config(
             'rclone_path',
-            env_var='MOTUZ_RCLONE_PATH',
+            env_var='MOTUS_RCLONE_PATH',
             default=None
         )
 
@@ -107,14 +107,14 @@ class Config:
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
             'base_url',
-            env_var='MOTUZ_BASE_URL',
+            env_var='MOTUS_BASE_URL',
             default=''
         ).rstrip('/')
 
         # Host to bind to
         self.host = self._get_config(
             'host',
-            env_var='MOTUZ_HOST',
+            env_var='MOTUS_HOST',
             default='127.0.0.1'
         )
 

@@ -1,5 +1,5 @@
 """
-Main Flask application for OOD-Motuz
+Main Flask application for Motus
 Single-user rclone GUI with token authentication
 """
 import logging
@@ -56,7 +56,7 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
 def cleanup_connection_info(config: Config):
     """Remove PID and connection info files"""
     data_dir = Path(config.data_dir)
-    pid_file = data_dir / 'motuz.pid'
+    pid_file = data_dir / 'motus.pid'
     connection_file = data_dir / 'connection.json'
 
     try:
@@ -117,7 +117,7 @@ def create_app(config: Config = None):
 
     # Flask config
     app.config['SECRET_KEY'] = config.secret_key
-    app.config['MOTUZ_TOKEN'] = config.token
+    app.config['MOTUS_TOKEN'] = config.token
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 
     # Enable CORS if configured (for development)

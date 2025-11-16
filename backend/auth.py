@@ -12,7 +12,7 @@ def token_required(f):
     Token can be provided via:
     - Query parameter: ?token=xxx
     - Header: Authorization: token xxx
-    - Cookie: motuz_token=xxx
+    - Cookie: motus_token=xxx
     """
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -29,10 +29,10 @@ def token_required(f):
 
         # Check cookie
         if not token:
-            token = request.cookies.get('motuz_token')
+            token = request.cookies.get('motus_token')
 
         # Verify token
-        expected_token = current_app.config.get('MOTUZ_TOKEN')
+        expected_token = current_app.config.get('MOTUS_TOKEN')
         if not token or token != expected_token:
             return jsonify({'error': 'Invalid or missing token'}), 401
 
@@ -61,10 +61,10 @@ def optional_token(f):
 
         # Check cookie
         if not token:
-            token = request.cookies.get('motuz_token')
+            token = request.cookies.get('motus_token')
 
         # Set authentication status
-        expected_token = current_app.config.get('MOTUZ_TOKEN')
+        expected_token = current_app.config.get('MOTUS_TOKEN')
         request.authenticated = (token == expected_token)
 
         return f(*args, **kwargs)

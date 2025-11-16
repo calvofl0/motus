@@ -1,6 +1,6 @@
-# OOD-Motuz
+# Motus
 
-A simplified, single-user web application for file transfers using rclone, designed for integration with Open OnDemand (OOD). Based on the [Motuz](https://github.com/FredHutch/motuz) project (MIT License), but with a streamlined, no-authentication backend suitable for OOD deployment.
+A simplified, single-user web application for file transfers using rclone, designed for integration with Open OnDemand (OOD). Based on the [Motuz](https://github.com/FredHutch/motuz) project (MIT License), but with a streamlined, token-based authentication backend suitable for OOD deployment.
 
 ## Features
 
@@ -77,7 +77,7 @@ python run.py
 Example output:
 ```
 ======================================================================
-  OOD-Motuz - Web-based File Transfer Interface
+  Motus - Motus et bouche cousue File Transfer Interface
 ======================================================================
 
   Access URL (with token):
@@ -87,7 +87,7 @@ Example output:
     abc123def456...
 
   Data directory: /home/user/.motuz
-  Log file: /home/user/.motuz/motuz.log
+  Log file: /home/user/.motuz/motus.log
   Log level: WARNING
 
 ======================================================================
@@ -119,14 +119,14 @@ myS3:/bucket/data.csv  →  /tmp/downloads/       # S3 to local
 myS3:/data/  →  mySFTP:/backup/                 # S3 to SFTP
 ```
 
-**Configuration Priority**: `RCLONE_CONFIG` env var > `~/.motuz/config.yml` > rclone default
+**Configuration Priority**: `RCLONE_CONFIG` env var > `~/.motus/config.yml` > rclone default
 
 ```bash
 # Use custom rclone config
 export RCLONE_CONFIG=/path/to/rclone.conf
 python run.py
 
-# Or in ~/.motuz/config.yml:
+# Or in ~/.motus/config.yml:
 # rclone_config_file: /path/to/rclone.conf
 ```
 
@@ -148,18 +148,18 @@ python run.py --no-browser                   # Don't open browser
 #### Environment Variables
 
 ```bash
-export MOTUZ_PORT=5000
-export MOTUZ_TOKEN=mysecrettoken
-export MOTUZ_DATA_DIR=/path/to/data
-export MOTUZ_LOG_LEVEL=INFO
-export MOTUZ_HOST=0.0.0.0  # Bind to all interfaces
+export MOTUS_PORT=5000
+export MOTUS_TOKEN=mysecrettoken
+export MOTUS_DATA_DIR=/path/to/data
+export MOTUS_LOG_LEVEL=INFO
+export MOTUS_HOST=0.0.0.0  # Bind to all interfaces
 
 python run.py
 ```
 
 #### Configuration File
 
-Create `~/.motuz/config.yml`:
+Create `~/.motus/config.yml`:
 
 ```yaml
 port: 5000
@@ -172,7 +172,7 @@ host: 127.0.0.1
 
 ### Port Allocation
 
-Like Jupyter, OOD-Motuz automatically finds an available port if the default (8888) is in use:
+Like Jupyter, Motus automatically finds an available port if the default (8888) is in use:
 
 ```bash
 python run.py  # Tries 8888, then 8889, 8890, ... up to 8888+100
@@ -187,7 +187,7 @@ All API endpoints require authentication via token:
 **Methods**:
 1. Query parameter: `?token=your_token`
 2. Header: `Authorization: token your_token`
-3. Cookie: `motuz_token=your_token`
+3. Cookie: `motus_token=your_token`
 
 ### Endpoints
 
@@ -355,7 +355,7 @@ cd motuz
 
 ```yaml
 ---
-name: Motuz File Transfer
+name: Motus File Transfer
 description: Web-based file transfer interface using rclone
 category: Files
 subcategory: Utilities
@@ -389,7 +389,7 @@ module load python/3.10
 # Activate virtual environment
 source <%= ENV['HOME'] %>/ood-motuz/venv/bin/activate
 
-# Start OOD-Motuz
+# Start Motus
 cd <%= ENV['HOME'] %>/ood-motuz
 python run.py \
   --port ${port} \
@@ -510,7 +510,7 @@ The app automatically finds an available port. Check the startup banner for the 
 
 ### Permission denied on file operations
 
-Ensure the user running OOD-Motuz has appropriate filesystem permissions.
+Ensure the user running Motus has appropriate filesystem permissions.
 
 ### Database locked
 
