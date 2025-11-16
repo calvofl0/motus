@@ -58,18 +58,49 @@
             transition: all 0.3s ease;
         }
 
+        .view-dropdown-container {
+            position: relative;
+        }
+
         .view-toggle-button {
             background: #28a745;
             color: white;
-            padding: 10px 15px;
+            padding: 10px 20px;
         }
 
         .view-toggle-button:hover {
             background: #218838;
         }
 
-        #view-toggle-icon {
-            font-size: 18px;
+        .view-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 5px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 180px;
+            z-index: 1000;
+        }
+
+        .view-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .view-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .view-menu-item:hover {
+            background: #f5f5f5;
         }
 
         .mode-toggle-button {
@@ -729,12 +760,19 @@
             <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
         </div>
         <div class="header-right">
-            <button class="view-toggle-button" onclick="toggleView()" title="Toggle Grid/List View" id="view-toggle-btn">
-                <span id="view-toggle-icon">⊞</span>
-            </button>
-            <button class="view-toggle-button" onclick="toggleHiddenFiles()" title="Toggle Hidden Files" id="hidden-toggle-btn">
-                <span id="hidden-toggle-icon">👁️</span>
-            </button>
+            <div class="view-dropdown-container">
+                <button class="view-toggle-button" onclick="toggleViewMenu(event)" id="view-menu-btn">
+                    View ▼
+                </button>
+                <div class="view-dropdown-menu hidden" id="view-dropdown">
+                    <div class="view-menu-item" onclick="switchViewMode()" id="view-mode-option">
+                        <span id="view-mode-icon">⊞</span> <span id="view-mode-text">Grid</span>
+                    </div>
+                    <div class="view-menu-item" onclick="toggleHiddenFilesOption()" id="hidden-files-option">
+                        <span id="hidden-files-text">Show hidden files</span>
+                    </div>
+                </div>
+            </div>
             <button class="mode-toggle-button" onclick="toggleMode()">
                 <span id="mode-button-text">Expert Mode</span>
             </button>
@@ -1018,7 +1056,7 @@
             sortAsc: true
         };
         let viewMode = 'list';  // 'grid' or 'list' - default to list
-        let showHiddenFiles = false;  // show/hide files starting with .
+        let showHiddenFiles = false;  // show/hide files starting with . - default hidden
         let contextMenuState = {
             pane: null,
             items: []
@@ -1067,18 +1105,8 @@
                 setMode('easy');
             }
 
-            // Load user preferences from localStorage
-            const savedViewMode = localStorage.getItem('motus_view_mode');
-            if (savedViewMode === 'grid' || savedViewMode === 'list') {
-                viewMode = savedViewMode;
-                document.getElementById('view-toggle-icon').textContent = viewMode === 'grid' ? '☰' : '⊞';
-            }
-
-            const savedShowHidden = localStorage.getItem('motus_show_hidden');
-            if (savedShowHidden !== null) {
-                showHiddenFiles = savedShowHidden === 'true';
-                document.getElementById('hidden-toggle-icon').textContent = showHiddenFiles ? '👁️' : '🙈';
-            }
+            // Load user preferences from backend
+            await loadPreferences();
 
             // Load remotes for easy mode
             if (currentMode === 'easy') {
@@ -1101,9 +1129,10 @@
             // Check for interrupted jobs modal (only on startup)
             checkInterruptedJobs();
 
-            // Hide context menu on click outside
+            // Hide context menu and view dropdown on click outside
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
+                document.getElementById('view-dropdown').classList.add('hidden');
             });
 
             // Click whitespace to deselect
@@ -1121,30 +1150,78 @@
             });
         });
 
-        // View toggle
-        function toggleView() {
-            viewMode = viewMode === 'grid' ? 'list' : 'grid';
-            document.getElementById('view-toggle-icon').textContent = viewMode === 'grid' ? '☰' : '⊞';
+        // View menu toggle
+        function toggleViewMenu(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('view-dropdown');
+            menu.classList.toggle('hidden');
+            updateViewMenuItems();
+        }
 
-            // Save preference
-            localStorage.setItem('motus_view_mode', viewMode);
+        function updateViewMenuItems() {
+            // Update view mode option to show the OPPOSITE of current mode
+            const modeIcon = document.getElementById('view-mode-icon');
+            const modeText = document.getElementById('view-mode-text');
+            if (viewMode === 'grid') {
+                modeIcon.textContent = '☰';
+                modeText.textContent = 'List';
+            } else {
+                modeIcon.textContent = '⊞';
+                modeText.textContent = 'Grid';
+            }
+
+            // Update hidden files text based on current state
+            const hiddenText = document.getElementById('hidden-files-text');
+            hiddenText.textContent = showHiddenFiles ? "Don't show hidden files" : "Show hidden files";
+        }
+
+        function switchViewMode() {
+            viewMode = viewMode === 'grid' ? 'list' : 'grid';
+            document.getElementById('view-dropdown').classList.add('hidden');
+
+            // Save preference to backend
+            savePreferences();
 
             // Re-render both panes
             renderFiles('left');
             renderFiles('right');
         }
 
-        // Hidden files toggle
-        function toggleHiddenFiles() {
+        function toggleHiddenFilesOption() {
             showHiddenFiles = !showHiddenFiles;
-            document.getElementById('hidden-toggle-icon').textContent = showHiddenFiles ? '👁️' : '🙈';
+            document.getElementById('view-dropdown').classList.add('hidden');
 
-            // Save preference
-            localStorage.setItem('motus_show_hidden', showHiddenFiles);
+            // Save preference to backend
+            savePreferences();
 
             // Re-render both panes
             renderFiles('left');
             renderFiles('right');
+        }
+
+        async function savePreferences() {
+            try {
+                await apiCall('/api/preferences', 'POST', {
+                    view_mode: viewMode,
+                    show_hidden_files: showHiddenFiles
+                });
+            } catch (error) {
+                console.error('Failed to save preferences:', error);
+            }
+        }
+
+        async function loadPreferences() {
+            try {
+                const prefs = await apiCall('/api/preferences');
+                if (prefs.view_mode) {
+                    viewMode = prefs.view_mode;
+                }
+                if (prefs.show_hidden_files !== undefined) {
+                    showHiddenFiles = prefs.show_hidden_files;
+                }
+            } catch (error) {
+                console.error('Failed to load preferences:', error);
+            }
         }
 
         // Sorting helpers
