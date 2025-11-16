@@ -4,6 +4,8 @@ Single-user rclone GUI with token authentication
 """
 import logging
 import os
+import signal
+import sys
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 
@@ -16,6 +18,38 @@ from .rclone.exceptions import RcloneNotFoundError
 from .api.files import files_bp, init_rclone as init_files_rclone
 from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
+
+
+def setup_signal_handlers(rclone: RcloneWrapper, db: Database):
+    """Setup signal handlers for graceful shutdown"""
+    def shutdown_handler(signum, frame):
+        """Handle SIGTERM/SIGINT for graceful shutdown"""
+        sig_name = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
+        logging.info(f"\n{sig_name} received, shutting down gracefully...")
+
+        # Get running jobs before stopping
+        running_jobs = rclone.get_running_jobs()
+
+        if running_jobs:
+            logging.info(f"Stopping {len(running_jobs)} running jobs...")
+            # Stop all running jobs
+            rclone.shutdown()
+
+            # Mark them as interrupted in database
+            for job_id in running_jobs:
+                try:
+                    db.update_job(job_id, status='interrupted',
+                                  error_text='Job interrupted by server shutdown')
+                except Exception as e:
+                    logging.error(f"Error marking job {job_id} as interrupted: {e}")
+
+        logging.info("Shutdown complete")
+        sys.exit(0)
+
+    # Register signal handlers
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    signal.signal(signal.SIGINT, shutdown_handler)
+    logging.info("Signal handlers registered for graceful shutdown")
 
 
 def create_app(config: Config = None):
@@ -68,6 +102,11 @@ def create_app(config: Config = None):
         logging.error(f"rclone initialization failed: {e}")
         raise
 
+    # Mark any orphaned running jobs as interrupted (from previous crash/shutdown)
+    orphaned_count = db.mark_running_as_interrupted()
+    if orphaned_count > 0:
+        logging.warning(f"Marked {orphaned_count} orphaned jobs as interrupted")
+
     # Initialize API modules with dependencies
     init_files_rclone(rclone)
     init_jobs(rclone, db)
@@ -82,6 +121,9 @@ def create_app(config: Config = None):
     app.rclone = rclone
     app.db = db
     app.motuz_config = config
+
+    # Setup signal handlers for graceful shutdown
+    setup_signal_handlers(rclone, db)
 
     # Add routes
     register_routes(app, config)

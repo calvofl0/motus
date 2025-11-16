@@ -276,7 +276,7 @@ def list_jobs():
     List all jobs
 
     Query parameters:
-    - status: Filter by status (optional)
+    - status: Filter by status (optional, special value: 'aborted' for failed+interrupted)
     - limit: Max number of results (default: 100)
     - offset: Offset for pagination (default: 0)
 
@@ -298,7 +298,11 @@ def list_jobs():
         limit = int(request.args.get('limit', 100))
         offset = int(request.args.get('offset', 0))
 
-        jobs = db.list_jobs(status=status, limit=limit, offset=offset)
+        # Special handling for 'aborted' status (failed + interrupted)
+        if status == 'aborted':
+            jobs = db.list_aborted_jobs(limit=limit, offset=offset)
+        else:
+            jobs = db.list_jobs(status=status, limit=limit, offset=offset)
 
         return jsonify({'jobs': jobs})
 
@@ -341,4 +345,187 @@ def delete_job(job_id):
 
     except Exception as e:
         logging.error(f"Error deleting job: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@jobs_bp.route('/api/jobs/check', methods=['POST'])
+@token_required
+def check_integrity():
+    """
+    Start an integrity check job (compare hashes)
+
+    Request JSON: Same as /copy (src_path, dst_path, etc.)
+
+    Response:
+    {
+        "job_id": 123,
+        "message": "Integrity check started"
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        # Validate required fields
+        if 'src_path' not in data or 'dst_path' not in data:
+            return jsonify({'error': 'Missing required fields: src_path, dst_path'}), 400
+
+        src_path = data['src_path']
+        dst_path = data['dst_path']
+        src_config = data.get('src_config')
+        dst_config = data.get('dst_config')
+
+        logging.info(f"Starting integrity check: {src_path} vs {dst_path}")
+
+        # Start the check job
+        job_id = rclone.check(
+            src_path=src_path,
+            dst_path=dst_path,
+            src_config=src_config,
+            dst_config=dst_config,
+        )
+
+        # Record in database
+        db.create_job(
+            job_id=job_id,
+            operation='check',
+            src_path=src_path,
+            dst_path=dst_path,
+            src_config=src_config,
+            dst_config=dst_config,
+        )
+
+        return jsonify({
+            'job_id': job_id,
+            'message': 'Integrity check started',
+        })
+
+    except RcloneException as e:
+        logging.error(f"Check job error: {e}")
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logging.error(f"Unexpected error in check_integrity: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@jobs_bp.route('/api/jobs/<int:job_id>/resume', methods=['POST'])
+@token_required
+def resume_job(job_id):
+    """
+    Resume a job (non-destructive copy)
+
+    Response:
+    {
+        "job_id": 456,  // new job ID
+        "message": "Job resumed"
+    }
+    """
+    try:
+        # Get original job
+        job = db.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        logging.info(f"Resuming job {job_id}")
+
+        # Start new copy job with same parameters
+        new_job_id = rclone.copy(
+            src_path=job['src_path'],
+            dst_path=job['dst_path'],
+            src_config=job.get('src_config'),
+            dst_config=job.get('dst_config'),
+            copy_links=False,
+        )
+
+        # Record in database
+        db.create_job(
+            job_id=new_job_id,
+            operation='copy',
+            src_path=job['src_path'],
+            dst_path=job['dst_path'],
+            src_config=job.get('src_config'),
+            dst_config=job.get('dst_config'),
+        )
+
+        return jsonify({
+            'job_id': new_job_id,
+            'message': 'Job resumed',
+        })
+
+    except Exception as e:
+        logging.error(f"Error resuming job: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@jobs_bp.route('/api/jobs/<int:job_id>/sync', methods=['POST'])
+@token_required
+def sync_job(job_id):
+    """
+    Sync a job (DESTRUCTIVE - deletes extra files at destination)
+
+    Response:
+    {
+        "job_id": 456,  // new job ID
+        "message": "Sync job started"
+    }
+    """
+    try:
+        # Get original job
+        job = db.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        logging.info(f"Syncing job {job_id}")
+
+        # Start new sync job with same parameters
+        new_job_id = rclone.sync(
+            src_path=job['src_path'],
+            dst_path=job['dst_path'],
+            src_config=job.get('src_config'),
+            dst_config=job.get('dst_config'),
+        )
+
+        # Record in database
+        db.create_job(
+            job_id=new_job_id,
+            operation='sync',
+            src_path=job['src_path'],
+            dst_path=job['dst_path'],
+            src_config=job.get('src_config'),
+            dst_config=job.get('dst_config'),
+        )
+
+        return jsonify({
+            'job_id': new_job_id,
+            'message': 'Sync job started',
+        })
+
+    except Exception as e:
+        logging.error(f"Error syncing job: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@jobs_bp.route('/api/jobs/clear_stopped', methods=['POST'])
+@token_required
+def clear_stopped_jobs():
+    """
+    Delete all stopped (non-running) jobs
+
+    Response:
+    {
+        "message": "Deleted N jobs",
+        "count": N
+    }
+    """
+    try:
+        count = db.delete_stopped_jobs()
+
+        return jsonify({
+            'message': f'Deleted {count} jobs',
+            'count': count,
+        })
+
+    except Exception as e:
+        logging.error(f"Error clearing stopped jobs: {e}")
         return jsonify({'error': 'Internal server error'}), 500

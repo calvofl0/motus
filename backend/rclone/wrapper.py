@@ -381,9 +381,116 @@ class RcloneWrapper:
         except subprocess.CalledProcessError as e:
             raise RcloneException(f"Failed to delete {path}: {e}")
 
+    def check(
+        self,
+        src_path: str,
+        dst_path: str,
+        src_config: Optional[Dict] = None,
+        dst_config: Optional[Dict] = None,
+    ) -> int:
+        """
+        Check integrity by comparing hashes (async, returns job_id)
+
+        Args:
+            src_path: Source path
+            dst_path: Destination path
+            src_config: Optional source remote config
+            dst_config: Optional destination remote config
+
+        Returns:
+            job_id for tracking progress
+        """
+        credentials = {}
+        config_arg = self.rclone_config_file
+
+        # Thread-safe job ID generation
+        with self._job_id_lock:
+            job_id = self._next_job_id
+            self._next_job_id += 1
+
+        # Parse source path
+        src_remote_name, src_clean_path = self._parse_path(src_path)
+        if src_remote_name:
+            # Use named remote from rclone config
+            src = f"{src_remote_name}:{src_clean_path}"
+        elif src_config:
+            # Legacy: use provided credentials
+            credentials.update(self._format_credentials(src_config, 'src'))
+            src = f"src:{src_path}"
+            config_arg = '/dev/null'
+        else:
+            # Local path (use expanded path with tilde resolved)
+            src = src_clean_path
+
+        # Parse destination path
+        dst_remote_name, dst_clean_path = self._parse_path(dst_path)
+        if dst_remote_name:
+            # Use named remote from rclone config
+            dst = f"{dst_remote_name}:{dst_clean_path}"
+        elif dst_config:
+            # Legacy: use provided credentials
+            credentials.update(self._format_credentials(dst_config, 'dst'))
+            dst = f"dst:{dst_path}"
+            config_arg = '/dev/null'
+        else:
+            # Local path (use expanded path with tilde resolved)
+            dst = dst_clean_path
+
+        # Build command - use rclone check with hash comparison
+        command = [
+            self.rclone_path,
+            '--config', config_arg if config_arg else '/dev/null',
+            'check',
+            src,
+            dst,
+            '--progress',
+            '--stats', '2s',
+        ]
+
+        logging.info(f"Starting integrity check: '{src}' vs '{dst}'")
+
+        self._log_command(command, credentials)
+
+        # Queue the job
+        try:
+            self._job_queue.push(command, credentials, job_id)
+        except Exception as e:
+            raise RcloneException(f"Failed to start integrity check job: {e}")
+
+        return job_id
+
+    def sync(
+        self,
+        src_path: str,
+        dst_path: str,
+        src_config: Optional[Dict] = None,
+        dst_config: Optional[Dict] = None,
+    ) -> int:
+        """
+        Sync files/directories - DESTRUCTIVE! Deletes files at dst that don't exist at src
+        (async, returns job_id)
+
+        Args:
+            src_path: Source path
+            dst_path: Destination path
+            src_config: Optional source remote config
+            dst_config: Optional destination remote config
+
+        Returns:
+            job_id for tracking progress
+        """
+        return self._transfer(
+            'sync',
+            src_path,
+            dst_path,
+            src_config,
+            dst_config,
+            False
+        )
+
     def _transfer(
         self,
-        operation: str,  # 'copy' or 'move'
+        operation: str,  # 'copy', 'move', or 'sync'
         src_path: str,
         dst_path: str,
         src_config: Optional[Dict],
@@ -391,7 +498,7 @@ class RcloneWrapper:
         copy_links: bool,
     ) -> int:
         """
-        Internal method for copy/move operations
+        Internal method for copy/move/sync operations
 
         Supports both named remotes and legacy remote_config
         Examples:
@@ -437,7 +544,14 @@ class RcloneWrapper:
             dst = dst_clean_path
 
         # Build command
-        rclone_cmd = 'copyto' if operation == 'copy' else 'moveto'
+        if operation == 'copy':
+            rclone_cmd = 'copyto'
+        elif operation == 'move':
+            rclone_cmd = 'moveto'
+        elif operation == 'sync':
+            rclone_cmd = 'sync'
+        else:
+            raise ValueError(f"Invalid operation: {operation}")
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
@@ -501,6 +615,14 @@ class RcloneWrapper:
 
     def job_delete(self, job_id: int):
         self._job_queue.delete(job_id)
+
+    def get_running_jobs(self) -> List[int]:
+        """Get list of currently running job IDs"""
+        return self._job_queue.get_running_jobs()
+
+    def shutdown(self):
+        """Shutdown gracefully, stopping all running jobs"""
+        return self._job_queue.shutdown_all()
 
     def _format_credentials(self, config: Dict, name: str) -> Dict[str, str]:
         """

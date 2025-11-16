@@ -113,7 +113,7 @@ class Database:
             updates.append('error_text = ?')
             values.append(error_text)
 
-        if status in ['completed', 'failed', 'cancelled']:
+        if status in ['completed', 'failed', 'cancelled', 'interrupted']:
             updates.append('finished_at = ?')
             values.append(datetime.now().isoformat())
 
@@ -195,6 +195,44 @@ class Database:
             cursor.execute('SELECT MAX(job_id) FROM jobs')
             result = cursor.fetchone()
             return result[0] if result[0] is not None else 0
+
+    def mark_running_as_interrupted(self) -> int:
+        """Mark all running jobs as interrupted (for startup cleanup)"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE jobs
+                SET status = 'interrupted',
+                    finished_at = ?,
+                    updated_at = ?
+                WHERE status = 'running'
+            ''', (datetime.now().isoformat(), datetime.now().isoformat()))
+            conn.commit()
+            return cursor.rowcount
+
+    def list_aborted_jobs(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+        """List failed and interrupted jobs"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM jobs
+                WHERE status IN ('failed', 'interrupted')
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            ''', (limit, offset))
+            rows = cursor.fetchall()
+            return [self._row_to_dict(row) for row in rows]
+
+    def delete_stopped_jobs(self) -> int:
+        """Delete all non-running jobs"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM jobs
+                WHERE status != 'running'
+            ''')
+            conn.commit()
+            return cursor.rowcount
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:
         """Convert sqlite Row to dict"""

@@ -239,10 +239,30 @@
                 <input type="number" id="job-id" placeholder="123" />
             </div>
             <button onclick="getJobStatus()">Get Status</button>
+            <button onclick="checkIntegrity()">Check Integrity</button>
             <button onclick="stopJob()">Stop Job</button>
-            <button onclick="listRunningJobs()">List Running Jobs</button>
-            <button onclick="listJobs()">List All Jobs</button>
+            <button onclick="resumeJob()">Resume Job</button>
+            <button onclick="syncJob()">Sync Job</button>
+            <div style="margin-top: 10px;">
+                <button onclick="listRunningJobs()">List Running Jobs</button>
+                <button onclick="listAbortedJobs()">List Aborted Jobs</button>
+                <button onclick="listJobs()">List All Jobs</button>
+                <button onclick="clearStoppedJobs()">Clear All Stopped Jobs</button>
+            </div>
             <div id="job-output" class="output" style="display:none"></div>
+        </div>
+    </div>
+
+    <!-- Interrupted Jobs Modal -->
+    <div id="interrupted-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:8px; max-width:600px; width:90%;">
+            <h2 style="margin-bottom:20px;">⚠️ Interrupted Jobs Found</h2>
+            <p style="margin-bottom:20px; color:#666;">The following jobs were interrupted during the last session:</p>
+            <div id="interrupted-list" style="max-height:300px; overflow-y:auto; margin-bottom:20px; padding:10px; background:#f9f9f9; border-radius:4px;"></div>
+            <div style="text-align:right;">
+                <button onclick="skipInterruptedJobs()" style="background:#6c757d; margin-right:10px;">Skip</button>
+                <button onclick="resumeAllJobs()">Resume All</button>
+            </div>
         </div>
     </div>
 
@@ -482,6 +502,148 @@
             }
         }
 
+        async function listAbortedJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=aborted');
+
+                if (data.jobs.length === 0) {
+                    showOutput('job-output', `No aborted jobs found.`);
+                } else {
+                    showOutput('job-output', `Aborted Jobs (${data.jobs.length}):\n\n${JSON.stringify(data.jobs, null, 2)}`);
+                }
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function checkIntegrity() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            try {
+                // Get the original job details
+                const jobData = await apiCall(`/api/jobs/${jobId}`);
+
+                // Start integrity check
+                const data = await apiCall('/api/jobs/check', 'POST', {
+                    src_path: jobData.src_path,
+                    dst_path: jobData.dst_path
+                });
+
+                showOutput('job-output', `✅ Integrity check started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function resumeJob() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
+                showOutput('job-output', `✅ Job resumed!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function syncJob() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            // Warning dialog
+            const confirmed = confirm(
+                '⚠️ WARNING: Sync is DESTRUCTIVE!\n\n' +
+                'This will DELETE files at the destination that do not exist at the source.\n\n' +
+                'Are you sure you want to continue?'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/sync`, 'POST');
+                showOutput('job-output', `✅ Sync job started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function clearStoppedJobs() {
+            const confirmed = confirm('Are you sure you want to delete all stopped jobs from the database?');
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const data = await apiCall('/api/jobs/clear_stopped', 'POST');
+                showOutput('job-output', `✅ ${data.message}\n\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showOutput('job-output', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function checkInterruptedJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=interrupted');
+
+                if (data.jobs && data.jobs.length > 0) {
+                    // Show modal with interrupted jobs
+                    const modal = document.getElementById('interrupted-modal');
+                    const list = document.getElementById('interrupted-list');
+
+                    list.innerHTML = data.jobs.map(job =>
+                        `<div style="padding:10px; margin-bottom:8px; background:white; border-radius:4px; border-left:3px solid #ffc107;">
+                            <strong>Job ${job.job_id}</strong>: ${job.operation}<br>
+                            <small style="color:#666;">${job.src_path} → ${job.dst_path}</small>
+                        </div>`
+                    ).join('');
+
+                    modal.style.display = 'block';
+
+                    // Store interrupted job IDs for later
+                    window.interruptedJobs = data.jobs;
+                }
+            } catch (error) {
+                console.error('Error checking interrupted jobs:', error);
+            }
+        }
+
+        function skipInterruptedJobs() {
+            document.getElementById('interrupted-modal').style.display = 'none';
+        }
+
+        async function resumeAllJobs() {
+            if (!window.interruptedJobs) return;
+
+            const modal = document.getElementById('interrupted-modal');
+            modal.style.display = 'none';
+
+            let resumed = 0;
+            for (const job of window.interruptedJobs) {
+                try {
+                    await apiCall(`/api/jobs/${job.job_id}/resume`, 'POST');
+                    resumed++;
+                } catch (error) {
+                    console.error(`Failed to resume job ${job.job_id}:`, error);
+                }
+            }
+
+            alert(`✅ Resumed ${resumed} of ${window.interruptedJobs.length} jobs`);
+            window.interruptedJobs = null;
+        }
+
         function formatBytes(bytes) {
             if (bytes === 0) return '0 B';
             const k = 1024;
@@ -544,6 +706,14 @@
                     getJobStatus();
                 }
             });
+
+            // Check for interrupted jobs on page load (with delay to allow token to be set)
+            setTimeout(() => {
+                const token = document.getElementById('token').value;
+                if (token) {
+                    checkInterruptedJobs();
+                }
+            }, 500);
         });
     </script>
 </body>

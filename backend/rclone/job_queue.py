@@ -87,6 +87,25 @@ class JobQueue:
         self._stop_events.pop(job_id, None)
         self._processes.pop(job_id, None)
 
+    def get_running_jobs(self):
+        """Get list of running job IDs"""
+        running = []
+        for job_id in list(self._processes.keys()):
+            if not self.is_finished(job_id):
+                running.append(job_id)
+        return running
+
+    def shutdown_all(self):
+        """Stop all running jobs (for graceful shutdown)"""
+        running = self.get_running_jobs()
+        logging.info(f"Stopping {len(running)} running jobs...")
+        for job_id in running:
+            try:
+                self.stop(job_id)
+            except Exception as e:
+                logging.error(f"Error stopping job {job_id}: {e}")
+        return len(running)
+
     def _execute_job(self, command, env, job_id):
         """Execute rclone command and track progress"""
         stop_event = self._stop_events[job_id]
