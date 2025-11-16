@@ -1701,7 +1701,8 @@
         // File selection
         function handleFileClick(pane, index, event) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
-            
+            let selectionChanged = false;
+
             if (event.ctrlKey || event.metaKey) {
                 // Toggle selection
                 const idx = state.selectedIndexes.indexOf(index);
@@ -1710,6 +1711,7 @@
                 } else {
                     state.selectedIndexes.push(index);
                 }
+                selectionChanged = true;
             } else if (event.shiftKey && state.selectedIndexes.length > 0) {
                 // Range selection
                 const lastIndex = state.selectedIndexes[state.selectedIndexes.length - 1];
@@ -1719,12 +1721,19 @@
                 for (let i = start; i <= end; i++) {
                     state.selectedIndexes.push(i);
                 }
+                selectionChanged = true;
             } else {
-                // Single selection
-                state.selectedIndexes = [index];
+                // Single selection - only change if different
+                if (state.selectedIndexes.length !== 1 || state.selectedIndexes[0] !== index) {
+                    state.selectedIndexes = [index];
+                    selectionChanged = true;
+                }
             }
-            
-            renderFiles(pane);
+
+            // Only re-render if selection actually changed
+            if (selectionChanged) {
+                renderFiles(pane);
+            }
         }
 
         // Drag and drop
