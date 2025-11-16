@@ -962,18 +962,18 @@
                 div.classList.add('selected');
             }
             
-            const icon = file.is_dir ? '📁' : '📄';
+            const icon = file.IsDir ? '📁' : '📄';
             div.innerHTML = `
                 <div class="file-icon">${icon}</div>
-                <div class="file-name">${file.name}</div>
+                <div class="file-name">${file.Name}</div>
             `;
-            
+
             // Double-click to navigate
             div.addEventListener('dblclick', () => {
-                if (file.name === '..') {
+                if (file.Name === '..') {
                     navigateUp(pane);
-                } else if (file.is_dir) {
-                    navigateInto(pane, file.name);
+                } else if (file.IsDir) {
+                    navigateInto(pane, file.Name);
                 }
             });
             
@@ -1091,13 +1091,13 @@
             // Start copy jobs for each selected file
             for (const index of data.indexes) {
                 const file = sourceState.files[index];
-                const srcPath = sourceState.remote ? 
-                    `${sourceState.remote}:${sourceState.path}/${file.name}` :
-                    `${sourceState.path}/${file.name}`;
+                const srcPath = sourceState.remote ?
+                    `${sourceState.remote}:${sourceState.path}/${file.Name}` :
+                    `${sourceState.path}/${file.Name}`;
                 const dstPath = targetState.remote ?
                     `${targetState.remote}:${targetState.path}/` :
                     `${targetState.path}/`;
-                
+
                 try {
                     await apiCall('/api/jobs/copy', 'POST', {
                         src_path: srcPath,
@@ -1106,7 +1106,7 @@
                     });
                 } catch (error) {
                     console.error('Copy failed:', error);
-                    alert(`Failed to copy ${file.name}: ${error.message}`);
+                    alert(`Failed to copy ${file.Name}: ${error.message}`);
                 }
             }
             
@@ -1161,14 +1161,14 @@
                 alert('Please enter a name');
                 return;
             }
-            
+
             const pane = contextMenuState.pane;
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const file = contextMenuState.items[0];
-            
+
             const oldPath = state.remote ?
-                `${state.remote}:${state.path}/${file.name}` :
-                `${state.path}/${file.name}`;
+                `${state.remote}:${state.path}/${file.Name}` :
+                `${state.path}/${file.Name}`;
             const newPath = state.remote ?
                 `${state.remote}:${state.path}/${newName}` :
                 `${state.path}/${newName}`;
@@ -1201,16 +1201,16 @@
         async function confirmDelete() {
             const pane = contextMenuState.pane;
             const state = pane === 'left' ? leftPaneState : rightPaneState;
-            
+
             for (const file of contextMenuState.items) {
                 const path = state.remote ?
-                    `${state.remote}:${state.path}/${file.name}` :
-                    `${state.path}/${file.name}`;
-                
+                    `${state.remote}:${state.path}/${file.Name}` :
+                    `${state.path}/${file.Name}`;
+
                 try {
                     await apiCall('/api/files/delete', 'POST', { path });
                 } catch (error) {
-                    alert(`Failed to delete ${file.name}: ${error.message}`);
+                    alert(`Failed to delete ${file.Name}: ${error.message}`);
                 }
             }
             
@@ -1288,7 +1288,7 @@
                         <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
                         <span class="job-status">${job.status}</span>
                     </div>
-                    <div class="job-path">${job.src_cloud_id}:${job.src_resource_path} → ${job.dst_cloud_id}:${job.dst_resource_path}</div>
+                    <div class="job-path">${job.src_path} → ${job.dst_path}</div>
                     <div class="progress-bar-container">
                         <div class="progress-bar" style="width: ${job.progress || 0}%">
                             ${job.progress || 0}%
@@ -1314,7 +1314,7 @@
             const list = document.getElementById('interrupted-jobs-list');
             list.innerHTML = jobs.map(job => `
                 <div style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 4px;">
-                    Job #${job.job_id}: ${job.src_cloud_id}:${job.src_resource_path} → ${job.dst_cloud_id}:${job.dst_resource_path}
+                    Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
                 </div>
             `).join('');
             document.getElementById('interrupted-jobs-modal').style.display = 'flex';
@@ -1537,7 +1537,7 @@
                 alert('Please enter a job ID');
                 return;
             }
-            
+
             try {
                 const job = await apiCall(`/api/jobs/${jobId}`);
                 const output = `
@@ -1545,8 +1545,8 @@ Job ID: ${job.job_id}
 Operation: ${job.operation}
 Status: ${job.status}
 Progress: ${job.progress}%
-Source: ${job.src_cloud_id}:${job.src_resource_path}
-Destination: ${job.dst_cloud_id}:${job.dst_resource_path}
+Source: ${job.src_path}
+Destination: ${job.dst_path}
 Created: ${job.created_at}
 ${job.finished_at ? 'Finished: ' + job.finished_at : ''}
 ${job.error_text ? 'Error: ' + job.error_text : ''}
@@ -1578,8 +1578,8 @@ ${job.text || '(no output yet)'}
         async function listAllJobs() {
             try {
                 const data = await apiCall('/api/jobs');
-                const output = data.jobs.map(j => 
-                    `#${j.job_id} ${j.operation} ${j.status} ${j.progress}% - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                const output = data.jobs.map(j =>
+                    `#${j.job_id} ${j.operation} ${j.status} ${j.progress}% - ${j.src_path} → ${j.dst_path}`
                 ).join('\n');
                 document.getElementById('all-jobs-output').textContent = output || 'No jobs';
             } catch (error) {
@@ -1590,8 +1590,8 @@ ${job.text || '(no output yet)'}
         async function listRunningJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=running');
-                const output = data.jobs.map(j => 
-                    `#${j.job_id} ${j.operation} ${j.progress}% - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                const output = data.jobs.map(j =>
+                    `#${j.job_id} ${j.operation} ${j.progress}% - ${j.src_path} → ${j.dst_path}`
                 ).join('\n');
                 document.getElementById('all-jobs-output').textContent = output || 'No running jobs';
             } catch (error) {
@@ -1602,8 +1602,8 @@ ${job.text || '(no output yet)'}
         async function listAbortedJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=aborted');
-                const output = data.jobs.map(j => 
-                    `#${j.job_id} ${j.operation} - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                const output = data.jobs.map(j =>
+                    `#${j.job_id} ${j.operation} - ${j.src_path} → ${j.dst_path}`
                 ).join('\n');
                 document.getElementById('all-jobs-output').textContent = output || 'No aborted jobs';
             } catch (error) {
