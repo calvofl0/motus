@@ -596,7 +596,7 @@
 
         async function checkInterruptedJobs() {
             try {
-                const data = await apiCall('/api/jobs?status=interrupted');
+                const data = await apiCall('/api/jobs?status=resumable');
 
                 if (data.jobs && data.jobs.length > 0) {
                     // Show modal with interrupted jobs

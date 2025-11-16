@@ -276,7 +276,7 @@ def list_jobs():
     List all jobs
 
     Query parameters:
-    - status: Filter by status (optional, special value: 'aborted' for failed+interrupted)
+    - status: Filter by status (optional, special values: 'aborted' for failed+interrupted, 'resumable' for interrupted not yet resumed)
     - limit: Max number of results (default: 100)
     - offset: Offset for pagination (default: 0)
 
@@ -298,9 +298,13 @@ def list_jobs():
         limit = int(request.args.get('limit', 100))
         offset = int(request.args.get('offset', 0))
 
-        # Special handling for 'aborted' status (failed + interrupted)
+        # Special handling for status filters
         if status == 'aborted':
+            # Failed + interrupted (but not resumed)
             jobs = db.list_aborted_jobs(limit=limit, offset=offset)
+        elif status == 'resumable':
+            # Interrupted but not yet resumed (for popup)
+            jobs = db.list_interrupted_resumable_jobs(limit=limit, offset=offset)
         else:
             jobs = db.list_jobs(status=status, limit=limit, offset=offset)
 
@@ -448,6 +452,9 @@ def resume_job(job_id):
             dst_config=job.get('dst_config'),
         )
 
+        # Mark old job as resumed
+        db.mark_job_as_resumed(job_id, new_job_id)
+
         return jsonify({
             'job_id': new_job_id,
             'message': 'Job resumed',
@@ -496,6 +503,9 @@ def sync_job(job_id):
             dst_config=job.get('dst_config'),
         )
 
+        # Mark old job as resumed
+        db.mark_job_as_resumed(job_id, new_job_id)
+
         return jsonify({
             'job_id': new_job_id,
             'message': 'Sync job started',
@@ -520,6 +530,9 @@ def clear_stopped_jobs():
     """
     try:
         count = db.delete_stopped_jobs()
+
+        # Reinitialize job counter to max_id + 1
+        rclone.initialize_job_counter(db)
 
         return jsonify({
             'message': f'Deleted {count} jobs',

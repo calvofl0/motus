@@ -31,9 +31,10 @@ class Database:
                     dst_path TEXT NOT NULL,
                     src_config TEXT,
                     dst_config TEXT,
-                    status TEXT DEFAULT 'pending',
+                    status TEXT DEFAULT 'running',
                     progress INTEGER DEFAULT 0,
                     error_text TEXT,
+                    resumed_by_job_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     finished_at TIMESTAMP
@@ -78,7 +79,7 @@ class Database:
                 INSERT INTO jobs (
                     job_id, operation, src_path, dst_path,
                     src_config, dst_config, status
-                ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
+                ) VALUES (?, ?, ?, ?, ?, ?, 'running')
             ''', (
                 job_id,
                 operation,
@@ -113,7 +114,7 @@ class Database:
             updates.append('error_text = ?')
             values.append(error_text)
 
-        if status in ['completed', 'failed', 'cancelled', 'interrupted']:
+        if status in ['completed', 'failed', 'cancelled', 'interrupted', 'resumed']:
             updates.append('finished_at = ?')
             values.append(datetime.now().isoformat())
 
@@ -210,13 +211,40 @@ class Database:
             conn.commit()
             return cursor.rowcount
 
+    def mark_job_as_resumed(self, old_job_id: int, new_job_id: int):
+        """Mark a job as resumed and link to the new job"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE jobs
+                SET status = 'resumed',
+                    resumed_by_job_id = ?,
+                    finished_at = ?,
+                    updated_at = ?
+                WHERE job_id = ?
+            ''', (new_job_id, datetime.now().isoformat(), datetime.now().isoformat(), old_job_id))
+            conn.commit()
+
     def list_aborted_jobs(self, limit: int = 100, offset: int = 0) -> List[Dict]:
-        """List failed and interrupted jobs"""
+        """List failed and interrupted jobs (excluding already resumed)"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT * FROM jobs
                 WHERE status IN ('failed', 'interrupted')
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            ''', (limit, offset))
+            rows = cursor.fetchall()
+            return [self._row_to_dict(row) for row in rows]
+
+    def list_interrupted_resumable_jobs(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+        """List interrupted jobs that haven't been resumed yet"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM jobs
+                WHERE status = 'interrupted' AND resumed_by_job_id IS NULL
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
             ''', (limit, offset))
