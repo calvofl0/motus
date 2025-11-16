@@ -66,7 +66,7 @@ def find_available_port(host: str, start_port: int, max_retries: int = 100) -> i
 def print_banner(config: Config, original_port: int = None):
     """Print startup banner with access information"""
     print("\n" + "=" * 70)
-    print("  Motus et bouche cousue - Web-based File Transfer Interface")
+    print("  Motus et bouche cousue — A Web-based File Transfer Interface")
     print("=" * 70)
     print()
 
@@ -195,7 +195,7 @@ def write_connection_info(config: Config):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Motus et bouche cousue - Web-based File Transfer Interface'
+        description='Motus et bouche cousue — A Web-based File Transfer Interface'
     )
     parser.add_argument(
         '--port',

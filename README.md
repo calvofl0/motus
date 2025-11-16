@@ -77,7 +77,7 @@ python run.py
 Example output:
 ```
 ======================================================================
-  Motus et bouche cousue - Web-based File Transfer Interface
+  Motus et bouche cousue — A Web-based File Transfer Interface
 ======================================================================
 
   Access URL (with token):
