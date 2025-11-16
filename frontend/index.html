@@ -762,7 +762,7 @@
         <div class="header-right">
             <div class="view-dropdown-container">
                 <button class="view-toggle-button" onclick="toggleViewMenu(event)" id="view-menu-btn">
-                    View ▼
+                    View ▾
                 </button>
                 <div class="view-dropdown-menu hidden" id="view-dropdown">
                     <div class="view-menu-item" onclick="switchViewMode()" id="view-mode-option">
@@ -1425,18 +1425,24 @@
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const select = document.getElementById(`${pane}-remote`);
             const oldRemote = state.remote;
+            const oldPath = state.path;
             const newRemote = select.value;
 
+            // When switching to Local Filesystem, go to home
+            const newPath = (newRemote === '') ? '~/' : '/';
+
             state.remote = newRemote;
-            state.path = '/';
-            document.getElementById(`${pane}-path`).value = '/';
+            state.path = newPath;
+            document.getElementById(`${pane}-path`).value = newPath;
 
             try {
                 await refreshPane(pane);
             } catch (error) {
-                // Revert to old remote on error
+                // Revert to old remote and path on error
                 state.remote = oldRemote;
+                state.path = oldPath;
                 select.value = oldRemote;
+                document.getElementById(`${pane}-path`).value = oldPath;
                 alert(`Failed to access remote: ${error.message}`);
             }
         }
@@ -1683,10 +1689,32 @@
         // Navigate up
         function navigateUp(pane) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
-            const pathParts = state.path.split('/').filter(p => p);
-            pathParts.pop();
-            state.path = '/' + pathParts.join('/');
-            document.getElementById(`${pane}-path`).value = state.path;
+            let newPath;
+
+            // Handle tilde paths specially
+            if (state.path.startsWith('~/')) {
+                if (state.path === '~/' || state.path === '~') {
+                    // Already at home, can't go up
+                    return;
+                }
+                // Remove tilde prefix, process, then add it back
+                const pathWithoutTilde = state.path.substring(2); // Remove '~/'
+                const pathParts = pathWithoutTilde.split('/').filter(p => p);
+                pathParts.pop();
+                if (pathParts.length === 0) {
+                    newPath = '~/';
+                } else {
+                    newPath = '~/' + pathParts.join('/');
+                }
+            } else {
+                // Regular path handling
+                const pathParts = state.path.split('/').filter(p => p);
+                pathParts.pop();
+                newPath = '/' + pathParts.join('/');
+            }
+
+            state.path = newPath;
+            document.getElementById(`${pane}-path`).value = newPath;
             refreshPane(pane);
         }
 
