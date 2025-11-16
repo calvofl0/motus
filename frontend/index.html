@@ -48,7 +48,7 @@
             gap: 10px;
         }
 
-        .mode-toggle-button, .quit-button {
+        .mode-toggle-button, .quit-button, .view-toggle-button {
             padding: 10px 20px;
             border: none;
             border-radius: 4px;
@@ -56,6 +56,20 @@
             font-size: 14px;
             font-weight: 500;
             transition: all 0.3s ease;
+        }
+
+        .view-toggle-button {
+            background: #28a745;
+            color: white;
+            padding: 10px 15px;
+        }
+
+        .view-toggle-button:hover {
+            background: #218838;
+        }
+
+        #view-toggle-icon {
+            font-size: 18px;
         }
 
         .mode-toggle-button {
@@ -207,6 +221,90 @@
             color: #333;
         }
 
+        /* List View */
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .file-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-list thead {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 10;
+        }
+
+        .file-list th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .file-list th:hover {
+            background: #e9ecef;
+        }
+
+        .file-list th .sort-indicator {
+            margin-left: 4px;
+            font-size: 10px;
+            color: #007bff;
+        }
+
+        .file-list .file-row {
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .file-list .file-row:hover {
+            background: #f8f9fa;
+        }
+
+        .file-list .file-row.selected {
+            background: #e3f2fd;
+        }
+
+        .file-list .file-row.drag-over {
+            background: #d4edda;
+        }
+
+        .file-list td {
+            padding: 10px 16px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .file-list td.file-name-col {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-list .file-icon-small {
+            font-size: 18px;
+        }
+
+        .file-list td.file-size-col {
+            text-align: right;
+            color: #666;
+        }
+
+        .file-list td.file-date-col {
+            color: #666;
+            white-space: nowrap;
+        }
+
         /* Context Menu */
         .context-menu {
             position: fixed;
@@ -237,6 +335,37 @@
         .context-menu-item.danger:hover {
             background: #fee;
             color: #dc3545;
+        }
+
+        .context-menu-item.has-submenu {
+            position: relative;
+        }
+
+        .context-menu-item.has-submenu::after {
+            content: '▶';
+            position: absolute;
+            right: 10px;
+            font-size: 10px;
+        }
+
+        .context-submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 160px;
+        }
+
+        .context-menu-item.has-submenu:hover .context-submenu {
+            display: block;
+        }
+
+        .context-submenu .context-menu-item {
+            white-space: nowrap;
         }
 
         /* Job Panel */
@@ -600,6 +729,9 @@
             <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
         </div>
         <div class="header-right">
+            <button class="view-toggle-button" onclick="toggleView()" title="Toggle Grid/List View" id="view-toggle-btn">
+                <span id="view-toggle-icon">☰</span>
+            </button>
             <button class="mode-toggle-button" onclick="toggleMode()">
                 <span id="mode-button-text">Expert Mode</span>
             </button>
@@ -794,6 +926,17 @@
     <div class="context-menu" id="context-menu">
         <div class="context-menu-item" onclick="contextMenuAction('rename')">✏️ Rename</div>
         <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ Delete</div>
+        <div class="context-menu-item has-submenu">
+            📊 Sort by
+            <div class="context-submenu">
+                <div class="context-menu-item" onclick="contextMenuSortBy('name', true)">Name (A-Z)</div>
+                <div class="context-menu-item" onclick="contextMenuSortBy('name', false)">Name (Z-A)</div>
+                <div class="context-menu-item" onclick="contextMenuSortBy('size', true)">Size (Smallest)</div>
+                <div class="context-menu-item" onclick="contextMenuSortBy('size', false)">Size (Largest)</div>
+                <div class="context-menu-item" onclick="contextMenuSortBy('date', true)">Date (Oldest)</div>
+                <div class="context-menu-item" onclick="contextMenuSortBy('date', false)">Date (Newest)</div>
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->
@@ -859,14 +1002,19 @@
             remote: '',
             path: '/',
             files: [],
-            selectedIndexes: []
+            selectedIndexes: [],
+            sortBy: 'name',  // name, size, date
+            sortAsc: true
         };
         let rightPaneState = {
             remote: '',
             path: '/',
             files: [],
-            selectedIndexes: []
+            selectedIndexes: [],
+            sortBy: 'name',
+            sortAsc: true
         };
+        let viewMode = 'grid';  // 'grid' or 'list'
         let contextMenuState = {
             pane: null,
             items: []
@@ -880,6 +1028,7 @@
         let jobUpdateInterval = null;
         let interruptedJobsInterval = null;
         let createFolderPane = null;
+        let jobPanelManuallyToggled = false;  // Track if user manually toggled the panel
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -939,7 +1088,85 @@
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
             });
+
+            // Click whitespace to deselect
+            document.getElementById('left-files').addEventListener('click', (e) => {
+                if (e.target.id === 'left-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
+                    leftPaneState.selectedIndexes = [];
+                    renderFiles('left');
+                }
+            });
+            document.getElementById('right-files').addEventListener('click', (e) => {
+                if (e.target.id === 'right-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
+                    rightPaneState.selectedIndexes = [];
+                    renderFiles('right');
+                }
+            });
         });
+
+        // View toggle
+        function toggleView() {
+            viewMode = viewMode === 'grid' ? 'list' : 'grid';
+            document.getElementById('view-toggle-icon').textContent = viewMode === 'grid' ? '☰' : '⊞';
+
+            // Re-render both panes
+            renderFiles('left');
+            renderFiles('right');
+        }
+
+        // Sorting helpers
+        function sortFiles(files, sortBy, sortAsc) {
+            const sorted = [...files];
+            sorted.sort((a, b) => {
+                // Directories first
+                if (a.IsDir !== b.IsDir) {
+                    return a.IsDir ? -1 : 1;
+                }
+
+                let comparison = 0;
+                if (sortBy === 'name') {
+                    comparison = a.Name.localeCompare(b.Name);
+                } else if (sortBy === 'size') {
+                    comparison = (a.Size || 0) - (b.Size || 0);
+                } else if (sortBy === 'date') {
+                    const dateA = new Date(a.ModTime || 0);
+                    const dateB = new Date(b.ModTime || 0);
+                    comparison = dateA - dateB;
+                }
+
+                return sortAsc ? comparison : -comparison;
+            });
+            return sorted;
+        }
+
+        function setSortBy(pane, field) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            if (state.sortBy === field) {
+                state.sortAsc = !state.sortAsc;
+            } else {
+                state.sortBy = field;
+                state.sortAsc = true;
+            }
+            renderFiles(pane);
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+            return `${size.toFixed(1)} ${units[unitIndex]}`;
+        }
+
+        function formatFileDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        }
 
         // API helper
         async function apiCall(endpoint, method = 'GET', body = null) {
@@ -1130,26 +1357,85 @@
             }
         }
 
-        // Render files in grid
+        // Render files in grid or list view
         function renderFiles(pane) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const container = document.getElementById(`${pane}-files`);
-            
+
+            // Sort files
+            const sortedFiles = sortFiles(state.files, state.sortBy, state.sortAsc);
+
             container.innerHTML = '';
-            
+            container.className = viewMode === 'grid' ? 'file-grid' : 'file-list';
+
+            if (viewMode === 'grid') {
+                renderGridView(pane, sortedFiles, container, state);
+            } else {
+                renderListView(pane, sortedFiles, container, state);
+            }
+        }
+
+        function renderGridView(pane, files, container, state) {
             // Add parent directory if not at root
             if (state.path !== '/') {
                 const parentDiv = createFileElement({
-                    name: '..',
-                    is_dir: true
+                    Name: '..',
+                    IsDir: true
                 }, -1, pane);
                 container.appendChild(parentDiv);
             }
-            
-            state.files.forEach((file, index) => {
+
+            files.forEach((file, index) => {
                 const fileDiv = createFileElement(file, index, pane);
                 container.appendChild(fileDiv);
             });
+        }
+
+        function renderListView(pane, files, container, state) {
+            const table = document.createElement('table');
+
+            // Create table header with sortable columns
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            const headers = [
+                { label: 'Name', field: 'name' },
+                { label: 'Size', field: 'size' },
+                { label: 'Date', field: 'date' }
+            ];
+
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h.label;
+                if (state.sortBy === h.field) {
+                    const indicator = document.createElement('span');
+                    indicator.className = 'sort-indicator';
+                    indicator.textContent = state.sortAsc ? '▲' : '▼';
+                    th.appendChild(indicator);
+                }
+                th.onclick = () => setSortBy(pane, h.field);
+                headerRow.appendChild(th);
+            });
+
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Create table body
+            const tbody = document.createElement('tbody');
+
+            // Add parent directory if not at root
+            if (state.path !== '/') {
+                const tr = createListRow({ Name: '..', IsDir: true }, -1, pane);
+                tbody.appendChild(tr);
+            }
+
+            files.forEach((file, index) => {
+                const tr = createListRow(file, index, pane);
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            container.appendChild(table);
         }
 
         // Create file element
@@ -1201,6 +1487,74 @@
             }
             
             return div;
+        }
+
+        // Create list row (for list view)
+        function createListRow(file, index, pane) {
+            const tr = document.createElement('tr');
+            tr.className = 'file-row';
+
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            if (index >= 0 && state.selectedIndexes.includes(index)) {
+                tr.classList.add('selected');
+            }
+
+            const icon = file.IsDir ? '📁' : '📄';
+
+            // Name column
+            const nameCell = document.createElement('td');
+            nameCell.className = 'file-name-col';
+            nameCell.innerHTML = `
+                <span class="file-icon-small">${icon}</span>
+                <span>${file.Name}</span>
+            `;
+            tr.appendChild(nameCell);
+
+            // Size column
+            const sizeCell = document.createElement('td');
+            sizeCell.className = 'file-size-col';
+            sizeCell.textContent = file.IsDir ? '' : formatFileSize(file.Size);
+            tr.appendChild(sizeCell);
+
+            // Date column
+            const dateCell = document.createElement('td');
+            dateCell.className = 'file-date-col';
+            dateCell.textContent = formatFileDate(file.ModTime);
+            tr.appendChild(dateCell);
+
+            // Double-click to navigate
+            tr.addEventListener('dblclick', () => {
+                if (file.Name === '..') {
+                    navigateUp(pane);
+                } else if (file.IsDir) {
+                    navigateInto(pane, file.Name);
+                }
+            });
+
+            // Single click for selection
+            if (index >= 0) {
+                tr.addEventListener('click', (e) => {
+                    handleFileClick(pane, index, e);
+                });
+
+                // Draggable
+                tr.draggable = true;
+                tr.addEventListener('dragstart', (e) => {
+                    handleDragStart(e, pane, index);
+                });
+
+                // Right-click context menu
+                tr.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (!state.selectedIndexes.includes(index)) {
+                        state.selectedIndexes = [index];
+                        renderFiles(pane);
+                    }
+                    showContextMenu(e, pane);
+                });
+            }
+
+            return tr;
         }
 
         // Navigate up
@@ -1337,12 +1691,22 @@
 
         function contextMenuAction(action) {
             document.getElementById('context-menu').style.display = 'none';
-            
+
             if (action === 'rename' && contextMenuState.items.length === 1) {
                 showRenameModal(contextMenuState.items[0].name);
             } else if (action === 'delete') {
                 showDeleteConfirmModal();
             }
+        }
+
+        function contextMenuSortBy(field, ascending) {
+            document.getElementById('context-menu').style.display = 'none';
+
+            const pane = contextMenuState.pane;
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            state.sortBy = field;
+            state.sortAsc = ascending;
+            renderFiles(pane);
         }
 
         // Rename modal
@@ -1459,6 +1823,8 @@
         function toggleJobPanel() {
             const panel = document.getElementById('job-panel');
             panel.classList.toggle('collapsed');
+            // Mark that user manually toggled the panel
+            jobPanelManuallyToggled = !panel.classList.contains('collapsed');
         }
 
         function startJobUpdates() {
@@ -1473,11 +1839,17 @@
                 jobsData.jobs = data.jobs || [];
                 const newCount = jobsData.jobs.length;
 
-                // Auto-expand/collapse panel
+                // Smart auto-expand/collapse panel based on changes
                 const panel = document.getElementById('job-panel');
-                if (newCount > 0 && panel.classList.contains('collapsed')) {
+                const isCollapsed = panel.classList.contains('collapsed');
+
+                // Auto-open when job count INCREASES (new job started)
+                if (newCount > oldCount && isCollapsed) {
                     panel.classList.remove('collapsed');
-                } else if (newCount === 0 && !panel.classList.contains('collapsed')) {
+                    jobPanelManuallyToggled = false;  // Reset manual flag on auto-open
+                }
+                // Auto-close only when count reaches 0 AND user didn't manually open it
+                else if (newCount === 0 && !isCollapsed && !jobPanelManuallyToggled) {
                     panel.classList.add('collapsed');
                 }
 
