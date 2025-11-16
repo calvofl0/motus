@@ -14,26 +14,361 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: #f5f5f5;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Header */
+        .header {
             background: white;
-            border-radius: 8px;
+            border-bottom: 2px solid #007bff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
         }
 
-        h1 {
+        .header-left h1 {
             color: #333;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            font-size: 28px;
         }
 
         .subtitle {
             color: #666;
-            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-toggle-button, .quit-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .mode-toggle-button {
+            background: #007bff;
+            color: white;
+        }
+
+        .mode-toggle-button:hover {
+            background: #0056b3;
+        }
+
+        .quit-button {
+            background: #dc3545;
+            color: white;
+        }
+
+        .quit-button:hover {
+            background: #c82333;
+        }
+
+        /* Easy Mode Styles */
+        #easy-mode {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panes-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        .pane {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .pane-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .pane.right-pane .pane-header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .pane-toolbar {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toolbar-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .pane-toolbar select,
+        .pane-toolbar input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .toolbar-button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .toolbar-button:hover {
+            background: #0056b3;
+        }
+
+        .toolbar-button.secondary {
+            background: #6c757d;
+        }
+
+        .toolbar-button.secondary:hover {
+            background: #5a6268;
+        }
+
+        .file-grid {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            align-content: start;
+        }
+
+        .file-item {
+            padding: 15px 10px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .file-item:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+
+        .file-item.selected {
+            background: #e3f2fd;
+            border-color: #007bff;
+        }
+
+        .file-item.drag-over {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+
+        .file-name {
+            font-size: 13px;
+            word-break: break-word;
+            color: #333;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 180px;
+            display: none;
+        }
+
+        .context-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .context-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .context-menu-item.danger:hover {
+            background: #fee;
+            color: #dc3545;
+        }
+
+        /* Job Panel */
+        .job-panel {
+            background: white;
+            border-top: 2px solid #007bff;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .job-panel.collapsed {
+            height: 50px;
+        }
+
+        .job-panel:not(.collapsed) {
+            height: 300px;
+        }
+
+        .job-panel-header {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .job-panel-header:hover {
+            background: #e9ecef;
+        }
+
+        .job-panel-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .collapse-icon {
+            transition: transform 0.3s;
+        }
+
+        .job-panel.collapsed .collapse-icon {
+            transform: rotate(180deg);
+        }
+
+        .job-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .job-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+
+        .job-item.completed {
+            border-left-color: #28a745;
+        }
+
+        .job-item.failed {
+            border-left-color: #dc3545;
+        }
+
+        .job-item.cancelled, .job-item.interrupted {
+            border-left-color: #ffc107;
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .job-id {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .job-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+        }
+
+        .job-path {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar-container {
+            background: #e9ecef;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Expert Mode */
+        #expert-mode {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
         }
 
         .section {
@@ -98,615 +433,925 @@
             padding: 15px;
             margin-top: 15px;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 13px;
             white-space: pre-wrap;
             max-height: 400px;
             overflow-y: auto;
         }
 
-        .success {
-            color: #28a745;
+        .hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            margin-bottom: 15px;
         }
 
         .error {
             color: #dc3545;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #e0e0e0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #007bff;
-            transition: width 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-        }
-
-        .hint {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-            margin-bottom: 15px;
-            font-style: italic;
-        }
-
-        .remote-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
             margin-top: 10px;
         }
 
-        .remote-badge {
-            background: #007bff;
-            color: white;
-            padding: 5px 12px;
+        .success {
+            color: #28a745;
+            background: #d4edda;
+            padding: 10px;
             border-radius: 4px;
-            font-size: 13px;
-            font-family: monospace;
+            margin-top: 10px;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
             align-items: center;
-            margin-bottom: 10px;
         }
 
-        .header-left {
-            flex: 1;
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
-        .quit-button {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
         }
 
-        .quit-button:hover {
-            background: #c82333;
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="header-left">
-                <h1>Motus</h1>
-                <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
-            </div>
+    <!-- Header (shared between modes) -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Motus</h1>
+            <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
+        </div>
+        <div class="header-right">
+            <button class="mode-toggle-button" onclick="toggleMode()">
+                <span id="mode-button-text">Expert Mode</span>
+            </button>
             <button class="quit-button" onclick="quitServer()">Quit</button>
         </div>
+    </div>
 
-        <!-- Authentication -->
-        <div class="section">
-            <h2>🔐 Authentication</h2>
-            <div class="form-group">
-                <label>Access Token:</label>
-                <input type="text" id="token" placeholder="Enter your token (check server logs)" />
+    <!-- Easy Mode -->
+    <div id="easy-mode">
+        <div class="panes-container">
+            <!-- Left Pane -->
+            <div class="pane left-pane">
+                <div class="pane-header">📂 Left Server</div>
+                <div class="pane-toolbar">
+                    <div class="toolbar-row">
+                        <select id="left-remote" onchange="onRemoteChange('left')">
+                            <option value="">Local Filesystem</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-row">
+                        <input type="text" id="left-path" value="/" placeholder="Path..." />
+                        <button class="toolbar-button" onclick="browsePath('left')">Go</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('left')">🔄 Refresh</button>
+                        <button class="toolbar-button secondary" onclick="createFolder('left')">📁 New Folder</button>
+                    </div>
+                </div>
+                <div class="file-grid" id="left-files" 
+                     ondragover="handleDragOver(event, 'left')"
+                     ondrop="handleDrop(event, 'left')"
+                     ondragleave="handleDragLeave(event, 'left')">
+                    <!-- Files will be populated here -->
+                </div>
             </div>
-            <button onclick="testAuth()">Test Connection</button>
-            <div id="auth-output" class="output" style="display:none"></div>
-        </div>
 
-        <!-- Available Remotes -->
-        <div class="section">
-            <h2>☁️ Available Remotes</h2>
-            <p class="hint">
-                💡 Use remote syntax in paths: <code>remote_name:/path</code> (e.g., <code>myS3:/bucket/file.txt</code>)<br>
-                For local paths, use regular syntax: <code>/local/path</code>
-            </p>
-            <button onclick="listRemotes()">List Available Remotes</button>
-            <div id="remotes-output" style="display:none">
-                <div class="remote-list" id="remotes-list"></div>
-            </div>
-        </div>
-
-        <!-- File Browser -->
-        <div class="section">
-            <h2>📁 Browse Files</h2>
-            <div class="form-group">
-                <label>Path:</label>
-                <input type="text" id="browse-path" value="/tmp" placeholder="/path or myS3:/bucket/path" />
-                <p class="hint">Examples: /tmp or myS3:/bucket/folder</p>
-            </div>
-            <button onclick="listFiles()">List Files</button>
-            <div id="browse-output" class="output" style="display:none"></div>
-        </div>
-
-        <!-- Create Directory -->
-        <div class="section">
-            <h2>➕ Create Directory</h2>
-            <div class="form-group">
-                <label>Directory Path:</label>
-                <input type="text" id="mkdir-path" placeholder="/path/to/dir or myS3:/bucket/newdir" />
-                <p class="hint">Examples: /tmp/newdir or myS3:/bucket/newfolder</p>
-            </div>
-            <button onclick="makeDir()">Create Directory</button>
-            <div id="mkdir-output" class="output" style="display:none"></div>
-        </div>
-
-        <!-- Copy Files -->
-        <div class="section">
-            <h2>📋 Copy Files</h2>
-            <div class="form-group">
-                <label>Source Path:</label>
-                <input type="text" id="copy-src" placeholder="/local/file or myS3:/bucket/file" />
-                <p class="hint">Examples: /tmp/file.txt or myS3:/bucket/data.csv</p>
-            </div>
-            <div class="form-group">
-                <label>Destination Path:</label>
-                <input type="text" id="copy-dst" placeholder="/local/dest or myS3:/bucket/dest" />
-                <p class="hint">Examples: /tmp/backup/ or mySFTP:/remote/backup/</p>
-            </div>
-            <button onclick="copyFiles()">Start Copy</button>
-            <div id="copy-output" class="output" style="display:none"></div>
-            <div id="copy-progress" style="display:none">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="copy-progress-fill">0%</div>
+            <!-- Right Pane -->
+            <div class="pane right-pane">
+                <div class="pane-header">📂 Right Server</div>
+                <div class="pane-toolbar">
+                    <div class="toolbar-row">
+                        <select id="right-remote" onchange="onRemoteChange('right')">
+                            <option value="">Local Filesystem</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-row">
+                        <input type="text" id="right-path" value="/" placeholder="Path..." />
+                        <button class="toolbar-button" onclick="browsePath('right')">Go</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('right')">🔄 Refresh</button>
+                        <button class="toolbar-button secondary" onclick="createFolder('right')">📁 New Folder</button>
+                    </div>
+                </div>
+                <div class="file-grid" id="right-files"
+                     ondragover="handleDragOver(event, 'right')"
+                     ondrop="handleDrop(event, 'right')"
+                     ondragleave="handleDragLeave(event, 'right')">
+                    <!-- Files will be populated here -->
                 </div>
             </div>
         </div>
 
-        <!-- Job Status -->
-        <div class="section">
-            <h2>📊 Job Status</h2>
-            <div class="form-group">
-                <label>Job ID:</label>
-                <input type="number" id="job-id" placeholder="123" />
+        <!-- Collapsible Job Panel -->
+        <div class="job-panel collapsed" id="job-panel">
+            <div class="job-panel-header" onclick="toggleJobPanel()">
+                <span class="job-panel-title">📊 Active Jobs (<span id="job-count">0</span>)</span>
+                <span class="collapse-icon">▼</span>
             </div>
-            <button onclick="getJobStatus()">Get Status</button>
-            <button onclick="checkIntegrity()">Check Integrity</button>
-            <button onclick="stopJob()">Stop Job</button>
-            <button onclick="resumeJob()">Resume Job</button>
-            <button onclick="syncJob()">Sync Job</button>
-            <div style="margin-top: 10px;">
-                <button onclick="listRunningJobs()">List Running Jobs</button>
-                <button onclick="listAbortedJobs()">List Aborted Jobs</button>
-                <button onclick="listJobs()">List All Jobs</button>
-                <button onclick="clearStoppedJobs()">Clear All Stopped Jobs</button>
+            <div class="job-list" id="job-list">
+                <!-- Jobs will be populated here -->
             </div>
-            <div id="job-output" class="output" style="display:none"></div>
         </div>
     </div>
 
-    <!-- Interrupted Jobs Modal -->
-    <div id="interrupted-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:8px; max-width:600px; width:90%;">
-            <h2 style="margin-bottom:20px;">⚠️ Interrupted Jobs Found</h2>
-            <p style="margin-bottom:20px; color:#666;">The following jobs were interrupted during the last session:</p>
-            <div id="interrupted-list" style="max-height:300px; overflow-y:auto; margin-bottom:20px; padding:10px; background:#f9f9f9; border-radius:4px;"></div>
-            <div style="text-align:right;">
-                <button onclick="skipInterruptedJobs()" style="background:#6c757d; margin-right:10px;">Skip</button>
-                <button onclick="resumeAllJobs()">Resume All</button>
+    <!-- Expert Mode (existing UI) -->
+    <div id="expert-mode" class="hidden">
+        <div class="container" style="margin-top: 0;">
+            <!-- Authentication -->
+            <div class="section">
+                <h2>🔐 Authentication</h2>
+                <div class="form-group">
+                    <label>Access Token:</label>
+                    <input type="text" id="token" placeholder="Enter your token (check server logs)" />
+                    <div class="hint">The token is displayed when you start the server</div>
+                </div>
+                <button onclick="authenticate()">Authenticate</button>
+                <div id="auth-status"></div>
+            </div>
+
+            <!-- Available Remotes -->
+            <div class="section">
+                <h2>🌐 Available Remotes</h2>
+                <div class="hint">
+                    Configure remotes using: <code>rclone config</code><br>
+                    List remotes using: <code>rclone listremotes</code>
+                </div>
+                <button onclick="listRemotes()">List Remotes</button>
+                <div class="output" id="remotes-output"></div>
+            </div>
+
+            <!-- File Operations -->
+            <div class="section">
+                <h2>📁 File Operations</h2>
+                
+                <div class="form-group">
+                    <label>Path:</label>
+                    <input type="text" id="ls-path" placeholder="/path or remote:/path" value="/" />
+                    <div class="hint">Example: /tmp or myS3:/bucket/folder</div>
+                </div>
+                <button onclick="listFiles()">List Files</button>
+                <div class="output" id="ls-output"></div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+                <div class="form-group">
+                    <label>Create Directory:</label>
+                    <input type="text" id="mkdir-path" placeholder="/path/to/newdir or remote:/path/newdir" />
+                </div>
+                <button onclick="makeDirectory()">Create Directory</button>
+                <div id="mkdir-status"></div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+                <div class="form-group">
+                    <label>Delete Path:</label>
+                    <input type="text" id="delete-path" placeholder="/path or remote:/path" />
+                </div>
+                <button onclick="deletePath()" style="background: #dc3545;">Delete</button>
+                <div id="delete-status"></div>
+            </div>
+
+            <!-- Job Management -->
+            <div class="section">
+                <h2>📦 Job Management</h2>
+                
+                <div class="form-group">
+                    <label>Source Path:</label>
+                    <input type="text" id="job-src" placeholder="/source or remote:/source" />
+                </div>
+                <div class="form-group">
+                    <label>Destination Path:</label>
+                    <input type="text" id="job-dst" placeholder="/destination or remote:/destination" />
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="copy-links" /> Follow Symlinks
+                    </label>
+                </div>
+                <button onclick="startCopyJob()">Start Copy</button>
+                <button onclick="startMoveJob()" style="background: #ffc107; color: #000;">Start Move</button>
+                <button onclick="checkIntegrity()" style="background: #17a2b8;">Check Integrity</button>
+                <button onclick="resumeJob()" style="background: #28a745;">Resume Job</button>
+                <button onclick="syncJob()" style="background: #dc3545;">Sync Job (Destructive)</button>
+                <div id="job-start-status"></div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+                <div class="form-group">
+                    <label>Job ID:</label>
+                    <input type="number" id="job-id" placeholder="Enter job ID" 
+                           onkeypress="if(event.key === 'Enter') getJobStatus()" />
+                    <div class="hint">Press ENTER to get status</div>
+                </div>
+                <button onclick="getJobStatus()">Get Status</button>
+                <button onclick="stopJob()" style="background: #dc3545;">Stop Job</button>
+                <div class="output" id="job-status-output"></div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+                <button onclick="listAllJobs()">List All Jobs</button>
+                <button onclick="listRunningJobs()" style="background: #28a745;">List Running</button>
+                <button onclick="listAbortedJobs()" style="background: #ffc107; color: #000;">List Aborted</button>
+                <button onclick="clearStoppedJobs()" style="background: #6c757d;">Clear All Stopped Jobs</button>
+                <div class="output" id="all-jobs-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" onclick="contextMenuAction('rename')">✏️ Rename</div>
+        <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ Delete</div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="interrupted-jobs-modal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ Interrupted Jobs Found</div>
+            <p>Some jobs were interrupted when the server was last stopped. Would you like to resume them?</p>
+            <div id="interrupted-jobs-list"></div>
+            <div class="modal-buttons">
+                <button onclick="closeInterruptedJobsModal()">Skip</button>
+                <button onclick="resumeAllInterruptedJobs()" style="background: #28a745;">Resume All</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="rename-modal">
+        <div class="modal-content">
+            <div class="modal-header">✏️ Rename</div>
+            <div class="form-group">
+                <label>New name:</label>
+                <input type="text" id="rename-input" />
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeRenameModal()">Cancel</button>
+                <button onclick="confirmRename()">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="create-folder-modal">
+        <div class="modal-content">
+            <div class="modal-header">📁 Create New Folder</div>
+            <div class="form-group">
+                <label>Folder name:</label>
+                <input type="text" id="create-folder-input" />
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeCreateFolderModal()">Cancel</button>
+                <button onclick="confirmCreateFolder()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="delete-confirm-modal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ Confirm Delete</div>
+            <p style="margin-bottom: 15px; color: #dc3545; font-weight: 500;">
+                This action is irreversible! There is no recycle bin.
+            </p>
+            <p id="delete-confirm-message">Are you sure you want to delete the selected items?</p>
+            <div class="modal-buttons">
+                <button onclick="closeDeleteConfirmModal()">Cancel</button>
+                <button onclick="confirmDelete()" style="background: #dc3545;">Delete</button>
             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = window.location.origin;
+        // Global state
+        let currentMode = 'easy';  // Will be set from config
+        let authToken = '';
+        let leftPaneState = {
+            remote: '',
+            path: '/',
+            files: [],
+            selectedIndexes: []
+        };
+        let rightPaneState = {
+            remote: '',
+            path: '/',
+            files: [],
+            selectedIndexes: []
+        };
+        let contextMenuState = {
+            pane: null,
+            items: []
+        };
+        let jobsData = {
+            jobs: []
+        };
+        let jobUpdateInterval = null;
+        let createFolderPane = null;
 
-        function getToken() {
-            const token = document.getElementById('token').value.trim();
-            if (!token) {
-                alert('Please enter an access token');
-                return null;
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Try to load token from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromUrl = urlParams.get('token');
+            if (tokenFromUrl) {
+                authToken = tokenFromUrl;
+                document.getElementById('token').value = tokenFromUrl;
+                // Set cookie
+                document.cookie = `motus_token=${tokenFromUrl}; path=/; max-age=31536000`;
+            } else {
+                // Try to load from cookie
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    const [name, value] = cookie.trim().split('=');
+                    if (name === 'motus_token') {
+                        authToken = value;
+                        document.getElementById('token').value = value;
+                        break;
+                    }
+                }
             }
-            return token;
-        }
 
+            // Load config to get default mode
+            try {
+                const config = await apiCall('/api/config');
+                currentMode = config.default_mode || 'easy';
+                setMode(currentMode);
+            } catch (e) {
+                console.error('Failed to load config:', e);
+                setMode('easy');
+            }
+
+            // Load remotes for easy mode
+            if (currentMode === 'easy') {
+                await loadRemotes();
+                await refreshPane('left');
+                await refreshPane('right');
+                startJobUpdates();
+            }
+
+            // Check for interrupted jobs
+            checkInterruptedJobs();
+
+            // Hide context menu on click outside
+            document.addEventListener('click', () => {
+                document.getElementById('context-menu').style.display = 'none';
+            });
+        });
+
+        // API helper
         async function apiCall(endpoint, method = 'GET', body = null) {
-            const token = getToken();
-            if (!token) return null;
-
             const options = {
                 method,
                 headers: {
-                    'Authorization': `token ${token}`,
                     'Content-Type': 'application/json',
                 }
             };
+
+            if (authToken) {
+                options.headers['Authorization'] = `token ${authToken}`;
+            }
 
             if (body) {
                 options.body = JSON.stringify(body);
             }
 
-            try {
-                const response = await fetch(`${API_BASE}${endpoint}`, options);
-                const data = await response.json();
+            const response = await fetch(endpoint, options);
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(error.error || 'Request failed');
+            }
+            return response.json();
+        }
 
-                if (!response.ok) {
-                    throw new Error(data.error || `HTTP ${response.status}`);
+        // Mode switching
+        function toggleMode() {
+            setMode(currentMode === 'easy' ? 'expert' : 'easy');
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            if (mode === 'easy') {
+                document.getElementById('easy-mode').classList.remove('hidden');
+                document.getElementById('expert-mode').classList.add('hidden');
+                document.getElementById('mode-button-text').textContent = 'Expert Mode';
+                if (!jobUpdateInterval) {
+                    loadRemotes();
+                    refreshPane('left');
+                    refreshPane('right');
+                    startJobUpdates();
                 }
-
-                return data;
-            } catch (error) {
-                throw error;
+            } else {
+                document.getElementById('easy-mode').classList.add('hidden');
+                document.getElementById('expert-mode').classList.remove('hidden');
+                document.getElementById('mode-button-text').textContent = 'Easy Mode';
+                if (jobUpdateInterval) {
+                    clearInterval(jobUpdateInterval);
+                    jobUpdateInterval = null;
+                }
             }
         }
 
-        function showOutput(elementId, content, isError = false) {
-            const el = document.getElementById(elementId);
-            el.style.display = 'block';
-            el.className = 'output ' + (isError ? 'error' : 'success');
-            el.textContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-        }
-
-        async function testAuth() {
-            try {
-                const data = await apiCall('/api/health');
-                showOutput('auth-output', `✅ Connected successfully!\n\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                showOutput('auth-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        async function listRemotes() {
+        // Load remotes
+        async function loadRemotes() {
             try {
                 const data = await apiCall('/api/remotes');
-
-                const remotesDiv = document.getElementById('remotes-output');
-                const remotesList = document.getElementById('remotes-list');
-
-                if (data.remotes && data.remotes.length > 0) {
-                    remotesList.innerHTML = '';
-                    data.remotes.forEach(remote => {
-                        const badge = document.createElement('div');
-                        badge.className = 'remote-badge';
-                        badge.textContent = `${remote}:`;
-                        badge.title = `Click to copy "${remote}:" to clipboard`;
-                        badge.style.cursor = 'pointer';
-                        badge.onclick = () => {
-                            navigator.clipboard.writeText(`${remote}:`);
-                            badge.textContent = `✓ ${remote}:`;
-                            setTimeout(() => {
-                                badge.textContent = `${remote}:`;
-                            }, 1500);
-                        };
-                        remotesList.appendChild(badge);
-                    });
-                    remotesDiv.style.display = 'block';
-                } else {
-                    remotesList.innerHTML = '<p>No remotes configured. Configure remotes using: <code>rclone config</code></p>';
-                    remotesDiv.style.display = 'block';
-                }
-            } catch (error) {
-                const remotesDiv = document.getElementById('remotes-output');
-                const remotesList = document.getElementById('remotes-list');
-                remotesList.innerHTML = `<p style="color: #dc3545;">❌ Error: ${error.message}</p>`;
-                remotesDiv.style.display = 'block';
-            }
-        }
-
-        async function listFiles() {
-            const path = document.getElementById('browse-path').value.trim();
-            try {
-                const data = await apiCall('/api/files/ls', 'POST', { path });
-
-                let output = `Files in ${data.path}:\n\n`;
-                if (data.files && data.files.length > 0) {
-                    data.files.forEach(file => {
-                        const icon = file.IsDir ? '📁' : '📄';
-                        const size = file.IsDir ? '' : ` (${formatBytes(file.Size)})`;
-                        output += `${icon} ${file.Name}${size}\n`;
-                    });
-                } else {
-                    output += '(empty directory)';
-                }
-
-                showOutput('browse-output', output);
-            } catch (error) {
-                showOutput('browse-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        async function makeDir() {
-            const path = document.getElementById('mkdir-path').value.trim();
-            try {
-                const data = await apiCall('/api/files/mkdir', 'POST', { path });
-                showOutput('mkdir-output', `✅ ${data.message}\nPath: ${data.path}`);
-            } catch (error) {
-                showOutput('mkdir-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        let currentJobId = null;
-
-        async function copyFiles() {
-            const src = document.getElementById('copy-src').value.trim();
-            const dst = document.getElementById('copy-dst').value.trim();
-
-            if (!src || !dst) {
-                alert('Please enter both source and destination paths');
-                return;
-            }
-
-            try {
-                const data = await apiCall('/api/jobs/copy', 'POST', {
-                    src_path: src,
-                    dst_path: dst
+                const leftSelect = document.getElementById('left-remote');
+                const rightSelect = document.getElementById('right-remote');
+                
+                // Clear existing options except first
+                leftSelect.innerHTML = '<option value="">Local Filesystem</option>';
+                rightSelect.innerHTML = '<option value="">Local Filesystem</option>';
+                
+                data.remotes.forEach(remote => {
+                    leftSelect.innerHTML += `<option value="${remote}">${remote}</option>`;
+                    rightSelect.innerHTML += `<option value="${remote}">${remote}</option>`;
                 });
-
-                currentJobId = data.job_id;
-                showOutput('copy-output', `✅ ${data.message}\nJob ID: ${data.job_id}`);
-                document.getElementById('copy-progress').style.display = 'block';
-                document.getElementById('job-id').value = data.job_id;
-
-                // Start monitoring progress
-                monitorJob(data.job_id);
             } catch (error) {
-                showOutput('copy-output', `❌ Error: ${error.message}`, true);
+                console.error('Failed to load remotes:', error);
             }
         }
 
-        async function monitorJob(jobId) {
-            const interval = setInterval(async () => {
-                try {
-                    const token = getToken();
-                    const response = await fetch(`${API_BASE}/api/jobs/${jobId}?token=${token}`);
-                    const data = await response.json();
+        // Remote change handler
+        function onRemoteChange(pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const select = document.getElementById(`${pane}-remote`);
+            state.remote = select.value;
+            state.path = '/';
+            document.getElementById(`${pane}-path`).value = '/';
+            refreshPane(pane);
+        }
 
-                    const progress = data.progress || 0;
-                    const fill = document.getElementById('copy-progress-fill');
-                    fill.style.width = `${progress}%`;
-                    fill.textContent = `${progress}%`;
+        // Browse path
+        function browsePath(pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            state.path = document.getElementById(`${pane}-path`).value;
+            refreshPane(pane);
+        }
 
-                    if (data.finished) {
-                        clearInterval(interval);
-                        if (data.exit_status === 0) {
-                            showOutput('copy-output', `✅ Copy completed!\n\n${data.text}`);
-                        } else {
-                            showOutput('copy-output', `❌ Copy failed!\n\n${data.error_text}`, true);
-                        }
-                    }
-                } catch (error) {
-                    clearInterval(interval);
+        // Refresh pane
+        async function refreshPane(pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const fullPath = state.remote ? `${state.remote}:${state.path}` : state.path;
+            
+            try {
+                const data = await apiCall('/api/files/ls', 'POST', { path: fullPath });
+                state.files = data.files || [];
+                state.selectedIndexes = [];
+                renderFiles(pane);
+            } catch (error) {
+                console.error(`Failed to refresh ${pane} pane:`, error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        // Render files in grid
+        function renderFiles(pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const container = document.getElementById(`${pane}-files`);
+            
+            container.innerHTML = '';
+            
+            // Add parent directory if not at root
+            if (state.path !== '/') {
+                const parentDiv = createFileElement({
+                    name: '..',
+                    is_dir: true
+                }, -1, pane);
+                container.appendChild(parentDiv);
+            }
+            
+            state.files.forEach((file, index) => {
+                const fileDiv = createFileElement(file, index, pane);
+                container.appendChild(fileDiv);
+            });
+        }
+
+        // Create file element
+        function createFileElement(file, index, pane) {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            if (index >= 0 && state.selectedIndexes.includes(index)) {
+                div.classList.add('selected');
+            }
+            
+            const icon = file.is_dir ? '📁' : '📄';
+            div.innerHTML = `
+                <div class="file-icon">${icon}</div>
+                <div class="file-name">${file.name}</div>
+            `;
+            
+            // Double-click to navigate
+            div.addEventListener('dblclick', () => {
+                if (file.name === '..') {
+                    navigateUp(pane);
+                } else if (file.is_dir) {
+                    navigateInto(pane, file.name);
                 }
-            }, 2000);
+            });
+            
+            // Single click for selection
+            if (index >= 0) {
+                div.addEventListener('click', (e) => {
+                    handleFileClick(pane, index, e);
+                });
+                
+                // Draggable
+                div.draggable = true;
+                div.addEventListener('dragstart', (e) => {
+                    handleDragStart(e, pane, index);
+                });
+                
+                // Right-click context menu
+                div.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (!state.selectedIndexes.includes(index)) {
+                        state.selectedIndexes = [index];
+                        renderFiles(pane);
+                    }
+                    showContextMenu(e, pane);
+                });
+            }
+            
+            return div;
         }
 
-        async function getJobStatus() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
+        // Navigate up
+        function navigateUp(pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const pathParts = state.path.split('/').filter(p => p);
+            pathParts.pop();
+            state.path = '/' + pathParts.join('/');
+            document.getElementById(`${pane}-path`).value = state.path;
+            refreshPane(pane);
+        }
+
+        // Navigate into directory
+        function navigateInto(pane, dirname) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            state.path = state.path.endsWith('/') ? state.path + dirname : state.path + '/' + dirname;
+            document.getElementById(`${pane}-path`).value = state.path;
+            refreshPane(pane);
+        }
+
+        // File selection
+        function handleFileClick(pane, index, event) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            
+            if (event.ctrlKey || event.metaKey) {
+                // Toggle selection
+                const idx = state.selectedIndexes.indexOf(index);
+                if (idx >= 0) {
+                    state.selectedIndexes.splice(idx, 1);
+                } else {
+                    state.selectedIndexes.push(index);
+                }
+            } else if (event.shiftKey && state.selectedIndexes.length > 0) {
+                // Range selection
+                const lastIndex = state.selectedIndexes[state.selectedIndexes.length - 1];
+                const start = Math.min(lastIndex, index);
+                const end = Math.max(lastIndex, index);
+                state.selectedIndexes = [];
+                for (let i = start; i <= end; i++) {
+                    state.selectedIndexes.push(i);
+                }
+            } else {
+                // Single selection
+                state.selectedIndexes = [index];
+            }
+            
+            renderFiles(pane);
+        }
+
+        // Drag and drop
+        function handleDragStart(event, pane, index) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            if (!state.selectedIndexes.includes(index)) {
+                state.selectedIndexes = [index];
+                renderFiles(pane);
+            }
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('text/plain', JSON.stringify({
+                pane,
+                indexes: state.selectedIndexes
+            }));
+        }
+
+        function handleDragOver(event, targetPane) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            document.getElementById(`${targetPane}-files`).classList.add('drag-over');
+        }
+
+        function handleDragLeave(event, targetPane) {
+            document.getElementById(`${targetPane}-files`).classList.remove('drag-over');
+        }
+
+        async function handleDrop(event, targetPane) {
+            event.preventDefault();
+            document.getElementById(`${targetPane}-files`).classList.remove('drag-over');
+            
+            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+            const sourcePane = data.pane;
+            
+            if (sourcePane === targetPane) {
+                return; // Can't drop on same pane
+            }
+            
+            const sourceState = sourcePane === 'left' ? leftPaneState : rightPaneState;
+            const targetState = targetPane === 'left' ? leftPaneState : rightPaneState;
+            
+            // Start copy jobs for each selected file
+            for (const index of data.indexes) {
+                const file = sourceState.files[index];
+                const srcPath = sourceState.remote ? 
+                    `${sourceState.remote}:${sourceState.path}/${file.name}` :
+                    `${sourceState.path}/${file.name}`;
+                const dstPath = targetState.remote ?
+                    `${targetState.remote}:${targetState.path}/` :
+                    `${targetState.path}/`;
+                
+                try {
+                    await apiCall('/api/jobs/copy', 'POST', {
+                        src_path: srcPath,
+                        dst_path: dstPath,
+                        copy_links: false
+                    });
+                } catch (error) {
+                    console.error('Copy failed:', error);
+                    alert(`Failed to copy ${file.name}: ${error.message}`);
+                }
+            }
+            
+            // Refresh target pane and update jobs
+            refreshPane(targetPane);
+            updateJobs();
+        }
+
+        // Context menu
+        function showContextMenu(event, pane) {
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            contextMenuState.pane = pane;
+            contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
+            
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'block';
+            menu.style.left = event.pageX + 'px';
+            menu.style.top = event.pageY + 'px';
+            
+            // Show rename only for single file
+            const renameItem = menu.querySelector('.context-menu-item:first-child');
+            if (state.selectedIndexes.length === 1) {
+                renameItem.style.display = 'block';
+            } else {
+                renameItem.style.display = 'none';
+            }
+        }
+
+        function contextMenuAction(action) {
+            document.getElementById('context-menu').style.display = 'none';
+            
+            if (action === 'rename' && contextMenuState.items.length === 1) {
+                showRenameModal(contextMenuState.items[0].name);
+            } else if (action === 'delete') {
+                showDeleteConfirmModal();
+            }
+        }
+
+        // Rename modal
+        function showRenameModal(currentName) {
+            document.getElementById('rename-input').value = currentName;
+            document.getElementById('rename-modal').style.display = 'flex';
+        }
+
+        function closeRenameModal() {
+            document.getElementById('rename-modal').style.display = 'none';
+        }
+
+        async function confirmRename() {
+            const newName = document.getElementById('rename-input').value.trim();
+            if (!newName) {
+                alert('Please enter a name');
                 return;
             }
-
+            
+            const pane = contextMenuState.pane;
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const file = contextMenuState.items[0];
+            
+            const oldPath = state.remote ?
+                `${state.remote}:${state.path}/${file.name}` :
+                `${state.path}/${file.name}`;
+            const newPath = state.remote ?
+                `${state.remote}:${state.path}/${newName}` :
+                `${state.path}/${newName}`;
+            
             try {
-                const data = await apiCall(`/api/jobs/${jobId}`);
-                showOutput('job-output', JSON.stringify(data, null, 2));
+                // Use move operation for rename
+                await apiCall('/api/jobs/move', 'POST', {
+                    src_path: oldPath,
+                    dst_path: newPath
+                });
+                closeRenameModal();
+                refreshPane(pane);
             } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
+                alert(`Rename failed: ${error.message}`);
             }
         }
 
-        async function stopJob() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
+        // Delete confirmation
+        function showDeleteConfirmModal() {
+            const count = contextMenuState.items.length;
+            document.getElementById('delete-confirm-message').textContent = 
+                `Are you sure you want to delete ${count} item(s)?`;
+            document.getElementById('delete-confirm-modal').style.display = 'flex';
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('delete-confirm-modal').style.display = 'none';
+        }
+
+        async function confirmDelete() {
+            const pane = contextMenuState.pane;
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            
+            for (const file of contextMenuState.items) {
+                const path = state.remote ?
+                    `${state.remote}:${state.path}/${file.name}` :
+                    `${state.path}/${file.name}`;
+                
+                try {
+                    await apiCall('/api/files/delete', 'POST', { path });
+                } catch (error) {
+                    alert(`Failed to delete ${file.name}: ${error.message}`);
+                }
+            }
+            
+            closeDeleteConfirmModal();
+            refreshPane(pane);
+        }
+
+        // Create folder
+        function createFolder(pane) {
+            createFolderPane = pane;
+            document.getElementById('create-folder-input').value = '';
+            document.getElementById('create-folder-modal').style.display = 'flex';
+        }
+
+        function closeCreateFolderModal() {
+            document.getElementById('create-folder-modal').style.display = 'none';
+        }
+
+        async function confirmCreateFolder() {
+            const name = document.getElementById('create-folder-input').value.trim();
+            if (!name) {
+                alert('Please enter a folder name');
                 return;
             }
-
+            
+            const pane = createFolderPane;
+            const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const path = state.remote ?
+                `${state.remote}:${state.path}/${name}` :
+                `${state.path}/${name}`;
+            
             try {
-                const data = await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
-                showOutput('job-output', `✅ ${data.message}`);
+                await apiCall('/api/files/mkdir', 'POST', { path });
+                closeCreateFolderModal();
+                refreshPane(pane);
             } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
+                alert(`Failed to create folder: ${error.message}`);
             }
         }
 
-        async function listJobs() {
-            try {
-                const data = await apiCall('/api/jobs');
-                showOutput('job-output', `Recent Jobs:\n\n${JSON.stringify(data.jobs, null, 2)}`);
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
+        // Job panel
+        function toggleJobPanel() {
+            const panel = document.getElementById('job-panel');
+            panel.classList.toggle('collapsed');
         }
 
-        async function listRunningJobs() {
+        function startJobUpdates() {
+            updateJobs();
+            jobUpdateInterval = setInterval(updateJobs, 2000);
+        }
+
+        async function updateJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=running');
-                const runningJobs = data.jobs.filter(job => job.status === 'running');
-
-                if (runningJobs.length === 0) {
-                    showOutput('job-output', `No running jobs found.`);
-                } else {
-                    showOutput('job-output', `Running Jobs (${runningJobs.length}):\n\n${JSON.stringify(runningJobs, null, 2)}`);
-                }
+                jobsData.jobs = data.jobs || [];
+                renderJobs();
             } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
+                console.error('Failed to update jobs:', error);
             }
         }
 
-        async function listAbortedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=aborted');
-
-                if (data.jobs.length === 0) {
-                    showOutput('job-output', `No aborted jobs found.`);
-                } else {
-                    showOutput('job-output', `Aborted Jobs (${data.jobs.length}):\n\n${JSON.stringify(data.jobs, null, 2)}`);
-                }
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        async function checkIntegrity() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
+        function renderJobs() {
+            const container = document.getElementById('job-list');
+            const count = document.getElementById('job-count');
+            count.textContent = jobsData.jobs.length;
+            
+            if (jobsData.jobs.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">No active jobs</p>';
                 return;
             }
-
-            try {
-                // Get the original job details
-                const jobData = await apiCall(`/api/jobs/${jobId}`);
-
-                // Start integrity check
-                const data = await apiCall('/api/jobs/check', 'POST', {
-                    src_path: jobData.src_path,
-                    dst_path: jobData.dst_path
-                });
-
-                // Update Job ID field with new job
-                document.getElementById('job-id').value = data.job_id;
-
-                showOutput('job-output', `✅ Integrity check started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
+            
+            container.innerHTML = jobsData.jobs.map(job => `
+                <div class="job-item ${job.status}">
+                    <div class="job-header">
+                        <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
+                        <span class="job-status">${job.status}</span>
+                    </div>
+                    <div class="job-path">${job.src_cloud_id}:${job.src_resource_path} → ${job.dst_cloud_id}:${job.dst_resource_path}</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${job.progress || 0}%">
+                            ${job.progress || 0}%
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         }
 
-        async function resumeJob() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
-
-                // Update Job ID field with new job
-                document.getElementById('job-id').value = data.job_id;
-
-                showOutput('job-output', `✅ Job resumed!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        async function syncJob() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-
-            // Warning dialog
-            const confirmed = confirm(
-                '⚠️ WARNING: Sync is DESTRUCTIVE!\n\n' +
-                'This will DELETE files at the destination that do not exist at the source.\n\n' +
-                'Are you sure you want to continue?'
-            );
-
-            if (!confirmed) {
-                return;
-            }
-
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/sync`, 'POST');
-
-                // Update Job ID field with new job
-                document.getElementById('job-id').value = data.job_id;
-
-                showOutput('job-output', `✅ Sync job started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
-        async function clearStoppedJobs() {
-            const confirmed = confirm('Are you sure you want to delete all stopped jobs from the database?');
-            if (!confirmed) {
-                return;
-            }
-
-            try {
-                const data = await apiCall('/api/jobs/clear_stopped', 'POST');
-                showOutput('job-output', `✅ ${data.message}\n\n${JSON.stringify(data, null, 2)}`);
-            } catch (error) {
-                showOutput('job-output', `❌ Error: ${error.message}`, true);
-            }
-        }
-
+        // Interrupted jobs
         async function checkInterruptedJobs() {
             try {
                 const data = await apiCall('/api/jobs?status=resumable');
-
                 if (data.jobs && data.jobs.length > 0) {
-                    // Show modal with interrupted jobs
-                    const modal = document.getElementById('interrupted-modal');
-                    const list = document.getElementById('interrupted-list');
-
-                    list.innerHTML = data.jobs.map(job =>
-                        `<div style="padding:10px; margin-bottom:8px; background:white; border-radius:4px; border-left:3px solid #ffc107;">
-                            <strong>Job ${job.job_id}</strong>: ${job.operation}<br>
-                            <small style="color:#666;">${job.src_path} → ${job.dst_path}</small>
-                        </div>`
-                    ).join('');
-
-                    modal.style.display = 'block';
-
-                    // Store interrupted job IDs for later
-                    window.interruptedJobs = data.jobs;
+                    showInterruptedJobsModal(data.jobs);
                 }
             } catch (error) {
-                console.error('Error checking interrupted jobs:', error);
+                console.error('Failed to check interrupted jobs:', error);
             }
         }
 
-        function skipInterruptedJobs() {
-            document.getElementById('interrupted-modal').style.display = 'none';
+        function showInterruptedJobsModal(jobs) {
+            const list = document.getElementById('interrupted-jobs-list');
+            list.innerHTML = jobs.map(job => `
+                <div style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 4px;">
+                    Job #${job.job_id}: ${job.src_cloud_id}:${job.src_resource_path} → ${job.dst_cloud_id}:${job.dst_resource_path}
+                </div>
+            `).join('');
+            document.getElementById('interrupted-jobs-modal').style.display = 'flex';
         }
 
-        async function resumeAllJobs() {
-            if (!window.interruptedJobs) return;
-
-            const modal = document.getElementById('interrupted-modal');
-            modal.style.display = 'none';
-
-            let resumed = 0;
-            for (const job of window.interruptedJobs) {
-                try {
-                    await apiCall(`/api/jobs/${job.job_id}/resume`, 'POST');
-                    resumed++;
-                } catch (error) {
-                    console.error(`Failed to resume job ${job.job_id}:`, error);
-                }
-            }
-
-            alert(`✅ Resumed ${resumed} of ${window.interruptedJobs.length} jobs`);
-            window.interruptedJobs = null;
+        function closeInterruptedJobsModal() {
+            document.getElementById('interrupted-jobs-modal').style.display = 'none';
         }
 
-        async function quitServer() {
+        async function resumeAllInterruptedJobs() {
             try {
-                // Check how many jobs are running
-                const jobsData = await apiCall('/api/jobs?status=running');
-                const runningCount = jobsData.jobs ? jobsData.jobs.length : 0;
-
-                // Confirmation dialog only if jobs are running
-                if (runningCount > 0) {
-                    const message = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-                                    `These jobs will be stopped and marked as interrupted.\n\n` +
-                                    `Do you want to quit?`;
-
-                    const confirmed = confirm(message);
-                    if (!confirmed) {
-                        return;
-                    }
+                const data = await apiCall('/api/jobs?status=resumable');
+                for (const job of data.jobs) {
+                    await apiCall('/api/jobs/resume', 'POST', { job_id: job.job_id });
                 }
+                closeInterruptedJobsModal();
+                updateJobs();
+            } catch (error) {
+                alert(`Failed to resume jobs: ${error.message}`);
+            }
+        }
 
-                // Call shutdown endpoint
+        // Quit server
+        async function quitServer() {
+            const runningCount = jobsData.jobs ? jobsData.jobs.length : 0;
+            if (runningCount > 0) {
+                const confirmed = confirm(
+                    `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
+                    `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
+                    `Are you sure you want to quit?`
+                );
+                if (!confirmed) return;
+            }
+
+            try {
                 const data = await apiCall('/api/shutdown', 'POST');
-
+                
                 // Replace page content with shutdown message
                 document.body.innerHTML = `
                     <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -717,103 +1362,266 @@
                         ${data.running_jobs_stopped > 0 ?
                             `<p style="color:#666; margin-bottom:20px;">
                                 ${data.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
+                                You can resume them next time you start the server.
                             </p>` : ''}
-                        <p style="color:#999; font-size:16px;">
-                            You can now close this tab.
+                        <p style="color:#999; font-size:14px;">
+                            You can close this window now.
                         </p>
                     </div>
                 `;
             } catch (error) {
-                // Server likely already shut down
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    document.body.innerHTML = `
-                        <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                            <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped</h1>
-                            <p style="font-size:18px; color:#666; margin-bottom:30px;">
-                                The server has been shut down.
-                            </p>
-                            <p style="color:#999; font-size:16px;">
-                                You can now close this tab.
-                            </p>
-                        </div>
-                    `;
-                } else {
-                    alert(`Error shutting down server: ${error.message}`);
-                }
+                alert(`Failed to shutdown server: ${error.message}`);
             }
         }
 
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        // Expert mode functions (existing)
+        async function authenticate() {
+            authToken = document.getElementById('token').value;
+            document.cookie = `motus_token=${authToken}; path=/; max-age=31536000`;
+            try {
+                await apiCall('/api/health');
+                document.getElementById('auth-status').innerHTML = '<div class="success">✓ Authenticated successfully</div>';
+            } catch (error) {
+                document.getElementById('auth-status').innerHTML = `<div class="error">✗ Authentication failed: ${error.message}</div>`;
+            }
         }
 
-        // Auto-fill token from URL if present
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
-        if (urlToken) {
-            document.getElementById('token').value = urlToken;
+        async function listRemotes() {
+            try {
+                const data = await apiCall('/api/remotes');
+                document.getElementById('remotes-output').textContent = 
+                    `Found ${data.count} remote(s):\n\n` + data.remotes.join('\n');
+            } catch (error) {
+                document.getElementById('remotes-output').textContent = `Error: ${error.message}`;
+            }
         }
 
-        // Add ENTER key support for input fields
-        document.addEventListener('DOMContentLoaded', function() {
-            // Token - ENTER triggers Test Connection
-            document.getElementById('token').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    testAuth();
-                }
-            });
+        async function listFiles() {
+            const path = document.getElementById('ls-path').value;
+            try {
+                const data = await apiCall('/api/files/ls', 'POST', { path });
+                const output = data.files.map(f => 
+                    `${f.is_dir ? 'DIR ' : 'FILE'} ${f.name} (${f.size_str})`
+                ).join('\n');
+                document.getElementById('ls-output').textContent = output || 'Empty directory';
+            } catch (error) {
+                document.getElementById('ls-output').textContent = `Error: ${error.message}`;
+            }
+        }
 
-            // Browse Files - ENTER triggers List Files
-            document.getElementById('browse-path').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    listFiles();
-                }
-            });
+        async function makeDirectory() {
+            const path = document.getElementById('mkdir-path').value;
+            try {
+                await apiCall('/api/files/mkdir', 'POST', { path });
+                document.getElementById('mkdir-status').innerHTML = `<div class="success">✓ Directory created: ${path}</div>`;
+            } catch (error) {
+                document.getElementById('mkdir-status').innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
 
-            // Create Directory - ENTER triggers Create Directory
-            document.getElementById('mkdir-path').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    makeDir();
-                }
-            });
+        async function deletePath() {
+            const path = document.getElementById('delete-path').value;
+            if (!confirm(`Are you sure you want to delete: ${path}?`)) return;
+            
+            try {
+                await apiCall('/api/files/delete', 'POST', { path });
+                document.getElementById('delete-status').innerHTML = `<div class="success">✓ Deleted: ${path}</div>`;
+            } catch (error) {
+                document.getElementById('delete-status').innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
 
-            // Copy Files - ENTER on either field triggers Start Copy
-            document.getElementById('copy-src').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    copyFiles();
-                }
-            });
-            document.getElementById('copy-dst').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    copyFiles();
-                }
-            });
+        async function startCopyJob() {
+            const src = document.getElementById('job-src').value;
+            const dst = document.getElementById('job-dst').value;
+            const copyLinks = document.getElementById('copy-links').checked;
+            
+            try {
+                const data = await apiCall('/api/jobs/copy', 'POST', { 
+                    src_path: src, 
+                    dst_path: dst,
+                    copy_links: copyLinks
+                });
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
 
-            // Job Status - ENTER triggers Get Status
-            document.getElementById('job-id').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    getJobStatus();
-                }
-            });
+        async function startMoveJob() {
+            const src = document.getElementById('job-src').value;
+            const dst = document.getElementById('job-dst').value;
+            
+            try {
+                const data = await apiCall('/api/jobs/move', 'POST', { 
+                    src_path: src, 
+                    dst_path: dst
+                });
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="success">✓ Move job started (ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
 
-            // Check for interrupted jobs on page load (with delay to allow token to be set)
-            setTimeout(() => {
-                const token = document.getElementById('token').value;
-                if (token) {
-                    checkInterruptedJobs();
-                }
-            }, 500);
-        });
+        async function checkIntegrity() {
+            const src = document.getElementById('job-src').value;
+            const dst = document.getElementById('job-dst').value;
+            
+            try {
+                const data = await apiCall('/api/jobs/check', 'POST', { 
+                    src_path: src, 
+                    dst_path: dst
+                });
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="success">✓ Integrity check started (ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function resumeJob() {
+            const jobId = parseInt(document.getElementById('job-id').value);
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+            
+            try {
+                const data = await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
+                document.getElementById('job-id').value = data.new_job_id;
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="success">✓ Resume job started (New ID: ${data.new_job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function syncJob() {
+            const src = document.getElementById('job-src').value;
+            const dst = document.getElementById('job-dst').value;
+            
+            if (!confirm(
+                '⚠️ WARNING: Sync is a DESTRUCTIVE operation!\n\n' +
+                'Files in the destination that don\'t exist in the source will be DELETED.\n\n' +
+                'Are you sure you want to continue?'
+            )) {
+                return;
+            }
+            
+            try {
+                const data = await apiCall('/api/jobs/sync', 'POST', { 
+                    src_path: src, 
+                    dst_path: dst
+                });
+                document.getElementById('job-id').value = data.job_id;
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="success">✓ Sync job started (ID: ${data.job_id})</div>`;
+            } catch (error) {
+                document.getElementById('job-start-status').innerHTML = 
+                    `<div class="error">✗ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function getJobStatus() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+            
+            try {
+                const job = await apiCall(`/api/jobs/${jobId}`);
+                const output = `
+Job ID: ${job.job_id}
+Operation: ${job.operation}
+Status: ${job.status}
+Progress: ${job.progress}%
+Source: ${job.src_cloud_id}:${job.src_resource_path}
+Destination: ${job.dst_cloud_id}:${job.dst_resource_path}
+Created: ${job.created_at}
+${job.finished_at ? 'Finished: ' + job.finished_at : ''}
+${job.error_text ? 'Error: ' + job.error_text : ''}
+
+Output:
+${job.text || '(no output yet)'}
+                `.trim();
+                document.getElementById('job-status-output').textContent = output;
+            } catch (error) {
+                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function stopJob() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+            
+            try {
+                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
+                document.getElementById('job-status-output').textContent = `Job ${jobId} stopped`;
+            } catch (error) {
+                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function listAllJobs() {
+            try {
+                const data = await apiCall('/api/jobs');
+                const output = data.jobs.map(j => 
+                    `#${j.job_id} ${j.operation} ${j.status} ${j.progress}% - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                ).join('\n');
+                document.getElementById('all-jobs-output').textContent = output || 'No jobs';
+            } catch (error) {
+                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function listRunningJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=running');
+                const output = data.jobs.map(j => 
+                    `#${j.job_id} ${j.operation} ${j.progress}% - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                ).join('\n');
+                document.getElementById('all-jobs-output').textContent = output || 'No running jobs';
+            } catch (error) {
+                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function listAbortedJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=aborted');
+                const output = data.jobs.map(j => 
+                    `#${j.job_id} ${j.operation} - ${j.src_cloud_id}:${j.src_resource_path} → ${j.dst_cloud_id}:${j.dst_resource_path}`
+                ).join('\n');
+                document.getElementById('all-jobs-output').textContent = output || 'No aborted jobs';
+            } catch (error) {
+                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function clearStoppedJobs() {
+            if (!confirm('Clear all stopped jobs?')) return;
+            
+            try {
+                const data = await apiCall('/api/jobs/clear-stopped', 'POST');
+                document.getElementById('all-jobs-output').textContent = 
+                    `Cleared ${data.count} stopped job(s)`;
+            } catch (error) {
+                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
+            }
+        }
     </script>
 </body>
 </html>

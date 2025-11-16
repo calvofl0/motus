@@ -118,6 +118,13 @@ class Config:
             default='127.0.0.1'
         )
 
+        # Default UI mode (easy or expert)
+        self.default_mode = self._get_config(
+            'default_mode',
+            env_var='MOTUS_DEFAULT_MODE',
+            default='easy'
+        ).lower()
+
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""
         # Check environment variable first

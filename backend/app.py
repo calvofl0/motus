@@ -193,6 +193,7 @@ def register_routes(app: Flask, config: Config):
         return jsonify({
             'base_url': config.base_url,
             'version': '1.0.0',
+            'default_mode': config.default_mode,
         })
 
     @app.route('/api/shutdown', methods=['POST'])

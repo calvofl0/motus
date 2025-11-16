@@ -238,6 +238,11 @@ def main():
         action='store_true',
         help='Enable CORS (for development)'
     )
+    parser.add_argument(
+        '--expert-mode',
+        action='store_true',
+        help='Start in Expert mode instead of Easy mode (default: Easy, or MOTUS_DEFAULT_MODE env var)'
+    )
 
     args = parser.parse_args()
 
@@ -258,6 +263,8 @@ def main():
         config.log_level = args.log_level
     if args.allow_cors:
         config.allow_cors = True
+    if args.expert_mode:
+        config.default_mode = 'expert'
 
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)
