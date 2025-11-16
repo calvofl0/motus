@@ -362,25 +362,31 @@
             align-items: center;
         }
 
-        .job-cancel-btn {
-            background: #dc3545;
-            color: white;
+        .job-icon-btn {
+            background: none;
+            color: inherit;
             border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
             cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
+            font-size: 20px;
+            padding: 4px;
             line-height: 1;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: opacity 0.2s;
+            opacity: 0.7;
         }
 
-        .job-cancel-btn:hover {
-            background: #c82333;
+        .job-icon-btn:hover {
+            opacity: 1;
+        }
+
+        .job-icon-btn.cancel {
+            color: #dc3545;
+        }
+
+        .job-icon-btn.resume {
+            color: #28a745;
         }
 
         /* Interrupted Jobs Dropdown */
@@ -434,22 +440,8 @@
 
         .interrupted-job-actions {
             display: flex;
-            gap: 8px;
-        }
-
-        .interrupted-job-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.2s;
-        }
-
-        .interrupted-job-btn:hover {
-            background: #0056b3;
+            gap: 12px;
+            align-items: center;
         }
 
         /* Expert Mode */
@@ -620,7 +612,7 @@
         <div class="panes-container">
             <!-- Left Pane -->
             <div class="pane left-pane">
-                <div class="pane-header">📂 Left Server</div>
+                <div class="pane-header">📂 Server A</div>
                 <div class="pane-toolbar">
                     <div class="toolbar-row">
                         <select id="left-remote" onchange="onRemoteChange('left')">
@@ -645,7 +637,7 @@
 
             <!-- Right Pane -->
             <div class="pane right-pane">
-                <div class="pane-header">📂 Right Server</div>
+                <div class="pane-header">📂 Server B</div>
                 <div class="pane-toolbar">
                     <div class="toolbar-row">
                         <select id="right-remote" onchange="onRemoteChange('right')">
@@ -925,6 +917,15 @@
             // Load remotes for easy mode
             if (currentMode === 'easy') {
                 await loadRemotes();
+                // If using Local Filesystem, start in home directory
+                if (leftPaneState.remote === '') {
+                    leftPaneState.path = '~/';
+                    document.getElementById('left-path').value = '~/';
+                }
+                if (rightPaneState.remote === '') {
+                    rightPaneState.path = '~/';
+                    document.getElementById('right-path').value = '~/';
+                }
                 await refreshPane('left');
                 await refreshPane('right');
                 startJobUpdates();
@@ -1513,7 +1514,7 @@
                         </div>
                         <div class="job-actions">
                             <span class="job-status">${job.status}</span>
-                            <button class="job-cancel-btn" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
+                            <button class="job-icon-btn cancel" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
                         </div>
                     </div>
                     <div class="job-path">${job.src_path} → ${job.dst_path}</div>
@@ -1566,10 +1567,8 @@
                         Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
                     </div>
                     <div class="interrupted-job-actions">
-                        <button class="interrupted-job-btn" onclick="resumeInterruptedJobFromDropdown(${job.job_id})" title="Resume this job">
-                            ▶️ Resume
-                        </button>
-                        <button class="job-cancel-btn" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">×</button>
+                        <button class="job-icon-btn resume" onclick="resumeInterruptedJobFromDropdown(${job.job_id})" title="Resume this job">▶</button>
+                        <button class="job-icon-btn cancel" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">×</button>
                     </div>
                 </div>
             `).join('');
@@ -1589,7 +1588,6 @@
                 const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
                 updateInterruptedJobs();
                 updateJobs();  // Refresh active jobs too
-                alert(`Job resumed successfully! New Job ID: ${data.job_id}`);
             } catch (error) {
                 alert(`Failed to resume job: ${error.message}`);
             }
