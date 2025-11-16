@@ -826,9 +826,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="left-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'left')" />
-                        <button class="toolbar-button" onclick="browsePath('left')">Go</button>
-                        <button class="toolbar-button secondary" onclick="refreshPane('left')">🔄 Refresh</button>
-                        <button class="toolbar-button secondary" onclick="createFolder('left')">📁 New Folder</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('left')" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="left-files" 
@@ -851,9 +849,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="right-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'right')" />
-                        <button class="toolbar-button" onclick="browsePath('right')">Go</button>
-                        <button class="toolbar-button secondary" onclick="refreshPane('right')">🔄 Refresh</button>
-                        <button class="toolbar-button secondary" onclick="createFolder('right')">📁 New Folder</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('right')" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="right-files"
@@ -998,6 +994,7 @@
     <div class="context-menu" id="context-menu">
         <div class="context-menu-item" onclick="contextMenuAction('rename')">✏️ Rename</div>
         <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ Delete</div>
+        <div class="context-menu-item" onclick="contextMenuAction('newfolder')">📁 New Folder</div>
         <div class="context-menu-item has-submenu">
             📊 Sort by
             <div class="context-submenu">
@@ -1164,6 +1161,14 @@
             document.addEventListener('click', () => {
                 document.getElementById('context-menu').style.display = 'none';
                 document.getElementById('view-dropdown').classList.add('hidden');
+            });
+
+            // Close context menu and view dropdown on ESC key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('context-menu').style.display = 'none';
+                    document.getElementById('view-dropdown').classList.add('hidden');
+                }
             });
 
             // Click whitespace to deselect
@@ -1949,6 +1954,8 @@
                 showRenameModal(contextMenuState.items[0].name);
             } else if (action === 'delete') {
                 showDeleteConfirmModal();
+            } else if (action === 'newfolder') {
+                createFolder(contextMenuState.pane);
             }
         }
 
