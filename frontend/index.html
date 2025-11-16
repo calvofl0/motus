@@ -533,6 +533,9 @@
                     dst_path: jobData.dst_path
                 });
 
+                // Update Job ID field with new job
+                document.getElementById('job-id').value = data.job_id;
+
                 showOutput('job-output', `✅ Integrity check started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
             } catch (error) {
                 showOutput('job-output', `❌ Error: ${error.message}`, true);
@@ -548,6 +551,10 @@
 
             try {
                 const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
+
+                // Update Job ID field with new job
+                document.getElementById('job-id').value = data.job_id;
+
                 showOutput('job-output', `✅ Job resumed!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
             } catch (error) {
                 showOutput('job-output', `❌ Error: ${error.message}`, true);
@@ -574,6 +581,10 @@
 
             try {
                 const data = await apiCall(`/api/jobs/${jobId}/sync`, 'POST');
+
+                // Update Job ID field with new job
+                document.getElementById('job-id').value = data.job_id;
+
                 showOutput('job-output', `✅ Sync job started!\nNew Job ID: ${data.job_id}\n\n${JSON.stringify(data, null, 2)}`);
             } catch (error) {
                 showOutput('job-output', `❌ Error: ${error.message}`, true);
