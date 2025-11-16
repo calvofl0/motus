@@ -730,7 +730,10 @@
         </div>
         <div class="header-right">
             <button class="view-toggle-button" onclick="toggleView()" title="Toggle Grid/List View" id="view-toggle-btn">
-                <span id="view-toggle-icon">☰</span>
+                <span id="view-toggle-icon">⊞</span>
+            </button>
+            <button class="view-toggle-button" onclick="toggleHiddenFiles()" title="Toggle Hidden Files" id="hidden-toggle-btn">
+                <span id="hidden-toggle-icon">👁️</span>
             </button>
             <button class="mode-toggle-button" onclick="toggleMode()">
                 <span id="mode-button-text">Expert Mode</span>
@@ -1014,7 +1017,8 @@
             sortBy: 'name',
             sortAsc: true
         };
-        let viewMode = 'grid';  // 'grid' or 'list'
+        let viewMode = 'list';  // 'grid' or 'list' - default to list
+        let showHiddenFiles = false;  // show/hide files starting with .
         let contextMenuState = {
             pane: null,
             items: []
@@ -1063,6 +1067,19 @@
                 setMode('easy');
             }
 
+            // Load user preferences from localStorage
+            const savedViewMode = localStorage.getItem('motus_view_mode');
+            if (savedViewMode === 'grid' || savedViewMode === 'list') {
+                viewMode = savedViewMode;
+                document.getElementById('view-toggle-icon').textContent = viewMode === 'grid' ? '☰' : '⊞';
+            }
+
+            const savedShowHidden = localStorage.getItem('motus_show_hidden');
+            if (savedShowHidden !== null) {
+                showHiddenFiles = savedShowHidden === 'true';
+                document.getElementById('hidden-toggle-icon').textContent = showHiddenFiles ? '👁️' : '🙈';
+            }
+
             // Load remotes for easy mode
             if (currentMode === 'easy') {
                 await loadRemotes();
@@ -1109,6 +1126,22 @@
             viewMode = viewMode === 'grid' ? 'list' : 'grid';
             document.getElementById('view-toggle-icon').textContent = viewMode === 'grid' ? '☰' : '⊞';
 
+            // Save preference
+            localStorage.setItem('motus_view_mode', viewMode);
+
+            // Re-render both panes
+            renderFiles('left');
+            renderFiles('right');
+        }
+
+        // Hidden files toggle
+        function toggleHiddenFiles() {
+            showHiddenFiles = !showHiddenFiles;
+            document.getElementById('hidden-toggle-icon').textContent = showHiddenFiles ? '👁️' : '🙈';
+
+            // Save preference
+            localStorage.setItem('motus_show_hidden', showHiddenFiles);
+
             // Re-render both panes
             renderFiles('left');
             renderFiles('right');
@@ -1151,7 +1184,8 @@
         }
 
         function formatFileSize(bytes) {
-            if (!bytes || bytes === 0) return '';
+            if (bytes === undefined || bytes === null) return '';
+            if (bytes === 0) return '0 B';
             const units = ['B', 'KB', 'MB', 'GB', 'TB'];
             let size = bytes;
             let unitIndex = 0;
@@ -1362,8 +1396,20 @@
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const container = document.getElementById(`${pane}-files`);
 
+            // Filter hidden files if needed
+            let filesToShow = state.files;
+            if (!showHiddenFiles) {
+                filesToShow = state.files.filter(f => !f.Name.startsWith('.'));
+            }
+
+            // Add original index to each file before sorting
+            const filesWithIndex = filesToShow.map((file, idx) => ({
+                ...file,
+                _originalIndex: state.files.indexOf(file)
+            }));
+
             // Sort files
-            const sortedFiles = sortFiles(state.files, state.sortBy, state.sortAsc);
+            const sortedFiles = sortFiles(filesWithIndex, state.sortBy, state.sortAsc);
 
             container.innerHTML = '';
             container.className = viewMode === 'grid' ? 'file-grid' : 'file-list';
@@ -1385,8 +1431,8 @@
                 container.appendChild(parentDiv);
             }
 
-            files.forEach((file, index) => {
-                const fileDiv = createFileElement(file, index, pane);
+            files.forEach((file) => {
+                const fileDiv = createFileElement(file, file._originalIndex, pane);
                 container.appendChild(fileDiv);
             });
         }
@@ -1429,8 +1475,8 @@
                 tbody.appendChild(tr);
             }
 
-            files.forEach((file, index) => {
-                const tr = createListRow(file, index, pane);
+            files.forEach((file) => {
+                const tr = createListRow(file, file._originalIndex, pane);
                 tbody.appendChild(tr);
             });
 
