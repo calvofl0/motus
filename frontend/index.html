@@ -1636,7 +1636,15 @@
             // Size column
             const sizeCell = document.createElement('td');
             sizeCell.className = 'file-size-col';
-            sizeCell.textContent = file.IsDir ? '' : formatFileSize(file.Size);
+            if (file.IsDir) {
+                sizeCell.textContent = '';
+            } else {
+                // Debug: log the file object to see what fields it has
+                if (file.Size === undefined) {
+                    console.log('File missing Size field:', file);
+                }
+                sizeCell.textContent = formatFileSize(file.Size);
+            }
             tr.appendChild(sizeCell);
 
             // Date column
