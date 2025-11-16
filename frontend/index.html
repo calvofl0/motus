@@ -1906,9 +1906,10 @@
                 const srcPath = sourceState.remote ?
                     `${sourceState.remote}:${sourceState.path}/${file.Name}` :
                     `${sourceState.path}/${file.Name}`;
+                // Backend uses 'copyto' which requires full destination path including filename
                 const dstPath = targetState.remote ?
-                    `${targetState.remote}:${targetState.path}/` :
-                    `${targetState.path}/`;
+                    `${targetState.remote}:${targetState.path}/${file.Name}` :
+                    `${targetState.path}/${file.Name}`;
 
                 try {
                     await apiCall('/api/jobs/copy', 'POST', {
@@ -1951,7 +1952,7 @@
             document.getElementById('context-menu').style.display = 'none';
 
             if (action === 'rename' && contextMenuState.items.length === 1) {
-                showRenameModal(contextMenuState.items[0].name);
+                showRenameModal(contextMenuState.items[0].Name);
             } else if (action === 'delete') {
                 showDeleteConfirmModal();
             } else if (action === 'newfolder') {
@@ -1990,13 +1991,19 @@
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const file = contextMenuState.items[0];
 
+            // Skip if name hasn't changed
+            if (newName === file.Name) {
+                closeRenameModal();
+                return;
+            }
+
             const oldPath = state.remote ?
                 `${state.remote}:${state.path}/${file.Name}` :
                 `${state.path}/${file.Name}`;
             const newPath = state.remote ?
                 `${state.remote}:${state.path}/${newName}` :
                 `${state.path}/${newName}`;
-            
+
             try {
                 // Use move operation for rename
                 await apiCall('/api/jobs/move', 'POST', {
@@ -2108,8 +2115,8 @@
                     panel.classList.remove('collapsed');
                     jobPanelManuallyToggled = false;  // Reset manual flag on auto-open
                 }
-                // Auto-close only when count reaches 0 AND user didn't manually open it
-                else if (newCount === 0 && !isCollapsed && !jobPanelManuallyToggled) {
+                // Auto-close when count reaches 0 (always, regardless of manual toggle)
+                else if (newCount === 0 && !isCollapsed) {
                     panel.classList.add('collapsed');
                 }
 
