@@ -6,6 +6,9 @@ import logging
 import os
 import signal
 import sys
+import time
+import threading
+from pathlib import Path
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 
@@ -13,6 +16,7 @@ from .config import Config
 from .models import Database
 from .rclone.wrapper import RcloneWrapper
 from .rclone.exceptions import RcloneNotFoundError
+from .auth import token_required
 
 # Import API blueprints
 from .api.files import files_bp, init_rclone as init_files_rclone
@@ -20,30 +24,64 @@ from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
 
 
-def setup_signal_handlers(rclone: RcloneWrapper, db: Database):
+def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
+    """
+    Perform graceful shutdown - stop jobs and cleanup
+
+    This is extracted to be reusable from both signal handlers and API endpoint
+    """
+    # Get running jobs before stopping
+    running_jobs = rclone.get_running_jobs()
+
+    if running_jobs:
+        logging.info(f"Stopping {len(running_jobs)} running jobs...")
+        # Stop all running jobs
+        rclone.shutdown()
+
+        # Mark them as interrupted in database
+        for job_id in running_jobs:
+            try:
+                db.update_job(job_id, status='interrupted',
+                              error_text='Job interrupted by server shutdown')
+            except Exception as e:
+                logging.error(f"Error marking job {job_id} as interrupted: {e}")
+
+    # Clean up connection info files
+    cleanup_connection_info(config)
+
+    logging.info("Shutdown complete")
+    return len(running_jobs)
+
+
+def cleanup_connection_info(config: Config):
+    """Remove PID and connection info files"""
+    data_dir = Path(config.data_dir)
+    pid_file = data_dir / 'motuz.pid'
+    connection_file = data_dir / 'connection.json'
+
+    try:
+        if pid_file.exists():
+            pid_file.unlink()
+            logging.debug(f"Removed PID file: {pid_file}")
+    except Exception as e:
+        logging.warning(f"Could not remove PID file: {e}")
+
+    try:
+        if connection_file.exists():
+            connection_file.unlink()
+            logging.debug(f"Removed connection file: {connection_file}")
+    except Exception as e:
+        logging.warning(f"Could not remove connection file: {e}")
+
+
+def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
     """Setup signal handlers for graceful shutdown"""
     def shutdown_handler(signum, frame):
         """Handle SIGTERM/SIGINT for graceful shutdown"""
         sig_name = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
         logging.info(f"\n{sig_name} received, shutting down gracefully...")
 
-        # Get running jobs before stopping
-        running_jobs = rclone.get_running_jobs()
-
-        if running_jobs:
-            logging.info(f"Stopping {len(running_jobs)} running jobs...")
-            # Stop all running jobs
-            rclone.shutdown()
-
-            # Mark them as interrupted in database
-            for job_id in running_jobs:
-                try:
-                    db.update_job(job_id, status='interrupted',
-                                  error_text='Job interrupted by server shutdown')
-                except Exception as e:
-                    logging.error(f"Error marking job {job_id} as interrupted: {e}")
-
-        logging.info("Shutdown complete")
+        perform_shutdown(rclone, db, config)
         sys.exit(0)
 
     # Register signal handlers
@@ -123,7 +161,7 @@ def create_app(config: Config = None):
     app.motuz_config = config
 
     # Setup signal handlers for graceful shutdown
-    setup_signal_handlers(rclone, db)
+    setup_signal_handlers(rclone, db, config)
 
     # Add routes
     register_routes(app, config)
@@ -155,6 +193,29 @@ def register_routes(app: Flask, config: Config):
         return jsonify({
             'base_url': config.base_url,
             'version': '1.0.0',
+        })
+
+    @app.route('/api/shutdown', methods=['POST'])
+    @token_required
+    def shutdown():
+        """
+        Gracefully shutdown the server
+
+        Returns count of running jobs that were stopped
+        """
+        running_jobs_count = len(app.rclone.get_running_jobs())
+
+        # Shutdown in background thread to allow response to be sent
+        def shutdown_delayed():
+            time.sleep(0.5)  # Give time for response to be sent
+            perform_shutdown(app.rclone, app.db, app.motuz_config)
+            os._exit(0)  # Force exit
+
+        threading.Thread(target=shutdown_delayed, daemon=True).start()
+
+        return jsonify({
+            'message': 'Shutting down',
+            'running_jobs_stopped': running_jobs_count
         })
 
     @app.errorhandler(404)

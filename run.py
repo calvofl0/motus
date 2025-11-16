@@ -4,13 +4,22 @@ OOD-Motuz startup script
 Handles port allocation, token generation, and server startup
 """
 import argparse
+import json
 import logging
+import os
 import socket
 import sys
 import threading
 import time
 import webbrowser
 from pathlib import Path
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
+    print("Warning: psutil not installed. Multi-instance detection disabled.")
+    print("Install with: pip install psutil")
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -96,6 +105,93 @@ def print_banner(config: Config, original_port: int = None):
     print()
 
 
+def is_process_running(pid: int) -> bool:
+    """Check if a process with given PID is running"""
+    if psutil is None:
+        return False  # Can't check without psutil
+
+    try:
+        return psutil.Process(pid).is_running()
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return False
+
+
+def check_existing_instance(config: Config) -> dict:
+    """
+    Check if an instance is already running on this data directory
+
+    Returns:
+        dict with connection info if running, None otherwise
+    """
+    if psutil is None:
+        return None  # Skip check if psutil not available
+
+    data_dir = Path(config.data_dir)
+    pid_file = data_dir / 'motuz.pid'
+    connection_file = data_dir / 'connection.json'
+
+    if not pid_file.exists():
+        return None  # No PID file = no running instance
+
+    try:
+        with open(pid_file, 'r') as f:
+            pid = int(f.read().strip())
+
+        if not is_process_running(pid):
+            # Stale PID file from crash
+            pid_file.unlink()
+            if connection_file.exists():
+                connection_file.unlink()
+            return None
+
+        # Process is running, read connection info
+        if connection_file.exists():
+            with open(connection_file, 'r') as f:
+                return json.load(f)
+
+        return None  # Process running but no connection file (shouldn't happen)
+
+    except (ValueError, FileNotFoundError, json.JSONDecodeError) as e:
+        # Corrupted files, clean up
+        logging.warning(f"Corrupted instance files: {e}")
+        try:
+            pid_file.unlink()
+        except:
+            pass
+        try:
+            connection_file.unlink()
+        except:
+            pass
+        return None
+
+
+def write_connection_info(config: Config):
+    """Write PID and connection info files"""
+    data_dir = Path(config.data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    pid_file = data_dir / 'motuz.pid'
+    connection_file = data_dir / 'connection.json'
+
+    # Write PID
+    with open(pid_file, 'w') as f:
+        f.write(str(os.getpid()))
+
+    # Write connection info
+    connection_info = {
+        'pid': os.getpid(),
+        'url': config.get_url(token=True),
+        'url_no_token': config.get_url(token=False),
+        'host': config.host,
+        'port': config.port,
+        'token': config.token,
+        'data_dir': str(config.data_dir)
+    }
+
+    with open(connection_file, 'w') as f:
+        json.dump(connection_info, f, indent=2)
+
+
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
@@ -163,6 +259,30 @@ def main():
     if args.allow_cors:
         config.allow_cors = True
 
+    # Check for existing instance on this data directory
+    existing = check_existing_instance(config)
+    if existing:
+        print("\n" + "=" * 70)
+        print("  OOD-Motuz is already running!")
+        print("=" * 70)
+        print(f"\n  An instance is already running on this data directory:")
+        print(f"    Data dir: {existing.get('data_dir', config.data_dir)}")
+        print(f"\n  Connection details:")
+        print(f"    URL (with token): {existing.get('url')}")
+        print(f"    URL (no token):   {existing.get('url_no_token')}")
+        print(f"    Token: {existing.get('token')}")
+        print(f"\n  To run a second instance, use a different data directory:")
+        print(f"    python run.py --data-dir /path/to/different/dir")
+        print("\n" + "=" * 70 + "\n")
+
+        if not args.no_browser:
+            try:
+                webbrowser.open(existing.get('url'))
+            except:
+                pass  # Ignore browser failures
+
+        sys.exit(0)
+
     # Find available port (with fallback like Jupyter)
     original_port = config.port
     if is_port_in_use(config.host, config.port):
@@ -183,6 +303,12 @@ def main():
         print(f"Error creating application: {e}", file=sys.stderr)
         logging.exception("Application creation failed")
         sys.exit(1)
+
+    # Write connection info for instance detection
+    try:
+        write_connection_info(config)
+    except Exception as e:
+        logging.warning(f"Could not write connection info: {e}")
 
     # Print banner
     print_banner(config, original_port if original_port != config.port else None)
