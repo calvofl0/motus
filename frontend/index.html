@@ -1593,9 +1593,10 @@
 
         async function resumeInterruptedJobFromDropdown(jobId) {
             try {
-                await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
+                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
                 updateInterruptedJobs();
                 updateJobs();  // Refresh active jobs too
+                alert(`Job resumed successfully! New Job ID: ${data.job_id}`);
             } catch (error) {
                 alert(`Failed to resume job: ${error.message}`);
             }
@@ -1631,7 +1632,7 @@
             try {
                 const data = await apiCall('/api/jobs?status=resumable');
                 for (const job of data.jobs) {
-                    await apiCall('/api/jobs/resume', 'POST', { job_id: job.job_id });
+                    await apiCall(`/api/jobs/${job.job_id}/resume`, 'POST');
                 }
                 closeInterruptedJobsModal();
                 updateJobs();  // Will auto-expand panel
@@ -1750,10 +1751,10 @@
                 }
 
                 try {
-                    const data = await apiCall('/api/jobs/resume', 'POST', { job_id: jobId });
-                    document.getElementById('job-id').value = data.new_job_id;
+                    const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
+                    document.getElementById('job-id').value = data.job_id;
                     document.getElementById('job-start-status').innerHTML =
-                        `<div class="success">✓ Resume job started (New ID: ${data.new_job_id})</div>`;
+                        `<div class="success">✓ Resume job started (New ID: ${data.job_id})</div>`;
                 } catch (error) {
                     document.getElementById('job-start-status').innerHTML =
                         `<div class="error">✗ Error: ${error.message}</div>`;
