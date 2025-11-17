@@ -2349,9 +2349,14 @@
             const path = document.getElementById('ls-path').value;
             try {
                 const data = await apiCall('/api/files/ls', 'POST', { path });
-                const output = data.files.map(f => 
-                    `${f.is_dir ? 'DIR ' : 'FILE'} ${f.name} (${f.size_str})`
-                ).join('\n');
+
+                // Backend returns rclone's format: Name, Size, IsDir, ModTime
+                const output = data.files.map(f => {
+                    const type = f.IsDir ? 'DIR ' : 'FILE';
+                    const size = f.IsDir ? '' : formatFileSize(f.Size);
+                    return `${type} ${f.Name.padEnd(40)} ${size}`;
+                }).join('\n');
+
                 document.getElementById('ls-output').textContent = output || 'Empty directory';
             } catch (error) {
                 document.getElementById('ls-output').textContent = `Error: ${error.message}`;
