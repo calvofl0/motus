@@ -901,7 +901,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="left-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'left')" />
-                        <button class="toolbar-button secondary" onclick="refreshPane('left')" title="Refresh">🔄</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('left', true)" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="left-files" 
@@ -924,7 +924,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="right-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'right')" />
-                        <button class="toolbar-button secondary" onclick="refreshPane('right')" title="Refresh">🔄</button>
+                        <button class="toolbar-button secondary" onclick="refreshPane('right', true)" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="right-files"
@@ -1907,8 +1907,12 @@
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
                             console.log(`mousedown: Auto-selecting file ${index} before drag`);
+                            // Update state
                             state.selectedIndexes = [index];
-                            renderFiles(pane);
+                            // Update DOM directly without re-rendering to avoid interrupting drag
+                            const container = document.getElementById(pane === 'left' ? 'left-files' : 'right-files');
+                            container.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                            div.classList.add('selected');
                         }
                     }
                 });
@@ -1987,8 +1991,12 @@
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
                             console.log(`mousedown: Auto-selecting file ${index} before drag`);
+                            // Update state
                             state.selectedIndexes = [index];
-                            renderFiles(pane);
+                            // Update DOM directly without re-rendering to avoid interrupting drag
+                            const container = document.getElementById(pane === 'left' ? 'left-files' : 'right-files');
+                            container.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                            tr.classList.add('selected');
                         }
                     }
                 });
