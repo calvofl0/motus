@@ -774,14 +774,12 @@ class RcloneWrapper:
         except Exception as e:
             raise RcloneException(f"Failed to start {operation} job: {e}")
 
-        # For directory renames, cleanup in background after a short delay
-        # Directory renames are fast, so we wait a bit then cleanup
+        # For directory renames, cleanup in background thread
         if cleanup_dir_after:
             def cleanup_thread():
-                """Wait a moment for rename to complete, then remove empty source directory"""
+                """Wait for rename job to complete, then remove empty source directory"""
                 try:
-                    # Wait for rename to complete (directory renames are very fast)
-                    # We poll the job status instead of sleeping blindly
+                    # Poll job status until completion
                     max_wait = 30  # Maximum 30 seconds
                     wait_time = 0
                     while wait_time < max_wait:
@@ -790,10 +788,7 @@ class RcloneWrapper:
                         time.sleep(0.2)
                         wait_time += 0.2
 
-                    # Extra small delay to ensure filesystem operations complete
-                    time.sleep(0.5)
-
-                    # Check if job succeeded
+                    # Job is finished - process has exited, safe to cleanup
                     exit_status = self._job_queue.get_exitstatus(job_id)
                     if exit_status == 0:
                         # Job succeeded - remove empty source directory
