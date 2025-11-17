@@ -542,6 +542,8 @@
             font-size: 11px;
             color: #666;
             white-space: nowrap;
+            min-width: 280px;
+            text-align: right;
         }
 
         .progress-bar-container {
@@ -2345,49 +2347,84 @@
                 return;
             }
 
+            // Helper function to format time as "1h32min25s" or "32min25s" or "25s"
+            function formatTime(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+
+                if (hours > 0) {
+                    return `${hours}h${minutes}min${secs}s`;
+                } else if (minutes > 0) {
+                    return `${minutes}min${secs}s`;
+                } else {
+                    return `${secs}s`;
+                }
+            }
+
+            // Helper function to parse transfer info from rclone text output
+            // Text format: "Transferred:   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
+            function parseTransferInfo(text) {
+                if (!text) return null;
+
+                // Look for "Transferred:" line
+                const transferMatch = text.match(/Transferred:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+)s.*?ETA\s+(.+?)$/m);
+                if (transferMatch) {
+                    const transferred = transferMatch[1];
+                    const transferredUnit = transferMatch[2];
+                    const total = transferMatch[3];
+                    const totalUnit = transferMatch[4];
+                    const speed = transferMatch[5];
+                    const speedUnit = transferMatch[6];
+                    const eta = transferMatch[7].trim();
+
+                    return {
+                        transferred: `${transferred} ${transferredUnit}`,
+                        total: `${total} ${totalUnit}`,
+                        speed: `${speed} ${speedUnit}/s`,
+                        eta: eta
+                    };
+                }
+
+                return null;
+            }
+
             container.innerHTML = jobsData.jobs.map(job => {
                 // Calculate elapsed time
                 const createdAt = new Date(job.created_at);
                 const now = new Date();
-                const elapsedMs = now - createdAt;
-                const elapsedSec = Math.floor(elapsedMs / 1000);
-                const elapsedMin = Math.floor(elapsedSec / 60);
-                const elapsedHr = Math.floor(elapsedMin / 60);
-                let elapsedStr = '';
-                if (elapsedHr > 0) {
-                    elapsedStr = `${elapsedHr}h ${elapsedMin % 60}m`;
-                } else if (elapsedMin > 0) {
-                    elapsedStr = `${elapsedMin}m ${elapsedSec % 60}s`;
+                const elapsedSec = Math.floor((now - createdAt) / 1000);
+                const elapsedStr = formatTime(elapsedSec);
+
+                // Parse transfer information from job text
+                const transferInfo = parseTransferInfo(job.text);
+
+                // Build transfer status string
+                let transferStatus = '';
+                if (transferInfo) {
+                    transferStatus = `${transferInfo.eta} left - ${transferInfo.transferred} out of ${transferInfo.total} (${transferInfo.speed})`;
                 } else {
-                    elapsedStr = `${elapsedSec}s`;
+                    // Fallback: calculate ETA from progress
+                    const progress = job.progress || 0;
+                    if (progress > 0 && progress < 100) {
+                        const remainingPercent = 100 - progress;
+                        const etaSec = Math.floor((elapsedSec / progress) * remainingPercent);
+                        const etaStr = formatTime(etaSec);
+                        transferStatus = `${etaStr} left`;
+                    } else if (progress === 100) {
+                        transferStatus = 'Done';
+                    } else {
+                        transferStatus = 'Starting...';
+                    }
                 }
 
-                // Calculate ETA
                 const progress = job.progress || 0;
-                let etaStr = '';
-                if (progress > 0 && progress < 100) {
-                    const remainingPercent = 100 - progress;
-                    const etaMs = (elapsedMs / progress) * remainingPercent;
-                    const etaSec = Math.floor(etaMs / 1000);
-                    const etaMin = Math.floor(etaSec / 60);
-                    const etaHr = Math.floor(etaMin / 60);
-                    if (etaHr > 0) {
-                        etaStr = `ETA ${etaHr}h ${etaMin % 60}m`;
-                    } else if (etaMin > 0) {
-                        etaStr = `ETA ${etaMin}m`;
-                    } else {
-                        etaStr = `ETA ${etaSec}s`;
-                    }
-                } else if (progress === 100) {
-                    etaStr = 'Done';
-                }
 
                 return `
                     <div class="job-item ${job.status}">
                         <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
-                        <span class="job-path">${job.src_path} → ${job.dst_path}</span>
-                        <span class="job-time-info">${elapsedStr}</span>
-                        <span class="job-time-info">${etaStr}</span>
+                        <span class="job-path">${job.src_path} → ${job.dst_path} (${elapsedStr})</span>
+                        <span class="job-time-info">${transferStatus}</span>
                         <div class="progress-bar-container">
                             <div class="progress-bar" style="width: ${progress}%">
                                 ${progress}%
