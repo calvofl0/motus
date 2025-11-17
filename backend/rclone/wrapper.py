@@ -774,46 +774,56 @@ class RcloneWrapper:
         except Exception as e:
             raise RcloneException(f"Failed to start {operation} job: {e}")
 
-        # For directory renames, wait for completion and cleanup synchronously
-        # This prevents race conditions where the UI refreshes before cleanup
+        # For directory renames, cleanup in background after a short delay
+        # Directory renames are fast, so we wait a bit then cleanup
         if cleanup_dir_after:
-            logging.info(f"Directory rename detected - waiting for completion to cleanup {cleanup_dir_after}")
-
-            # Wait for job to finish (directory renames are typically fast)
-            max_wait = 60  # Maximum 60 seconds
-            wait_time = 0
-            while not self._job_queue.is_finished(job_id) and wait_time < max_wait:
-                time.sleep(0.1)
-                wait_time += 0.1
-
-            # Check if job succeeded
-            exit_status = self._job_queue.get_exitstatus(job_id)
-            if exit_status == 0:
-                # Job succeeded - remove empty source directory
-                logging.info(f"Removing empty source directory: {cleanup_dir_after}")
+            def cleanup_thread():
+                """Wait a moment for rename to complete, then remove empty source directory"""
                 try:
-                    if src_remote_name or src_config:
-                        # Remote path - use rclone purge
-                        cleanup_cmd = [
-                            self.rclone_path,
-                            '--config', config_arg if config_arg else '/dev/null',
-                            'purge',
-                            actual_src
-                        ]
-                        subprocess.run(cleanup_cmd, env={**os.environ, **credentials},
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                     timeout=30)
+                    # Wait for rename to complete (directory renames are very fast)
+                    # We poll the job status instead of sleeping blindly
+                    max_wait = 30  # Maximum 30 seconds
+                    wait_time = 0
+                    while wait_time < max_wait:
+                        if self._job_queue.is_finished(job_id):
+                            break
+                        time.sleep(0.2)
+                        wait_time += 0.2
+
+                    # Extra small delay to ensure filesystem operations complete
+                    time.sleep(0.5)
+
+                    # Check if job succeeded
+                    exit_status = self._job_queue.get_exitstatus(job_id)
+                    if exit_status == 0:
+                        # Job succeeded - remove empty source directory
+                        logging.info(f"Removing empty source directory: {cleanup_dir_after}")
+                        if src_remote_name or src_config:
+                            # Remote path - use rclone rmdir (safer than purge)
+                            cleanup_cmd = [
+                                self.rclone_path,
+                                '--config', config_arg if config_arg else '/dev/null',
+                                'rmdir',
+                                actual_src
+                            ]
+                            subprocess.run(cleanup_cmd, env={**os.environ, **credentials},
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                         timeout=10)
+                        else:
+                            # Local path - use os.rmdir (only removes if empty)
+                            try:
+                                os.rmdir(cleanup_dir_after)
+                                logging.info(f"Successfully removed {cleanup_dir_after}")
+                            except OSError as e:
+                                logging.warning(f"Could not remove directory {cleanup_dir_after}: {e}")
                     else:
-                        # Local path - use os.rmdir (only removes if empty)
-                        try:
-                            os.rmdir(cleanup_dir_after)
-                            logging.info(f"Successfully removed {cleanup_dir_after}")
-                        except OSError as e:
-                            logging.warning(f"Could not remove directory {cleanup_dir_after}: {e}")
+                        logging.warning(f"Move job exit status {exit_status}, skipping cleanup")
                 except Exception as e:
                     logging.error(f"Failed to cleanup directory {cleanup_dir_after}: {e}")
-            else:
-                logging.warning(f"Move job failed with exit status {exit_status}, skipping cleanup")
+
+            # Start cleanup in background thread
+            thread = threading.Thread(target=cleanup_thread, daemon=True)
+            thread.start()
 
         return job_id
 
