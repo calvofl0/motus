@@ -2347,8 +2347,12 @@
                 return;
             }
 
-            // Helper function to format time as "1h32min25s" or "32min25s" or "25s"
+            // Helper function to format time as "1h23min22s" or "10min5s" or "10s"
+            // No unnecessary zeros
             function formatTime(seconds) {
+                // Ensure we have a valid positive number
+                if (!seconds || seconds < 0) return '0s';
+
                 const hours = Math.floor(seconds / 3600);
                 const minutes = Math.floor((seconds % 3600) / 60);
                 const secs = seconds % 60;
@@ -2390,35 +2394,52 @@
             }
 
             container.innerHTML = jobsData.jobs.map(job => {
-                // Calculate elapsed time
-                const createdAt = new Date(job.created_at);
-                const now = new Date();
-                const elapsedSec = Math.floor((now - createdAt) / 1000);
+                // Calculate elapsed time with proper timestamp parsing
+                let elapsedSec = 0;
+                try {
+                    // Handle both ISO strings and epoch timestamps
+                    const createdAt = new Date(job.created_at);
+                    const now = new Date();
+
+                    // Validate the date is valid
+                    if (!isNaN(createdAt.getTime())) {
+                        elapsedSec = Math.floor((now - createdAt) / 1000);
+                        // Sanity check: if elapsed time is negative or absurdly large, use 0
+                        if (elapsedSec < 0 || elapsedSec > 86400 * 365) {
+                            elapsedSec = 0;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing job timestamp:', job.created_at, e);
+                    elapsedSec = 0;
+                }
+
                 const elapsedStr = formatTime(elapsedSec);
 
                 // Parse transfer information from job text
                 const transferInfo = parseTransferInfo(job.text);
+                const progress = job.progress || 0;
 
                 // Build transfer status string
                 let transferStatus = '';
                 if (transferInfo) {
+                    // We have detailed transfer info from rclone
                     transferStatus = `${transferInfo.eta} left - ${transferInfo.transferred} out of ${transferInfo.total} (${transferInfo.speed})`;
                 } else {
                     // Fallback: calculate ETA from progress
-                    const progress = job.progress || 0;
-                    if (progress > 0 && progress < 100) {
+                    if (progress >= 100) {
+                        transferStatus = 'Done';
+                    } else if (progress > 0 && elapsedSec > 2) {
+                        // Only show calculated ETA if we have some progress and elapsed time
                         const remainingPercent = 100 - progress;
                         const etaSec = Math.floor((elapsedSec / progress) * remainingPercent);
                         const etaStr = formatTime(etaSec);
                         transferStatus = `${etaStr} left`;
-                    } else if (progress === 100) {
-                        transferStatus = 'Done';
                     } else {
-                        transferStatus = 'Starting...';
+                        // Job just started (< 2s) or no progress yet
+                        transferStatus = elapsedSec < 2 ? 'Starting...' : 'Calculating...';
                     }
                 }
-
-                const progress = job.progress || 0;
 
                 return `
                     <div class="job-item ${job.status}">
