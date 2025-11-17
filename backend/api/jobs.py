@@ -223,12 +223,47 @@ def get_job_status(job_id):
             # Job not in queue - use database status as-is
             # (interrupted, cancelled, completed, failed jobs are not in the queue)
             status = job['status']
-            progress = job.get('progress', 0)
+
+            # IMPORTANT: If DB says 'running' but job not in queue, it finished
+            # so fast we never polled while it was running. Check completion now.
+            if status == 'running':
+                finished = rclone.job_finished(job_id)
+                if finished:
+                    # Job actually finished - get final status
+                    exit_status = rclone.job_exitstatus(job_id)
+                    progress = 100
+                    error_text = rclone.job_error_text(job_id)
+
+                    if exit_status == 0:
+                        status = 'completed'
+                    else:
+                        status = 'failed'
+
+                    logging.info(f"Job {job_id}: Fast job finished - updating DB to status={status}, exit={exit_status}")
+
+                    # Update database with final status
+                    db.update_job(
+                        job_id=job_id,
+                        status=status,
+                        progress=progress,
+                        error_text=error_text if error_text else None,
+                    )
+                else:
+                    # Job says 'running' but not in queue and not finished?
+                    # This shouldn't happen, but keep current status
+                    logging.warning(f"Job {job_id}: DB says running, not in queue, not finished - keeping status")
+                    progress = job.get('progress', 0)
+                    error_text = job.get('error_text', '')
+                    exit_status = -1
+            else:
+                # Job has terminal status in DB already
+                progress = job.get('progress', 0)
+                error_text = job.get('error_text', '')
+                exit_status = -1
+
             text = ""
-            error_text = job.get('error_text', '')
-            exit_status = -1
             finished = status in ['completed', 'failed', 'cancelled', 'interrupted']
-            logging.info(f"Job {job_id}: NOT in queue - using DB status={status}, finished={finished}")
+            logging.info(f"Job {job_id}: NOT in queue - final status={status}, finished={finished}")
 
         return jsonify({
             'job_id': job_id,
