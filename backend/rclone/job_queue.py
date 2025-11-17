@@ -172,16 +172,28 @@ class JobQueue:
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
             try:
-                for line in iter(process.stdout.readline, b''):
-                    decoded = line.decode('utf-8', errors='ignore')
+                for line in iter(process.stdout.readline, ''):
                     with output_lock:
-                        output_lines.append(decoded)
-                        process_output_line(decoded)
+                        output_lines.append(line)
+                        process_output_line(line)
             except Exception as e:
                 logging.debug(f"Job {job_id}: stdout reader finished: {e}")
 
         reader_thread = threading.Thread(target=read_stdout, daemon=True)
         reader_thread.start()
+
+        # Start background thread to read stderr too
+        stderr_lines = []
+        def read_stderr():
+            """Read stderr in background"""
+            try:
+                for line in iter(process.stderr.readline, ''):
+                    stderr_lines.append(line)
+            except Exception:
+                pass
+
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stderr_thread.start()
 
         # Main thread: just poll process status every 0.2s
         # This ensures we detect completion quickly regardless of output
@@ -189,12 +201,13 @@ class JobQueue:
             poll_result = process.poll()
             if poll_result is not None:
                 # Process finished!
-                logging.debug(f"Job {job_id}: Process exited with code {poll_result}")
+                logging.info(f"Job {job_id}: Process exited with code {poll_result}")
                 break
             time.sleep(0.2)
 
-        # Wait for reader thread to finish (with timeout)
+        # Wait for reader threads to finish (with timeout)
         reader_thread.join(timeout=1.0)
+        stderr_thread.join(timeout=1.0)
 
         # Job finished
         self._job_percent[job_id] = 100
@@ -208,14 +221,10 @@ class JobQueue:
 
         self._job_exitstatus[job_id] = exitstatus if exitstatus is not None else -1
 
-        # Read any remaining stderr
-        try:
-            stderr = process.stderr.read().decode('utf-8', errors='ignore')
-            if stderr:
-                self._job_error_text[job_id] += stderr
-                self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
-        except:
-            pass
+        # Collect any stderr output
+        if stderr_lines:
+            self._job_error_text[job_id] += ''.join(stderr_lines)
+            self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
 
         logging.info(f"Job {job_id} finished with exit status {exitstatus}")
         stop_event.set()
