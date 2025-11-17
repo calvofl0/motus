@@ -1260,6 +1260,13 @@
             }
         }
 
+        // Path construction helper
+        function buildPath(basePath, filename) {
+            // Normalize path to avoid double slashes
+            const normalized = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+            return `${normalized}/${filename}`;
+        }
+
         // Sorting helpers
         function sortFiles(files, sortBy, sortAsc) {
             const sorted = [...files];
@@ -1904,8 +1911,8 @@
             for (const index of data.indexes) {
                 const file = sourceState.files[index];
                 const srcPath = sourceState.remote ?
-                    `${sourceState.remote}:${sourceState.path}/${file.Name}` :
-                    `${sourceState.path}/${file.Name}`;
+                    `${sourceState.remote}:${buildPath(sourceState.path, file.Name)}` :
+                    buildPath(sourceState.path, file.Name);
                 // Destination with trailing slash (rsync semantics: copy into directory)
                 const dstPath = targetState.remote ?
                     `${targetState.remote}:${targetState.path}/` :
@@ -2005,11 +2012,11 @@
             }
 
             const oldPath = state.remote ?
-                `${state.remote}:${state.path}/${file.Name}` :
-                `${state.path}/${file.Name}`;
+                `${state.remote}:${buildPath(state.path, file.Name)}` :
+                buildPath(state.path, file.Name);
             const newPath = state.remote ?
-                `${state.remote}:${state.path}/${newName}` :
-                `${state.path}/${newName}`;
+                `${state.remote}:${buildPath(state.path, newName)}` :
+                buildPath(state.path, newName);
 
             try {
                 // Use move operation for rename
@@ -2042,8 +2049,8 @@
 
             for (const file of contextMenuState.items) {
                 const path = state.remote ?
-                    `${state.remote}:${state.path}/${file.Name}` :
-                    `${state.path}/${file.Name}`;
+                    `${state.remote}:${buildPath(state.path, file.Name)}` :
+                    buildPath(state.path, file.Name);
 
                 try {
                     await apiCall('/api/files/delete', 'POST', { path });
