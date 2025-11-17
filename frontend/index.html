@@ -1171,13 +1171,52 @@
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
+                // Check if any modal is open
+                const renameModal = document.getElementById('rename-modal');
+                const deleteModal = document.getElementById('delete-confirm-modal');
+                const createFolderModal = document.getElementById('create-folder-modal');
+
+                // Handle Escape key
                 if (e.key === 'Escape') {
+                    // Close modals
+                    if (renameModal.style.display === 'flex') {
+                        closeRenameModal();
+                        return;
+                    }
+                    if (deleteModal.style.display === 'flex') {
+                        closeDeleteConfirmModal();
+                        return;
+                    }
+                    if (createFolderModal.style.display === 'flex') {
+                        closeCreateFolderModal();
+                        return;
+                    }
+                    // Close menus
                     document.getElementById('context-menu').style.display = 'none';
                     document.getElementById('view-dropdown').classList.add('hidden');
                     return;
                 }
 
-                // Ignore shortcuts when typing in input fields
+                // Handle Enter key for modals
+                if (e.key === 'Enter') {
+                    if (renameModal.style.display === 'flex') {
+                        e.preventDefault();
+                        confirmRename();
+                        return;
+                    }
+                    if (deleteModal.style.display === 'flex') {
+                        e.preventDefault();
+                        confirmDelete();
+                        return;
+                    }
+                    if (createFolderModal.style.display === 'flex') {
+                        e.preventDefault();
+                        confirmCreateFolder();
+                        return;
+                    }
+                }
+
+                // Ignore other shortcuts when typing in input fields
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                     return;
                 }
@@ -2113,8 +2152,13 @@
         // Create folder
         function createFolder(pane) {
             createFolderPane = pane;
-            document.getElementById('create-folder-input').value = '';
+            const input = document.getElementById('create-folder-input');
+            input.value = '';
             document.getElementById('create-folder-modal').style.display = 'flex';
+            // Focus input for immediate typing
+            setTimeout(() => {
+                input.focus();
+            }, 0);
         }
 
         function closeCreateFolderModal() {
