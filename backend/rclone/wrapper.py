@@ -661,7 +661,6 @@ class RcloneWrapper:
         actual_dst = dst
         needs_mkdir = False
         mkdir_path = None
-        needs_src_cleanup = False  # For directory moveto operations
 
         if operation == 'sync':
             # Sync always uses 'sync' command
@@ -695,11 +694,18 @@ class RcloneWrapper:
                 # Rule 1: Destination is existing file → overwrite with moveto
                 rclone_cmd = 'moveto'
             elif not dst_exists and not dst_has_slash:
-                # Rule 2: Destination doesn't exist (and no /) → moveto (handles rename!)
-                rclone_cmd = 'moveto'
-                # For directory moveto, we need to cleanup source directory after move
+                # Rule 2: Destination doesn't exist (and no /) → rename operation
                 if src_is_dir:
-                    needs_src_cleanup = True
+                    # For directory rename, use move with trailing slashes
+                    # This automatically cleans up empty source dirs
+                    mkdir_path = dst_path_clean
+                    actual_src = src + '/'
+                    actual_dst = dst + '/'
+                    needs_mkdir = True
+                    rclone_cmd = 'move'
+                else:
+                    # For file rename, use moveto
+                    rclone_cmd = 'moveto'
             elif src_is_dir and not src_has_slash:
                 # Rule 3: Source is directory without / → "move by name"
                 # Create dst/basename(src) and move into it
@@ -755,6 +761,10 @@ class RcloneWrapper:
                 '--s3-acl', 'bucket-owner-full-control',
             ])
 
+        # For move operations, ensure empty source directories are removed
+        if operation == 'move':
+            command.append('--delete-empty-src-dirs')
+
         # Handle symlinks
         if copy_links:
             command.append('--copy-links')
@@ -766,46 +776,11 @@ class RcloneWrapper:
 
         self._log_command(command, credentials)
 
-        # For directory moveto, we need to cleanup the source directory after move
-        # because rclone moveto leaves it empty
-        if operation == 'move' and needs_src_cleanup:
-            # Build cleanup command to remove empty source directory
-            cleanup_cmd = [
-                self.rclone_path,
-                '--config', config_arg if config_arg else '/dev/null',
-                'rmdirs',
-                actual_src,
-                '--progress',  # Ensure output for job tracking
-                '--stats', '1s',
-                '--verbose',
-                # Note: NOT using --leave-root so the root directory is removed
-            ]
-
-            # Chain the commands using shell
-            # This ensures cleanup happens after the move completes
-            command_str = ' '.join(f'"{arg}"' if ' ' in arg else arg for arg in command)
-            cleanup_str = ' '.join(f'"{arg}"' if ' ' in arg else arg for arg in cleanup_cmd)
-
-            # Use bash to chain commands with &&
-            # Redirect both commands' output to maintain progress tracking
-            chained_command = [
-                'bash', '-c',
-                f'{command_str} && {cleanup_str}'
-            ]
-
-            logging.info(f"Chaining moveto with cleanup: {chained_command[-1]}")
-
-            # Queue the chained command
-            try:
-                self._job_queue.push(chained_command, credentials, job_id)
-            except Exception as e:
-                raise RcloneException(f"Failed to start {operation} job: {e}")
-        else:
-            # Queue the job normally
-            try:
-                self._job_queue.push(command, credentials, job_id)
-            except Exception as e:
-                raise RcloneException(f"Failed to start {operation} job: {e}")
+        # Queue the job
+        try:
+            self._job_queue.push(command, credentials, job_id)
+        except Exception as e:
+            raise RcloneException(f"Failed to start {operation} job: {e}")
 
         return job_id
 
