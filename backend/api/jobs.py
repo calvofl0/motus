@@ -360,6 +360,29 @@ def list_jobs():
         else:
             jobs = db.list_jobs(status=status, limit=limit, offset=offset)
 
+        # IMPORTANT: Update any fast-finishing jobs that show as 'running'
+        # but are no longer in the queue (completed between polls)
+        running_jobs = rclone.get_running_jobs()
+        for job in jobs:
+            if job['status'] == 'running' and job['job_id'] not in running_jobs:
+                # Fast job finished - check and update
+                if rclone.job_finished(job['job_id']):
+                    exit_status = rclone.job_exitstatus(job['job_id'])
+                    if exit_status == 0:
+                        job['status'] = 'completed'
+                    else:
+                        job['status'] = 'failed'
+
+                    logging.info(f"Job {job['job_id']}: Fast job detected in list_jobs - updating to {job['status']}")
+
+                    # Update database
+                    db.update_job(
+                        job_id=job['job_id'],
+                        status=job['status'],
+                        progress=100,
+                        error_text=rclone.job_error_text(job['job_id']) or None,
+                    )
+
         return jsonify({'jobs': jobs})
 
     except Exception as e:
