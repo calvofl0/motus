@@ -916,7 +916,8 @@
                 
                 <div class="form-group">
                     <label>Path:</label>
-                    <input type="text" id="ls-path" placeholder="/path or remote:/path" value="/" />
+                    <input type="text" id="ls-path" placeholder="/path or remote:/path" value="/"
+                           onkeypress="if(event.key === 'Enter') listFiles()" />
                     <div class="hint">Example: /tmp or myS3:/bucket/folder</div>
                 </div>
                 <button onclick="listFiles()">List Files</button>
@@ -926,7 +927,8 @@
 
                 <div class="form-group">
                     <label>Create Directory:</label>
-                    <input type="text" id="mkdir-path" placeholder="/path/to/newdir or remote:/path/newdir" />
+                    <input type="text" id="mkdir-path" placeholder="/path/to/newdir or remote:/path/newdir"
+                           onkeypress="if(event.key === 'Enter') makeDirectory()" />
                 </div>
                 <button onclick="makeDirectory()">Create Directory</button>
                 <div id="mkdir-status"></div>
@@ -935,7 +937,8 @@
 
                 <div class="form-group">
                     <label>Delete Path:</label>
-                    <input type="text" id="delete-path" placeholder="/path or remote:/path" />
+                    <input type="text" id="delete-path" placeholder="/path or remote:/path"
+                           onkeypress="if(event.key === 'Enter') deletePath()" />
                 </div>
                 <button onclick="deletePath()" style="background: #dc3545;">Delete</button>
                 <div id="delete-status"></div>
@@ -1026,7 +1029,8 @@
             <div class="modal-header">✏️ Rename</div>
             <div class="form-group">
                 <label>New name:</label>
-                <input type="text" id="rename-input" />
+                <input type="text" id="rename-input"
+                       onkeypress="if(event.key === 'Enter') confirmRename()" />
             </div>
             <div class="modal-buttons">
                 <button onclick="closeRenameModal()">Cancel</button>
@@ -1040,7 +1044,8 @@
             <div class="modal-header">📁 Create New Folder</div>
             <div class="form-group">
                 <label>Folder name:</label>
-                <input type="text" id="create-folder-input" />
+                <input type="text" id="create-folder-input"
+                       onkeypress="if(event.key === 'Enter') confirmCreateFolder()" />
             </div>
             <div class="modal-buttons">
                 <button onclick="closeCreateFolderModal()">Cancel</button>

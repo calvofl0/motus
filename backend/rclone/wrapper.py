@@ -365,13 +365,14 @@ class RcloneWrapper:
             # Local path (use expanded path with tilde resolved)
             remote_path = clean_path
 
-        # Check if path exists and is a directory
-        try:
-            info = self.ls(path, remote_config)
-            # If ls succeeds, it's a directory
+        # Check if path is a directory or file
+        is_dir = self._is_directory(path, remote_config)
+
+        if is_dir:
+            # It's a directory - use purge
             command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'purge', remote_path]
-        except:
-            # Assume it's a file
+        else:
+            # It's a file - use deletefile
             command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'deletefile', remote_path]
 
         self._log_command(command, credentials)
