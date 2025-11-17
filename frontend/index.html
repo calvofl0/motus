@@ -1693,7 +1693,7 @@
             document.getElementById('context-menu').style.display = 'none';
 
             if (action === 'rename' && contextMenuState.items.length === 1) {
-                showRenameModal(contextMenuState.items[0].name);
+                showRenameModal(contextMenuState.items[0].Name);
             } else if (action === 'delete') {
                 showDeleteConfirmModal();
             }
@@ -1730,13 +1730,26 @@
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const file = contextMenuState.items[0];
 
+            // Skip no-op rename (same name)
+            if (newName === file.Name) {
+                closeRenameModal();
+                return;
+            }
+
+            // Check if destination already exists
+            const existingFile = state.files.find(f => f.Name === newName);
+            if (existingFile) {
+                alert(`A file or folder named "${newName}" already exists in this directory`);
+                return;
+            }
+
             const oldPath = state.remote ?
                 `${state.remote}:${state.path}/${file.Name}` :
                 `${state.path}/${file.Name}`;
             const newPath = state.remote ?
                 `${state.remote}:${state.path}/${newName}` :
                 `${state.path}/${newName}`;
-            
+
             try {
                 // Use move operation for rename
                 await apiCall('/api/jobs/move', 'POST', {

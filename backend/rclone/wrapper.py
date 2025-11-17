@@ -488,6 +488,89 @@ class RcloneWrapper:
             False
         )
 
+    def _path_exists(self, path: str, remote_config: Optional[Dict] = None) -> bool:
+        """
+        Check if a path exists (local or remote)
+
+        Args:
+            path: Path to check (can include remote syntax like 'remote:/path')
+            remote_config: Optional remote configuration dict (legacy support)
+
+        Returns:
+            True if path exists, False otherwise
+        """
+        try:
+            # Parse path to detect remote
+            remote_name, clean_path = self._parse_path(path)
+
+            if remote_name or remote_config:
+                # Remote path - try to get parent directory listing
+                parent_path = os.path.dirname(clean_path.rstrip('/'))
+                basename = os.path.basename(clean_path.rstrip('/'))
+
+                # Handle root directory
+                if not parent_path or parent_path == '.':
+                    parent_path = '/'
+
+                # Reconstruct full parent path
+                if remote_name:
+                    full_parent = f"{remote_name}:{parent_path}"
+                else:
+                    full_parent = parent_path
+
+                # List parent directory
+                files = self.ls(full_parent, remote_config)
+                return any(f['Name'] == basename for f in files)
+            else:
+                # Local path
+                return os.path.exists(clean_path)
+        except Exception as e:
+            logging.debug(f"Path exists check failed for '{path}': {e}")
+            return False
+
+    def _is_directory(self, path: str, remote_config: Optional[Dict] = None) -> bool:
+        """
+        Check if a path is a directory (local or remote)
+
+        Args:
+            path: Path to check (can include remote syntax like 'remote:/path')
+            remote_config: Optional remote configuration dict (legacy support)
+
+        Returns:
+            True if path is a directory, False otherwise
+        """
+        try:
+            # Parse path to detect remote
+            remote_name, clean_path = self._parse_path(path)
+
+            if remote_name or remote_config:
+                # Remote path - try to get parent directory listing
+                parent_path = os.path.dirname(clean_path.rstrip('/'))
+                basename = os.path.basename(clean_path.rstrip('/'))
+
+                # Handle root directory
+                if not parent_path or parent_path == '.':
+                    parent_path = '/'
+
+                # Reconstruct full parent path
+                if remote_name:
+                    full_parent = f"{remote_name}:{parent_path}"
+                else:
+                    full_parent = parent_path
+
+                # List parent directory
+                files = self.ls(full_parent, remote_config)
+                for f in files:
+                    if f['Name'] == basename:
+                        return f.get('IsDir', False)
+                return False
+            else:
+                # Local path
+                return os.path.isdir(clean_path)
+        except Exception as e:
+            logging.debug(f"Directory check failed for '{path}': {e}")
+            return False
+
     def _transfer(
         self,
         operation: str,  # 'copy', 'move', or 'sync'
@@ -498,14 +581,20 @@ class RcloneWrapper:
         copy_links: bool,
     ) -> int:
         """
-        Internal method for copy/move/sync operations
+        Internal method for copy/move/sync operations with rsync-like semantics
+
+        Implements rsync trailing slash convention:
+        - Source with trailing /: copy contents (directories only)
+        - Source without /: copy by name
+        - Destination with trailing /: must be a directory (created if needed)
+        - Destination without /: depends on what exists
 
         Supports both named remotes and legacy remote_config
         Examples:
-            - Local to local: ('/src/file', '/dst/file', None, None)
-            - Remote to local: ('myS3:/bucket/file', '/dst/file', None, None)
-            - Local to remote: ('/src/file', 'myS3:/bucket/file', None, None)
-            - Legacy with config: ('/file', '/file', src_config, dst_config)
+            - Local to local: ('/src/file', '/dst/', None, None)
+            - Remote to local: ('myS3:/bucket/file', '/dst/', None, None)
+            - Local to remote: ('/src/file', 'myS3:/bucket/', None, None)
+            - Legacy with config: ('/file', '/dst/', src_config, dst_config)
         """
         credentials = {}
         config_arg = self.rclone_config_file
@@ -515,56 +604,142 @@ class RcloneWrapper:
             job_id = self._next_job_id
             self._next_job_id += 1
 
+        # Parse trailing slashes (rsync convention)
+        src_has_slash = src_path.endswith('/')
+        dst_has_slash = dst_path.endswith('/')
+        src_path_clean = src_path.rstrip('/')
+        dst_path_clean = dst_path.rstrip('/')
+
         # Parse source path
-        src_remote_name, src_clean_path = self._parse_path(src_path)
+        src_remote_name, src_clean_path = self._parse_path(src_path_clean)
         if src_remote_name:
             # Use named remote from rclone config
             src = f"{src_remote_name}:{src_clean_path}"
         elif src_config:
             # Legacy: use provided credentials
             credentials.update(self._format_credentials(src_config, 'src'))
-            src = f"src:{src_path}"
+            src = f"src:{src_path_clean}"
             config_arg = '/dev/null'
         else:
             # Local path (use expanded path with tilde resolved)
             src = src_clean_path
 
         # Parse destination path
-        dst_remote_name, dst_clean_path = self._parse_path(dst_path)
+        dst_remote_name, dst_clean_path = self._parse_path(dst_path_clean)
         if dst_remote_name:
             # Use named remote from rclone config
             dst = f"{dst_remote_name}:{dst_clean_path}"
         elif dst_config:
             # Legacy: use provided credentials
             credentials.update(self._format_credentials(dst_config, 'dst'))
-            dst = f"dst:{dst_path}"
+            dst = f"dst:{dst_path_clean}"
             config_arg = '/dev/null'
         else:
             # Local path (use expanded path with tilde resolved)
             dst = dst_clean_path
 
-        # Build command
-        if operation == 'copy':
-            rclone_cmd = 'copyto'
-        elif operation == 'move':
-            rclone_cmd = 'moveto'
-        elif operation == 'sync':
+        # Inspect source
+        src_is_dir = self._is_directory(src_path_clean, src_config)
+        src_basename = os.path.basename(src_clean_path)
+
+        # Inspect destination (only if no trailing slash)
+        if dst_has_slash:
+            dst_is_file = False  # Assume directory
+            dst_exists = None    # Don't need to check
+        else:
+            dst_exists = self._path_exists(dst_path_clean, dst_config)
+            dst_is_file = dst_exists and not self._is_directory(dst_path_clean, dst_config)
+
+        logging.info(f"Starting {operation}: '{src_path}' -> '{dst_path}'")
+        logging.debug(f"Source: is_dir={src_is_dir}, has_slash={src_has_slash}")
+        logging.debug(f"Destination: is_file={dst_is_file}, has_slash={dst_has_slash}, exists={dst_exists}")
+
+        # Determine rclone command and actual paths based on rsync semantics
+        rclone_cmd = None
+        actual_src = src
+        actual_dst = dst
+        needs_mkdir = False
+        mkdir_path = None
+
+        if operation == 'sync':
+            # Sync always uses 'sync' command
             rclone_cmd = 'sync'
+        elif operation == 'copy':
+            # COPY LOGIC
+            if dst_is_file:
+                # Rule 1: Destination is existing file → overwrite with copyto
+                rclone_cmd = 'copyto'
+            elif src_is_dir and not src_has_slash:
+                # Rule 2: Source is directory without / → "copy by name"
+                # Create dst/basename(src) and copy into it
+                mkdir_path = f"{dst_path_clean}/{src_basename}"
+                actual_dst = f"{dst}/{src_basename}"
+                needs_mkdir = True
+                rclone_cmd = 'copy'
+            elif not dst_exists and not dst_has_slash:
+                # Rule 3: Destination doesn't exist (and no /) → use copyto
+                rclone_cmd = 'copyto'
+            else:
+                # Rule 4: Normal copy (file into dir, or dir with / copying contents)
+                rclone_cmd = 'copy'
+                # Preserve trailing slashes for rclone
+                if src_has_slash:
+                    actual_src = src + '/'
+                if dst_has_slash:
+                    actual_dst = dst + '/'
+        elif operation == 'move':
+            # MOVE LOGIC
+            if dst_is_file:
+                # Rule 1: Destination is existing file → overwrite with moveto
+                rclone_cmd = 'moveto'
+            elif not dst_exists and not dst_has_slash:
+                # Rule 2: Destination doesn't exist (and no /) → moveto (handles rename!)
+                rclone_cmd = 'moveto'
+            elif src_is_dir and not src_has_slash:
+                # Rule 3: Source is directory without / → "move by name"
+                # Create dst/basename(src) and move into it
+                mkdir_path = f"{dst_path_clean}/{src_basename}"
+                actual_dst = f"{dst}/{src_basename}"
+                needs_mkdir = True
+                rclone_cmd = 'move'
+            else:
+                # Rule 4: Normal move
+                rclone_cmd = 'move'
+                # Preserve trailing slashes for rclone
+                if src_has_slash:
+                    actual_src = src + '/'
+                if dst_has_slash:
+                    actual_dst = dst + '/'
         else:
             raise ValueError(f"Invalid operation: {operation}")
+
+        # Create destination directory if needed (for "copy/move by name")
+        if needs_mkdir and mkdir_path:
+            logging.info(f"Creating destination directory: {mkdir_path}")
+            try:
+                # Reconstruct path with remote syntax if needed
+                if dst_remote_name:
+                    mkdir_full_path = f"{dst_remote_name}:{mkdir_path}"
+                else:
+                    mkdir_full_path = mkdir_path
+                self.mkdir(mkdir_full_path, dst_config)
+            except Exception as e:
+                logging.warning(f"Failed to create directory {mkdir_path}: {e}")
+                # Continue anyway, rclone might handle it
+
+        # Build command
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
             rclone_cmd,
-            src,
-            dst,
+            actual_src,
+            actual_dst,
             '--progress',
             '--stats', '2s',
             '--contimeout=5m',
         ]
 
-        logging.info(f"Starting {operation}: '{src}' -> '{dst}'")
-        logging.debug(f"Original paths: src_path='{src_path}', dst_path='{dst_path}'")
+        logging.info(f"Executing: rclone {rclone_cmd} '{actual_src}' '{actual_dst}'")
 
         # Add S3-specific options (for legacy mode only)
         if (src_config and src_config.get('type') == 's3') or \
@@ -581,7 +756,7 @@ class RcloneWrapper:
 
         # Exclude .snapshot directories (NFS) - only for local sources
         if not src_remote_name and not src_config:
-            if os.path.isdir(src):
+            if os.path.isdir(actual_src.rstrip('/')):
                 command.append('--exclude=.snapshot/')
 
         self._log_command(command, credentials)
