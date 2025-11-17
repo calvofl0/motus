@@ -114,7 +114,7 @@ class JobQueue:
         full_env = os.environ.copy()
         full_env.update(env)
 
-        # Start process
+        # Start process in text mode so we get strings not bytes
         try:
             process = subprocess.Popen(
                 command,
@@ -122,8 +122,11 @@ class JobQueue:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                text=True,  # Text mode - returns strings not bytes
+                bufsize=1,  # Line buffered
             )
             self._processes[job_id] = process
+            logging.info(f"Job {job_id}: Started process PID {process.pid}")
         except Exception as e:
             logging.error(f"Failed to start job {job_id}: {e}")
             self._job_error_text[job_id] = str(e)
@@ -172,12 +175,14 @@ class JobQueue:
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
             try:
+                logging.debug(f"Job {job_id}: stdout reader thread started")
                 for line in iter(process.stdout.readline, ''):
                     with output_lock:
                         output_lines.append(line)
                         process_output_line(line)
+                logging.debug(f"Job {job_id}: stdout reader thread finished normally")
             except Exception as e:
-                logging.debug(f"Job {job_id}: stdout reader finished: {e}")
+                logging.error(f"Job {job_id}: stdout reader exception: {e}")
 
         reader_thread = threading.Thread(target=read_stdout, daemon=True)
         reader_thread.start()
@@ -187,28 +192,43 @@ class JobQueue:
         def read_stderr():
             """Read stderr in background"""
             try:
+                logging.debug(f"Job {job_id}: stderr reader thread started")
                 for line in iter(process.stderr.readline, ''):
                     stderr_lines.append(line)
-            except Exception:
-                pass
+                logging.debug(f"Job {job_id}: stderr reader thread finished normally")
+            except Exception as e:
+                logging.error(f"Job {job_id}: stderr reader exception: {e}")
 
         stderr_thread = threading.Thread(target=read_stderr, daemon=True)
         stderr_thread.start()
 
         # Main thread: just poll process status every 0.2s
         # This ensures we detect completion quickly regardless of output
+        logging.debug(f"Job {job_id}: Starting poll loop")
+        iteration = 0
         while not stop_event.is_set():
             poll_result = process.poll()
+            iteration += 1
             if poll_result is not None:
                 # Process finished!
-                logging.info(f"Job {job_id}: Process exited with code {poll_result}")
+                logging.info(f"Job {job_id}: Process exited with code {poll_result} after {iteration} iterations")
                 break
+            if iteration % 10 == 0:  # Log every 2 seconds
+                logging.debug(f"Job {job_id}: Still running after {iteration * 0.2}s")
             time.sleep(0.2)
+
+        logging.info(f"Job {job_id}: Poll loop exited, waiting for reader threads")
 
         # Wait for reader threads to finish (with timeout)
         reader_thread.join(timeout=1.0)
-        stderr_thread.join(timeout=1.0)
+        if reader_thread.is_alive():
+            logging.warning(f"Job {job_id}: stdout reader thread still alive after 1s timeout")
 
+        stderr_thread.join(timeout=1.0)
+        if stderr_thread.is_alive():
+            logging.warning(f"Job {job_id}: stderr reader thread still alive after 1s timeout")
+
+        logging.info(f"Job {job_id}: Setting job percent to 100")
         # Job finished
         self._job_percent[job_id] = 100
         self._process_status(job_id)
@@ -216,6 +236,7 @@ class JobQueue:
         # Get exit status
         exitstatus = process.poll()
         if exitstatus is None:
+            logging.warning(f"Job {job_id}: Exit status still None, calling wait()")
             process.wait(timeout=5)
             exitstatus = process.poll()
 
@@ -226,8 +247,9 @@ class JobQueue:
             self._job_error_text[job_id] += ''.join(stderr_lines)
             self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
 
-        logging.info(f"Job {job_id} finished with exit status {exitstatus}")
+        logging.info(f"Job {job_id} finished with exit status {exitstatus}, setting stop_event")
         stop_event.set()
+        logging.info(f"Job {job_id} stop_event set successfully")
 
     def _process_status(self, job_id):
         """Process status dict into formatted text and percentage"""
