@@ -1901,8 +1901,9 @@
                 // Draggable - handle mousedown for immediate selection before drag
                 div.draggable = true;
                 div.addEventListener('mousedown', (e) => {
-                    // Only handle left mouse button
-                    if (e.button === 0) {
+                    // Only handle left mouse button without modifier keys
+                    // If Ctrl/Cmd/Shift are pressed, let the click handler deal with multi-selection
+                    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                         // Select file immediately if not already selected
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
@@ -1985,8 +1986,9 @@
                 // Draggable - handle mousedown for immediate selection before drag
                 tr.draggable = true;
                 tr.addEventListener('mousedown', (e) => {
-                    // Only handle left mouse button
-                    if (e.button === 0) {
+                    // Only handle left mouse button without modifier keys
+                    // If Ctrl/Cmd/Shift are pressed, let the click handler deal with multi-selection
+                    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                         // Select file immediately if not already selected
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
