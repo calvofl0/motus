@@ -773,9 +773,8 @@ class RcloneWrapper:
             cleanup_cmd = [
                 self.rclone_path,
                 '--config', config_arg if config_arg else '/dev/null',
-                'rmdirs',
+                'purge',  # Remove the directory entirely
                 actual_src,
-                '--leave-root',  # Don't delete the root directory itself
             ]
 
             # Chain the commands using shell
