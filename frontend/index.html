@@ -2485,18 +2485,18 @@
                 // Calculate elapsed time with proper timestamp parsing
                 let elapsedSec = 0;
                 try {
-                    // SQLite returns timestamps as local time strings like "2024-01-15 10:30:45"
-                    // JavaScript's Date() can parse this, but we need to handle it carefully
+                    // SQLite CURRENT_TIMESTAMP returns UTC time as "YYYY-MM-DD HH:MM:SS"
+                    // We need to tell JavaScript it's UTC by adding 'Z' suffix
                     const timestampStr = job.created_at;
 
-                    // If timestamp contains 'T' it's ISO format, otherwise it's SQLite format
                     let createdAt;
                     if (timestampStr.includes('T')) {
+                        // Already ISO format, might have 'Z'
                         createdAt = new Date(timestampStr);
                     } else {
-                        // SQLite format: "YYYY-MM-DD HH:MM:SS"
-                        // Treat it as local time
-                        createdAt = new Date(timestampStr.replace(' ', 'T'));
+                        // SQLite format: "YYYY-MM-DD HH:MM:SS" (UTC)
+                        // Convert to ISO format and add 'Z' to indicate UTC
+                        createdAt = new Date(timestampStr.replace(' ', 'T') + 'Z');
                     }
 
                     const now = new Date();
@@ -2534,18 +2534,22 @@
                     // We have detailed transfer info from rclone
                     transferStatus = `${transferInfo.eta} left - ${transferInfo.transferred} out of ${transferInfo.total} (${transferInfo.speed})`;
                 } else {
-                    // Fallback: calculate ETA from progress
+                    // Fallback: calculate ETA from progress or show progress percentage
                     if (progress >= 100) {
                         transferStatus = 'Done';
-                    } else if (progress > 0 && elapsedSec > 2) {
-                        // Only show calculated ETA if we have some progress and elapsed time
-                        const remainingPercent = 100 - progress;
-                        const etaSec = Math.floor((elapsedSec / progress) * remainingPercent);
-                        const etaStr = formatTime(etaSec);
-                        transferStatus = `${etaStr} left`;
+                    } else if (progress > 0) {
+                        // Show calculated ETA if we have progress
+                        if (elapsedSec > 1) {
+                            const remainingPercent = 100 - progress;
+                            const etaSec = Math.floor((elapsedSec / progress) * remainingPercent);
+                            const etaStr = formatTime(etaSec);
+                            transferStatus = `${etaStr} left (${progress}%)`;
+                        } else {
+                            transferStatus = `${progress}% - Starting...`;
+                        }
                     } else {
-                        // Job just started (< 2s) or no progress yet
-                        transferStatus = elapsedSec < 2 ? 'Starting...' : 'Calculating...';
+                        // No progress yet
+                        transferStatus = 'Starting...';
                     }
                 }
 
