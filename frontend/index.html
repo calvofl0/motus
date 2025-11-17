@@ -1984,8 +1984,14 @@
 
         // Rename modal
         function showRenameModal(currentName) {
-            document.getElementById('rename-input').value = currentName;
+            const input = document.getElementById('rename-input');
+            input.value = currentName;
             document.getElementById('rename-modal').style.display = 'flex';
+            // Focus and select text for easy editing
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 0);
         }
 
         function closeRenameModal() {
