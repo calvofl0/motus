@@ -484,10 +484,13 @@
 
         .job-item {
             background: #f8f9fa;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
             border-radius: 6px;
             border-left: 4px solid #007bff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .job-item.completed {
@@ -511,28 +514,43 @@
         .job-id {
             font-weight: 600;
             color: #333;
+            font-size: 13px;
+            white-space: nowrap;
+            min-width: 120px;
         }
 
         .job-status {
-            font-size: 12px;
+            font-size: 11px;
             padding: 2px 8px;
             border-radius: 3px;
             background: #007bff;
             color: white;
+            white-space: nowrap;
         }
 
         .job-path {
             font-size: 12px;
             color: #666;
-            margin-bottom: 8px;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .job-time-info {
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
         }
 
         .progress-bar-container {
             background: #e9ecef;
-            height: 20px;
-            border-radius: 10px;
+            height: 16px;
+            border-radius: 8px;
             overflow: hidden;
-            margin-bottom: 5px;
+            width: 120px;
+            flex-shrink: 0;
         }
 
         .progress-bar {
@@ -543,7 +561,7 @@
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
         }
 
@@ -630,6 +648,61 @@
         }
 
         .interrupted-job-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Failed Jobs Dropdown */
+        .failed-jobs-dropdown {
+            background: #ffebee;
+            border: 1px solid #dc3545;
+            border-radius: 6px;
+            margin: 15px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .failed-jobs-header {
+            background: #dc3545;
+            color: white;
+            padding: 10px 15px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .failed-jobs-header:hover {
+            background: #c82333;
+        }
+
+        .failed-jobs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .failed-job-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #dc3545;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .failed-job-info {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .failed-job-actions {
             display: flex;
             gap: 12px;
             align-items: center;
@@ -882,6 +955,17 @@
                 <!-- Interrupted jobs will be populated here -->
             </div>
         </div>
+
+        <!-- Failed Jobs Dropdown -->
+        <div class="failed-jobs-dropdown hidden" id="failed-jobs-dropdown">
+            <div class="failed-jobs-header" onclick="toggleFailedJobsDropdown()">
+                <span>❌ Failed Jobs (<span id="failed-count">0</span>)</span>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="failed-jobs-list hidden" id="failed-jobs-list">
+                <!-- Failed jobs will be populated here -->
+            </div>
+        </div>
     </div>
 
     <!-- Expert Mode (existing UI) -->
@@ -1101,10 +1185,15 @@
         let interruptedJobsData = {
             jobs: []
         };
+        let failedJobsData = {
+            jobs: []
+        };
         let jobUpdateInterval = null;
         let interruptedJobsInterval = null;
+        let failedJobsInterval = null;
         let createFolderPane = null;
         let jobPanelManuallyToggled = false;  // Track if user manually toggled the panel
+        let previousJobState = 'empty';  // Track previous state: 'empty' or 'non-empty'
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1158,6 +1247,7 @@
                 await refreshPane('right');
                 startJobUpdates();
                 startInterruptedJobsUpdates();
+                startFailedJobsUpdates();
             }
 
             // Check for interrupted jobs modal (only on startup)
@@ -2211,20 +2301,25 @@
                 jobsData.jobs = data.jobs || [];
                 const newCount = jobsData.jobs.length;
 
-                // Smart auto-expand/collapse panel based on changes
+                // State-based auto-expand/collapse: only change on state transitions
                 const panel = document.getElementById('job-panel');
                 const isCollapsed = panel.classList.contains('collapsed');
+                const currentState = newCount === 0 ? 'empty' : 'non-empty';
 
-                // Auto-open when job count INCREASES (new job started)
-                if (newCount > oldCount && isCollapsed) {
-                    panel.classList.remove('collapsed');
-                    jobPanelManuallyToggled = false;  // Reset manual flag on auto-open
-                }
-                // Auto-close when count reaches 0 (always, regardless of manual toggle)
-                else if (newCount === 0 && !isCollapsed) {
-                    panel.classList.add('collapsed');
+                // Only auto-open/close on state transitions (empty ↔ non-empty)
+                if (!jobPanelManuallyToggled) {
+                    // Transition from empty to non-empty: auto-open
+                    if (previousJobState === 'empty' && currentState === 'non-empty') {
+                        panel.classList.remove('collapsed');
+                    }
+                    // Transition from non-empty to empty: auto-close
+                    else if (previousJobState === 'non-empty' && currentState === 'empty') {
+                        panel.classList.add('collapsed');
+                    }
+                    // No state change: keep panel as is
                 }
 
+                previousJobState = currentState;
                 renderJobs();
             } catch (error) {
                 console.error('Failed to update jobs:', error);
@@ -2250,25 +2345,59 @@
                 return;
             }
 
-            container.innerHTML = jobsData.jobs.map(job => `
-                <div class="job-item ${job.status}">
-                    <div class="job-header">
-                        <div class="job-actions">
-                            <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
+            container.innerHTML = jobsData.jobs.map(job => {
+                // Calculate elapsed time
+                const createdAt = new Date(job.created_at);
+                const now = new Date();
+                const elapsedMs = now - createdAt;
+                const elapsedSec = Math.floor(elapsedMs / 1000);
+                const elapsedMin = Math.floor(elapsedSec / 60);
+                const elapsedHr = Math.floor(elapsedMin / 60);
+                let elapsedStr = '';
+                if (elapsedHr > 0) {
+                    elapsedStr = `${elapsedHr}h ${elapsedMin % 60}m`;
+                } else if (elapsedMin > 0) {
+                    elapsedStr = `${elapsedMin}m ${elapsedSec % 60}s`;
+                } else {
+                    elapsedStr = `${elapsedSec}s`;
+                }
+
+                // Calculate ETA
+                const progress = job.progress || 0;
+                let etaStr = '';
+                if (progress > 0 && progress < 100) {
+                    const remainingPercent = 100 - progress;
+                    const etaMs = (elapsedMs / progress) * remainingPercent;
+                    const etaSec = Math.floor(etaMs / 1000);
+                    const etaMin = Math.floor(etaSec / 60);
+                    const etaHr = Math.floor(etaMin / 60);
+                    if (etaHr > 0) {
+                        etaStr = `ETA ${etaHr}h ${etaMin % 60}m`;
+                    } else if (etaMin > 0) {
+                        etaStr = `ETA ${etaMin}m`;
+                    } else {
+                        etaStr = `ETA ${etaSec}s`;
+                    }
+                } else if (progress === 100) {
+                    etaStr = 'Done';
+                }
+
+                return `
+                    <div class="job-item ${job.status}">
+                        <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
+                        <span class="job-path">${job.src_path} → ${job.dst_path}</span>
+                        <span class="job-time-info">${elapsedStr}</span>
+                        <span class="job-time-info">${etaStr}</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: ${progress}%">
+                                ${progress}%
+                            </div>
                         </div>
-                        <div class="job-actions">
-                            <span class="job-status">${job.status}</span>
-                            <button class="job-icon-btn cancel" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
-                        </div>
+                        <span class="job-status">${job.status}</span>
+                        <button class="job-icon-btn cancel" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
                     </div>
-                    <div class="job-path">${job.src_path} → ${job.dst_path}</div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: ${job.progress || 0}%">
-                            ${job.progress || 0}%
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Interrupted Jobs Dropdown
@@ -2370,10 +2499,77 @@
                     await apiCall(`/api/jobs/${job.job_id}/resume`, 'POST');
                 }
                 closeInterruptedJobsModal();
-                updateJobs();  // Will auto-expand panel
-                updateInterruptedJobs();  // Update interrupted jobs list
+                updateInterruptedJobs();
+                updateJobs();
             } catch (error) {
                 alert(`Failed to resume jobs: ${error.message}`);
+            }
+        }
+
+        // Failed Jobs Dropdown
+        function toggleFailedJobsDropdown() {
+            const list = document.getElementById('failed-jobs-list');
+            list.classList.toggle('hidden');
+        }
+
+        function startFailedJobsUpdates() {
+            updateFailedJobs();
+            failedJobsInterval = setInterval(updateFailedJobs, 5000);
+        }
+
+        async function updateFailedJobs() {
+            try {
+                const data = await apiCall('/api/jobs?status=failed');
+                failedJobsData.jobs = data.jobs || [];
+                renderFailedJobs();
+            } catch (error) {
+                console.error('Failed to update failed jobs:', error);
+            }
+        }
+
+        function renderFailedJobs() {
+            const dropdown = document.getElementById('failed-jobs-dropdown');
+            const list = document.getElementById('failed-jobs-list');
+            const count = document.getElementById('failed-count');
+
+            if (failedJobsData.jobs.length === 0) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            dropdown.classList.remove('hidden');
+            count.textContent = failedJobsData.jobs.length;
+
+            list.innerHTML = failedJobsData.jobs.map(job => `
+                <div class="failed-job-item">
+                    <div class="failed-job-info">
+                        Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
+                        ${job.error_text ? '<br><span style="color: #dc3545; font-size: 11px;">' + job.error_text.substring(0, 100) + '...</span>' : ''}
+                    </div>
+                    <div class="failed-job-actions">
+                        <button class="job-icon-btn resume" onclick="resumeFailedJobFromDropdown(${job.job_id})" title="Resume this job">▶</button>
+                        <button class="job-icon-btn cancel" onclick="cancelFailedJob(${job.job_id})" title="Cancel this job">×</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function cancelFailedJob(jobId) {
+            try {
+                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
+                updateFailedJobs();
+            } catch (error) {
+                alert(`Failed to cancel job: ${error.message}`);
+            }
+        }
+
+        async function resumeFailedJobFromDropdown(jobId) {
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
+                updateFailedJobs();
+                updateJobs();  // Refresh active jobs too
+            } catch (error) {
+                alert(`Failed to resume job: ${error.message}`);
             }
         }
 

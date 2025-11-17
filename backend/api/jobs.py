@@ -191,7 +191,6 @@ def get_job_status(job_id):
 
         # Check if job is actually running in rclone's queue
         running_jobs = rclone.get_running_jobs()
-        logging.info(f"Job {job_id} status query: running_jobs={running_jobs}, job in queue={job_id in running_jobs}")
 
         if job_id in running_jobs:
             # Job is active - get live status from rclone
@@ -209,8 +208,6 @@ def get_job_status(job_id):
                     status = 'failed'
             else:
                 status = 'running'
-
-            logging.info(f"Job {job_id}: IN queue - finished={finished}, status={status}, progress={progress}%, exit={exit_status}")
 
             # Update database with live status
             db.update_job(

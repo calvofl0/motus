@@ -179,8 +179,6 @@ class RcloneWrapper:
 
         # Local path - expand tilde for home directory
         expanded = os.path.expanduser(path)
-        if path != expanded:
-            logging.info(f"Expanded tilde path '{path}' -> '{expanded}'")
         return (None, expanded)
 
     def ls(self, path: str, remote_config: Optional[Dict] = None) -> List[Dict]:
@@ -653,9 +651,7 @@ class RcloneWrapper:
             dst_exists = self._path_exists(dst_path_clean, dst_config)
             dst_is_file = dst_exists and not self._is_directory(dst_path_clean, dst_config)
 
-        logging.info(f"Starting {operation}: '{src_path}' -> '{dst_path}'")
-        logging.debug(f"Source: is_dir={src_is_dir}, has_slash={src_has_slash}")
-        logging.debug(f"Destination: is_file={dst_is_file}, has_slash={dst_has_slash}, exists={dst_exists}")
+        logging.info(f"{operation.capitalize()}: '{src_path}' -> '{dst_path}'")
 
         # Determine rclone command and actual paths based on rsync semantics
         rclone_cmd = None
@@ -746,8 +742,6 @@ class RcloneWrapper:
             '--contimeout=5m',
         ]
 
-        logging.info(f"Executing: rclone {rclone_cmd} '{actual_src}' '{actual_dst}'")
-
         # Add S3-specific options (for legacy mode only)
         if (src_config and src_config.get('type') == 's3') or \
            (dst_config and dst_config.get('type') == 's3'):
@@ -793,7 +787,6 @@ class RcloneWrapper:
             exit_status = self._job_queue.get_exitstatus(job_id)
             if exit_status == 0:
                 # Job succeeded - remove empty source directory
-                logging.info(f"Removing empty source directory: {cleanup_dir_after}")
                 try:
                     if src_remote_name or src_config:
                         # Remote path - use rclone rmdir (safer than purge)
@@ -809,7 +802,6 @@ class RcloneWrapper:
                     else:
                         # Local path - use os.rmdir (only removes if empty)
                         os.rmdir(cleanup_dir_after)
-                        logging.info(f"Successfully removed {cleanup_dir_after}")
                 except OSError as e:
                     logging.warning(f"Could not remove directory {cleanup_dir_after}: {e}")
                 except Exception as e:
