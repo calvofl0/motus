@@ -167,6 +167,17 @@ class JobQueue:
             status_match = re.search(r'([A-Za-z ]+):\s*(.*)', line)
             if status_match:
                 key, value = status_match.groups()
+
+                # Distinguish between byte-based and file-count "Transferred" lines
+                # to prevent them from overwriting each other
+                if key == 'Transferred':
+                    # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
+                    if re.search(r'[KMGT]?i?B\s*/.*,\s*\d+%', value):
+                        key = 'Transferred (bytes)'
+                    # File-count: "0 / 1, 0%" (just numbers)
+                    elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
+                        key = 'Transferred (files)'
+
                 self._job_status[job_id][key] = value
                 self._process_status(job_id)
 
@@ -264,12 +275,44 @@ class JobQueue:
 
         self._job_text[job_id] = '\n'.join(text_lines)
 
-        # Extract percentage
+        # Extract percentage - prioritize byte-based progress over file-count progress
+        # Byte-based: "Transferred (bytes)" key with "1.699 GiB / 1.953 GiB, 87%, ..."
+        # File-count: "Transferred (files)" key with "0 / 1, 0%"
+        byte_progress = None
+        file_count_progress = None
+
         for key, value in status.items():
-            percent_match = re.search(r'(\d+)%', value)
-            if percent_match:
-                try:
-                    self._job_percent[job_id] = int(percent_match.group(1))
-                    break
-                except:
-                    pass
+            # Look for byte-based progress
+            if key == 'Transferred (bytes)':
+                byte_match = re.search(r',\s*(\d+)%', value)
+                if byte_match:
+                    try:
+                        byte_progress = int(byte_match.group(1))
+                    except:
+                        pass
+            # Look for file-count progress
+            elif key == 'Transferred (files)':
+                count_match = re.search(r',\s*(\d+)%', value)
+                if count_match:
+                    try:
+                        file_count_progress = int(count_match.group(1))
+                    except:
+                        pass
+            # Fallback: old-style "Transferred" key (for backwards compatibility)
+            elif key == 'Transferred':
+                percent_match = re.search(r'(\d+)%', value)
+                if percent_match:
+                    try:
+                        # Try to determine if it's byte-based or file-count
+                        if re.search(r'[KMGT]?i?B\s*/', value):
+                            byte_progress = int(percent_match.group(1))
+                        else:
+                            file_count_progress = int(percent_match.group(1))
+                    except:
+                        pass
+
+        # Prefer byte-based progress, fall back to file count
+        if byte_progress is not None:
+            self._job_percent[job_id] = byte_progress
+        elif file_count_progress is not None:
+            self._job_percent[job_id] = file_count_progress
