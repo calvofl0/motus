@@ -7,7 +7,9 @@ import json
 import logging
 import os
 import re
+import select
 import subprocess
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -135,15 +137,43 @@ class JobQueue:
         reset_sequence1 = '\x1b[2K\x1b[0'
         reset_sequence2 = '\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[0'
 
+        # Use select for non-blocking stdout reading with periodic process checks
+        # This prevents hanging when process completes quickly with no output
+        stdout_fd = process.stdout.fileno()
+
         # Read output line by line
         while not stop_event.is_set():
+            # Check if process has finished before trying to read
+            # This catches fast operations that complete with minimal output
+            poll_result = process.poll()
+            if poll_result is not None:
+                # Process finished - break out immediately
+                logging.debug(f"Job {job_id}: Process exited with code {poll_result}")
+                break
+
+            # Use select with timeout to avoid blocking indefinitely on readline
+            # select() only works on Unix file descriptors
+            if hasattr(select, 'select'):
+                # Unix/Linux: use select with 0.5s timeout
+                try:
+                    readable, _, _ = select.select([stdout_fd], [], [], 0.5)
+                    if not readable:
+                        # No data available - loop back to check process status
+                        continue
+                except (ValueError, OSError):
+                    # File descriptor closed or invalid - process likely finished
+                    break
+            else:
+                # Windows: fallback to polling with small sleep
+                time.sleep(0.1)
+
+            # Data is available (or we're on Windows), try to read a line
             line = process.stdout.readline().decode('utf-8', errors='ignore')
 
             if len(line) == 0:
+                # Empty line might mean EOF - check if process finished
                 if process.poll() is not None:
-                    stop_event.set()
-                else:
-                    time.sleep(0.1)
+                    break
                 continue
 
             line = line.strip()
