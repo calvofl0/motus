@@ -1090,6 +1090,7 @@
         };
         let viewMode = 'list';  // 'grid' or 'list' - default to list
         let showHiddenFiles = false;  // show/hide files starting with . - default hidden
+        let lastFocusedPane = 'left';  // Track which pane was last focused
         let contextMenuState = {
             pane: null,
             items: []
@@ -1168,22 +1169,55 @@
                 document.getElementById('view-dropdown').classList.add('hidden');
             });
 
-            // Close context menu and view dropdown on ESC key
+            // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     document.getElementById('context-menu').style.display = 'none';
                     document.getElementById('view-dropdown').classList.add('hidden');
+                    return;
+                }
+
+                // Ignore shortcuts when typing in input fields
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                // F2 - Rename selected file/folder
+                if (e.key === 'F2') {
+                    e.preventDefault();
+                    const state = lastFocusedPane === 'left' ? leftPaneState : rightPaneState;
+                    if (state.selectedIndexes.length === 1) {
+                        const file = state.files[state.selectedIndexes[0]];
+                        contextMenuState.pane = lastFocusedPane;
+                        contextMenuState.items = [file];
+                        showRenameModal(file.Name);
+                    }
+                    return;
+                }
+
+                // Delete - Delete selected files/folders
+                if (e.key === 'Delete') {
+                    e.preventDefault();
+                    const state = lastFocusedPane === 'left' ? leftPaneState : rightPaneState;
+                    if (state.selectedIndexes.length > 0) {
+                        contextMenuState.pane = lastFocusedPane;
+                        contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
+                        showDeleteConfirmModal();
+                    }
+                    return;
                 }
             });
 
-            // Click whitespace to deselect
+            // Click whitespace to deselect and track focused pane
             document.getElementById('left-files').addEventListener('click', (e) => {
+                lastFocusedPane = 'left';
                 if (e.target.id === 'left-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
                     leftPaneState.selectedIndexes = [];
                     renderFiles('left');
                 }
             });
             document.getElementById('right-files').addEventListener('click', (e) => {
+                lastFocusedPane = 'right';
                 if (e.target.id === 'right-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
                     rightPaneState.selectedIndexes = [];
                     renderFiles('right');
@@ -1838,6 +1872,7 @@
 
         // File selection
         function handleFileClick(pane, index, event) {
+            lastFocusedPane = pane;  // Track which pane was clicked
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             let selectionChanged = false;
 
@@ -1942,6 +1977,7 @@
 
         // Context menu
         function showContextMenu(event, pane) {
+            lastFocusedPane = pane;  // Track which pane has context menu
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             contextMenuState.pane = pane;
             contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
