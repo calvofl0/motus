@@ -694,10 +694,19 @@ class RcloneWrapper:
                 rclone_cmd = 'moveto'
             elif not dst_exists and not dst_has_slash:
                 # Rule 2: Destination doesn't exist (and no /) → rename operation
-                rclone_cmd = 'moveto'
                 if src_is_dir:
-                    # Mark source directory for cleanup after move completes
+                    # For directory renames, use 'move' with trailing slashes
+                    # This is more reliable than 'moveto' for large directories
+                    # We'll create the destination and move contents, then cleanup
+                    mkdir_path = dst_path_clean
+                    needs_mkdir = True
+                    actual_src = src + '/'
+                    actual_dst = dst + '/'
+                    rclone_cmd = 'move'
                     cleanup_dir_after = src_clean_path
+                else:
+                    # For file renames, use moveto
+                    rclone_cmd = 'moveto'
             elif src_is_dir and not src_has_slash:
                 # Rule 3: Source is directory without / → "move by name"
                 # Create dst/basename(src) and move into it
@@ -769,24 +778,21 @@ class RcloneWrapper:
             raise RcloneException(f"Failed to start {operation} job: {e}")
 
         # For directory renames, wait for completion and cleanup synchronously
-        # Directory renames are fast (<1s), so blocking is acceptable and ensures
-        # UI doesn't show stale empty directories
+        # This ensures the source directory is removed only after all files are moved
         if cleanup_dir_after:
             logging.info(f"Directory rename - will wait for completion and cleanup")
 
-            # Poll job status until completion
-            max_wait = 30  # Maximum 30 seconds
-            wait_time = 0
-            while wait_time < max_wait:
+            # Poll job status until completion (no timeout - large directories may take time)
+            while True:
                 if self._job_queue.is_finished(job_id):
                     break
-                time.sleep(0.1)
-                wait_time += 0.1
+                time.sleep(0.2)
 
             # Job is finished - process has exited, safe to cleanup
             exit_status = self._job_queue.get_exitstatus(job_id)
             if exit_status == 0:
                 # Job succeeded - remove empty source directory
+                logging.info(f"Move completed successfully, cleaning up source: {cleanup_dir_after}")
                 try:
                     if src_remote_name or src_config:
                         # Remote path - use rclone rmdir (safer than purge)
@@ -798,16 +804,17 @@ class RcloneWrapper:
                         ]
                         subprocess.run(cleanup_cmd, env={**os.environ, **credentials},
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                     timeout=10)
+                                     timeout=30)
                     else:
                         # Local path - use os.rmdir (only removes if empty)
                         os.rmdir(cleanup_dir_after)
+                        logging.info(f"Successfully removed source directory: {cleanup_dir_after}")
                 except OSError as e:
                     logging.warning(f"Could not remove directory {cleanup_dir_after}: {e}")
                 except Exception as e:
                     logging.error(f"Failed to cleanup directory: {e}")
             else:
-                logging.warning(f"Move job exit status {exit_status}, skipping cleanup")
+                logging.warning(f"Move job failed with exit status {exit_status}, skipping cleanup")
 
         return job_id
 
