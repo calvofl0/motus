@@ -1196,6 +1196,7 @@
         let createFolderPane = null;
         let jobPanelManuallyToggled = false;  // Track if user manually toggled the panel
         let previousJobState = 'empty';  // Track previous state: 'empty' or 'non-empty'
+        let trackedJobs = new Set();  // Track running jobs for completion detection
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1719,14 +1720,32 @@
         }
 
         // Refresh pane
-        async function refreshPane(pane) {
+        async function refreshPane(pane, preserveSelection = false) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             const fullPath = state.remote ? `${state.remote}:${state.path}` : state.path;
-            
+
+            // Save current selection if preserving
+            const selectedFileNames = preserveSelection ?
+                state.selectedIndexes.map(idx => state.files[idx]?.Name).filter(n => n) :
+                [];
+
             try {
                 const data = await apiCall('/api/files/ls', 'POST', { path: fullPath });
                 state.files = data.files || [];
-                state.selectedIndexes = [];
+
+                if (preserveSelection && selectedFileNames.length > 0) {
+                    // Restore selection by matching file names
+                    state.selectedIndexes = [];
+                    selectedFileNames.forEach(name => {
+                        const idx = state.files.findIndex(f => f.Name === name);
+                        if (idx !== -1) {
+                            state.selectedIndexes.push(idx);
+                        }
+                    });
+                } else {
+                    state.selectedIndexes = [];
+                }
+
                 renderFiles(pane);
             } catch (error) {
                 console.error(`Failed to refresh ${pane} pane:`, error);
@@ -2043,10 +2062,15 @@
         // Drag and drop
         function handleDragStart(event, pane, index) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
+
+            // Allow dragging without pre-selection:
+            // If the dragged file is not selected, select only it
+            // If the dragged file is already selected, keep all selections (multi-drag)
             if (!state.selectedIndexes.includes(index)) {
                 state.selectedIndexes = [index];
                 renderFiles(pane);
             }
+
             event.dataTransfer.effectAllowed = 'copy';
             event.dataTransfer.setData('text/plain', JSON.stringify({
                 pane,
@@ -2300,8 +2324,61 @@
             try {
                 const data = await apiCall('/api/jobs?status=running');
                 const oldCount = jobsData.jobs.length;
+                const previousJobs = new Set(jobsData.jobs.map(j => j.job_id));
                 jobsData.jobs = data.jobs || [];
                 const newCount = jobsData.jobs.length;
+                const currentJobs = new Set(jobsData.jobs.map(j => j.job_id));
+
+                // Detect completed jobs (were tracked, now not in running list)
+                const completedJobs = [...trackedJobs].filter(id => !currentJobs.has(id));
+
+                // Auto-refresh destination pane for completed jobs
+                for (const jobId of completedJobs) {
+                    // Fetch job details to get destination path
+                    try {
+                        const jobDetails = await apiCall(`/api/jobs/${jobId}`);
+                        if (jobDetails && jobDetails.status === 'completed') {
+                            // Determine which pane to refresh based on destination
+                            const dstPath = jobDetails.dst_path;
+
+                            // Check if destination matches either pane
+                            let refreshLeft = false;
+                            let refreshRight = false;
+
+                            if (dstPath.includes(':')) {
+                                // Remote path
+                                const [remote, path] = dstPath.split(':', 2);
+                                if (leftPaneState.remote === remote && path.startsWith(leftPaneState.path)) {
+                                    refreshLeft = true;
+                                }
+                                if (rightPaneState.remote === remote && path.startsWith(rightPaneState.path)) {
+                                    refreshRight = true;
+                                }
+                            } else {
+                                // Local path
+                                if (!leftPaneState.remote && dstPath.startsWith(leftPaneState.path)) {
+                                    refreshLeft = true;
+                                }
+                                if (!rightPaneState.remote && dstPath.startsWith(rightPaneState.path)) {
+                                    refreshRight = true;
+                                }
+                            }
+
+                            // Refresh destination pane(s) with selection preservation
+                            if (refreshLeft) {
+                                await refreshPane('left', true);
+                            }
+                            if (refreshRight) {
+                                await refreshPane('right', true);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Failed to auto-refresh after job ${jobId}:`, err);
+                    }
+                }
+
+                // Update tracked jobs
+                trackedJobs = currentJobs;
 
                 // State-based auto-expand/collapse: only change on state transitions
                 const panel = document.getElementById('job-panel');
