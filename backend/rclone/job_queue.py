@@ -90,9 +90,12 @@ class JobQueue:
     def get_running_jobs(self):
         """Get list of running job IDs"""
         running = []
-        for job_id in list(self._processes.keys()):
-            if not self.is_finished(job_id):
+        all_jobs = list(self._processes.keys())
+        for job_id in all_jobs:
+            is_fin = self.is_finished(job_id)
+            if not is_fin:
                 running.append(job_id)
+        logging.debug(f"get_running_jobs: all_jobs={all_jobs}, running={running}")
         return running
 
     def shutdown_all(self):
