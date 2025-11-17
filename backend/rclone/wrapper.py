@@ -775,6 +775,9 @@ class RcloneWrapper:
                 '--config', config_arg if config_arg else '/dev/null',
                 'rmdirs',
                 actual_src,
+                '--progress',  # Ensure output for job tracking
+                '--stats', '1s',
+                '--verbose',
                 # Note: NOT using --leave-root so the root directory is removed
             ]
 
@@ -784,6 +787,7 @@ class RcloneWrapper:
             cleanup_str = ' '.join(f'"{arg}"' if ' ' in arg else arg for arg in cleanup_cmd)
 
             # Use bash to chain commands with &&
+            # Redirect both commands' output to maintain progress tracking
             chained_command = [
                 'bash', '-c',
                 f'{command_str} && {cleanup_str}'
