@@ -189,29 +189,42 @@ def get_job_status(job_id):
         if not job:
             return jsonify({'error': 'Job not found'}), 404
 
-        # Get live status from rclone
-        finished = rclone.job_finished(job_id)
-        progress = rclone.job_percent(job_id)
-        text = rclone.job_text(job_id)
-        error_text = rclone.job_error_text(job_id)
-        exit_status = rclone.job_exitstatus(job_id)
+        # Check if job is actually running in rclone's queue
+        running_jobs = rclone.get_running_jobs()
 
-        # Determine status
-        if finished:
-            if exit_status == 0:
-                status = 'completed'
+        if job_id in running_jobs:
+            # Job is active - get live status from rclone
+            finished = rclone.job_finished(job_id)
+            progress = rclone.job_percent(job_id)
+            text = rclone.job_text(job_id)
+            error_text = rclone.job_error_text(job_id)
+            exit_status = rclone.job_exitstatus(job_id)
+
+            # Determine status
+            if finished:
+                if exit_status == 0:
+                    status = 'completed'
+                else:
+                    status = 'failed'
             else:
-                status = 'failed'
-        else:
-            status = 'running'
+                status = 'running'
 
-        # Update database
-        db.update_job(
-            job_id=job_id,
-            status=status,
-            progress=progress,
-            error_text=error_text if error_text else None,
-        )
+            # Update database with live status
+            db.update_job(
+                job_id=job_id,
+                status=status,
+                progress=progress,
+                error_text=error_text if error_text else None,
+            )
+        else:
+            # Job not in queue - use database status as-is
+            # (interrupted, cancelled, completed, failed jobs are not in the queue)
+            status = job['status']
+            progress = job.get('progress', 0)
+            text = ""
+            error_text = job.get('error_text', '')
+            exit_status = -1
+            finished = status in ['completed', 'failed', 'cancelled', 'interrupted']
 
         return jsonify({
             'job_id': job_id,
