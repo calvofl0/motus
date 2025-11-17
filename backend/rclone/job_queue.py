@@ -2,7 +2,6 @@
 Job queue for managing rclone copy/move operations
 Adapted from Motuz (MIT License) - FredHutch/motuz
 """
-import fcntl
 import functools
 import json
 import logging
@@ -136,89 +135,66 @@ class JobQueue:
         reset_sequence1 = '\x1b[2K\x1b[0'
         reset_sequence2 = '\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[0'
 
-        # Make stdout non-blocking to prevent readline from hanging
-        # This is crucial for fast operations that complete with minimal output
-        try:
-            stdout_fd = process.stdout.fileno()
-            flags = fcntl.fcntl(stdout_fd, fcntl.F_GETFL)
-            fcntl.fcntl(stdout_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-        except (AttributeError, OSError):
-            # fcntl not available (Windows) - we'll handle it differently
-            stdout_fd = None
+        # Helper function to process output lines
+        def process_output_line(line):
+            line = line.strip()
+            if not line:
+                return
 
-        # Buffer for incomplete lines
-        line_buffer = ""
+            # Remove ANSI escape sequences
+            if reset_sequence1 in line:
+                line = line[line.find(reset_sequence1) + len(reset_sequence1):]
+            if reset_sequence2 in line:
+                line = line[line.find(reset_sequence2) + len(reset_sequence2):]
+            line = line.replace(reset_sequence1, '').replace(reset_sequence2, '')
 
-        # Read output, checking process status frequently
+            # Check for errors
+            error_match = re.search(r'(ERROR.*)', line)
+            if error_match:
+                error = error_match.group(1)
+                logging.error(f"Job {job_id}: {error}")
+                self._job_error_text[job_id] += error + '\n'
+                self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
+                return
+
+            # Parse status line
+            status_match = re.search(r'([A-Za-z ]+):\s*(.*)', line)
+            if status_match:
+                key, value = status_match.groups()
+                self._job_status[job_id][key] = value
+                self._process_status(job_id)
+
+        # Start a background thread to read stdout
+        # This prevents the pipe buffer from filling up and blocking the process
+        output_lines = []
+        output_lock = threading.Lock()
+
+        def read_stdout():
+            """Read stdout in background to prevent pipe buffer from filling"""
+            try:
+                for line in iter(process.stdout.readline, b''):
+                    decoded = line.decode('utf-8', errors='ignore')
+                    with output_lock:
+                        output_lines.append(decoded)
+                        process_output_line(decoded)
+            except Exception as e:
+                logging.debug(f"Job {job_id}: stdout reader finished: {e}")
+
+        reader_thread = threading.Thread(target=read_stdout, daemon=True)
+        reader_thread.start()
+
+        # Main thread: just poll process status every 0.2s
+        # This ensures we detect completion quickly regardless of output
         while not stop_event.is_set():
-            # CRITICAL: Check if process has finished FIRST
-            # This prevents hanging on fast operations
             poll_result = process.poll()
             if poll_result is not None:
-                # Process finished - break immediately
+                # Process finished!
                 logging.debug(f"Job {job_id}: Process exited with code {poll_result}")
                 break
+            time.sleep(0.2)
 
-            # Try to read available data (non-blocking)
-            try:
-                if stdout_fd is not None:
-                    # Non-blocking read of available bytes
-                    chunk = os.read(stdout_fd, 4096).decode('utf-8', errors='ignore')
-                    if chunk:
-                        line_buffer += chunk
-                else:
-                    # Windows fallback: use readline with frequent process checks
-                    # Check if data available first
-                    time.sleep(0.1)
-                    # Double-check process didn't finish during sleep
-                    if process.poll() is not None:
-                        break
-                    # Try non-blocking readline
-                    line = process.stdout.readline().decode('utf-8', errors='ignore')
-                    if line:
-                        line_buffer += line
-            except (OSError, IOError):
-                # No data available (EAGAIN/EWOULDBLOCK) or EOF - that's fine
-                pass
-            except Exception as e:
-                logging.error(f"Job {job_id}: Error reading stdout: {e}")
-                break
-
-            # Process complete lines from buffer
-            while '\n' in line_buffer:
-                line, line_buffer = line_buffer.split('\n', 1)
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                # Remove ANSI escape sequences
-                if reset_sequence1 in line:
-                    line = line[line.find(reset_sequence1) + len(reset_sequence1):]
-                if reset_sequence2 in line:
-                    line = line[line.find(reset_sequence2) + len(reset_sequence2):]
-                line = line.replace(reset_sequence1, '').replace(reset_sequence2, '')
-
-                # Check for errors
-                error_match = re.search(r'(ERROR.*)', line)
-                if error_match:
-                    error = error_match.group(1)
-                    logging.error(f"Job {job_id}: {error}")
-                    self._job_error_text[job_id] += error + '\n'
-                    # Limit error text size
-                    self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
-                    continue
-
-                # Parse status line
-                status_match = re.search(r'([A-Za-z ]+):\s*(.*)', line)
-                if status_match:
-                    key, value = status_match.groups()
-                    self._job_status[job_id][key] = value
-                    self._process_status(job_id)
-
-            # Small sleep to avoid busy-waiting (only if no data was read)
-            if not line_buffer or '\n' not in line_buffer:
-                time.sleep(0.2)
+        # Wait for reader thread to finish (with timeout)
+        reader_thread.join(timeout=1.0)
 
         # Job finished
         self._job_percent[job_id] = 100
