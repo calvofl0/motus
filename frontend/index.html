@@ -1897,13 +1897,25 @@
                 div.addEventListener('click', (e) => {
                     handleFileClick(pane, index, e);
                 });
-                
-                // Draggable
+
+                // Draggable - handle mousedown for immediate selection before drag
                 div.draggable = true;
+                div.addEventListener('mousedown', (e) => {
+                    // Only handle left mouse button
+                    if (e.button === 0) {
+                        // Select file immediately if not already selected
+                        // This ensures visual feedback before drag starts
+                        if (!state.selectedIndexes.includes(index)) {
+                            console.log(`mousedown: Auto-selecting file ${index} before drag`);
+                            state.selectedIndexes = [index];
+                            renderFiles(pane);
+                        }
+                    }
+                });
                 div.addEventListener('dragstart', (e) => {
                     handleDragStart(e, pane, index);
                 });
-                
+
                 // Right-click context menu
                 div.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
@@ -1966,8 +1978,20 @@
                     handleFileClick(pane, index, e);
                 });
 
-                // Draggable
+                // Draggable - handle mousedown for immediate selection before drag
                 tr.draggable = true;
+                tr.addEventListener('mousedown', (e) => {
+                    // Only handle left mouse button
+                    if (e.button === 0) {
+                        // Select file immediately if not already selected
+                        // This ensures visual feedback before drag starts
+                        if (!state.selectedIndexes.includes(index)) {
+                            console.log(`mousedown: Auto-selecting file ${index} before drag`);
+                            state.selectedIndexes = [index];
+                            renderFiles(pane);
+                        }
+                    }
+                });
                 tr.addEventListener('dragstart', (e) => {
                     handleDragStart(e, pane, index);
                 });
@@ -2069,18 +2093,10 @@
         function handleDragStart(event, pane, index) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
 
-            console.log(`handleDragStart: pane=${pane}, index=${index}, currently selected=${JSON.stringify(state.selectedIndexes)}`);
+            console.log(`handleDragStart: pane=${pane}, index=${index}, selected=${JSON.stringify(state.selectedIndexes)}`);
 
-            // Allow dragging without pre-selection:
-            // If the dragged file is not selected, select only it
-            // If the dragged file is already selected, keep all selections (multi-drag)
-            if (!state.selectedIndexes.includes(index)) {
-                console.log(`File ${index} not selected, selecting it now`);
-                state.selectedIndexes = [index];
-                renderFiles(pane);
-            } else {
-                console.log(`File ${index} already selected, keeping all selections`);
-            }
+            // Note: Selection already happened in mousedown handler
+            // This ensures the file is visually selected before drag starts
 
             event.dataTransfer.effectAllowed = 'copy';
             event.dataTransfer.setData('text/plain', JSON.stringify({
