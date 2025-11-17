@@ -1729,6 +1729,8 @@
                 state.selectedIndexes.map(idx => state.files[idx]?.Name).filter(n => n) :
                 [];
 
+            console.log(`refreshPane(${pane}, preserveSelection=${preserveSelection}), saving ${selectedFileNames.length} selected files:`, selectedFileNames);
+
             try {
                 const data = await apiCall('/api/files/ls', 'POST', { path: fullPath });
                 state.files = data.files || [];
@@ -1740,8 +1742,12 @@
                         const idx = state.files.findIndex(f => f.Name === name);
                         if (idx !== -1) {
                             state.selectedIndexes.push(idx);
+                            console.log(`Restored selection: ${name} at index ${idx}`);
+                        } else {
+                            console.log(`Could not restore selection: ${name} not found`);
                         }
                     });
+                    console.log(`Selection preservation: restored ${state.selectedIndexes.length} of ${selectedFileNames.length} files`);
                 } else {
                     state.selectedIndexes = [];
                 }
@@ -2063,12 +2069,17 @@
         function handleDragStart(event, pane, index) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
 
+            console.log(`handleDragStart: pane=${pane}, index=${index}, currently selected=${JSON.stringify(state.selectedIndexes)}`);
+
             // Allow dragging without pre-selection:
             // If the dragged file is not selected, select only it
             // If the dragged file is already selected, keep all selections (multi-drag)
             if (!state.selectedIndexes.includes(index)) {
+                console.log(`File ${index} not selected, selecting it now`);
                 state.selectedIndexes = [index];
                 renderFiles(pane);
+            } else {
+                console.log(`File ${index} already selected, keeping all selections`);
             }
 
             event.dataTransfer.effectAllowed = 'copy';
@@ -2474,8 +2485,20 @@
                 // Calculate elapsed time with proper timestamp parsing
                 let elapsedSec = 0;
                 try {
-                    // Handle both ISO strings and epoch timestamps
-                    const createdAt = new Date(job.created_at);
+                    // SQLite returns timestamps as local time strings like "2024-01-15 10:30:45"
+                    // JavaScript's Date() can parse this, but we need to handle it carefully
+                    const timestampStr = job.created_at;
+
+                    // If timestamp contains 'T' it's ISO format, otherwise it's SQLite format
+                    let createdAt;
+                    if (timestampStr.includes('T')) {
+                        createdAt = new Date(timestampStr);
+                    } else {
+                        // SQLite format: "YYYY-MM-DD HH:MM:SS"
+                        // Treat it as local time
+                        createdAt = new Date(timestampStr.replace(' ', 'T'));
+                    }
+
                     const now = new Date();
 
                     // Validate the date is valid
@@ -2483,8 +2506,11 @@
                         elapsedSec = Math.floor((now - createdAt) / 1000);
                         // Sanity check: if elapsed time is negative or absurdly large, use 0
                         if (elapsedSec < 0 || elapsedSec > 86400 * 365) {
+                            console.warn(`Job ${job.job_id}: Invalid elapsed time ${elapsedSec}s from timestamp ${timestampStr}`);
                             elapsedSec = 0;
                         }
+                    } else {
+                        console.error(`Job ${job.job_id}: Invalid timestamp ${timestampStr}`);
                     }
                 } catch (e) {
                     console.error('Error parsing job timestamp:', job.created_at, e);
@@ -2496,6 +2522,11 @@
                 // Parse transfer information from job text
                 const transferInfo = parseTransferInfo(job.text);
                 const progress = job.progress || 0;
+
+                // Debug logging for first job
+                if (job.job_id && jobsData.jobs.indexOf(job) === 0) {
+                    console.log(`Job ${job.job_id}: progress=${progress}%, elapsedSec=${elapsedSec}s, text length=${job.text?.length || 0}`);
+                }
 
                 // Build transfer status string
                 let transferStatus = '';
