@@ -8,6 +8,8 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
+import time
 from typing import Dict, List, Optional
 
 from .exceptions import RcloneException, RcloneNotFoundError
@@ -661,6 +663,7 @@ class RcloneWrapper:
         actual_dst = dst
         needs_mkdir = False
         mkdir_path = None
+        cleanup_dir_after = None  # For directory rename cleanup
 
         if operation == 'sync':
             # Sync always uses 'sync' command
@@ -695,17 +698,10 @@ class RcloneWrapper:
                 rclone_cmd = 'moveto'
             elif not dst_exists and not dst_has_slash:
                 # Rule 2: Destination doesn't exist (and no /) → rename operation
+                rclone_cmd = 'moveto'
                 if src_is_dir:
-                    # For directory rename, use move with trailing slashes
-                    # This automatically cleans up empty source dirs
-                    mkdir_path = dst_path_clean
-                    actual_src = src + '/'
-                    actual_dst = dst + '/'
-                    needs_mkdir = True
-                    rclone_cmd = 'move'
-                else:
-                    # For file rename, use moveto
-                    rclone_cmd = 'moveto'
+                    # Mark source directory for cleanup after move completes
+                    cleanup_dir_after = src_clean_path
             elif src_is_dir and not src_has_slash:
                 # Rule 3: Source is directory without / → "move by name"
                 # Create dst/basename(src) and move into it
@@ -761,10 +757,6 @@ class RcloneWrapper:
                 '--s3-acl', 'bucket-owner-full-control',
             ])
 
-        # For move operations, ensure empty source directories are removed
-        if operation == 'move':
-            command.append('--delete-empty-src-dirs')
-
         # Handle symlinks
         if copy_links:
             command.append('--copy-links')
@@ -781,6 +773,43 @@ class RcloneWrapper:
             self._job_queue.push(command, credentials, job_id)
         except Exception as e:
             raise RcloneException(f"Failed to start {operation} job: {e}")
+
+        # If we need to cleanup an empty directory after moveto completes
+        if cleanup_dir_after:
+            def cleanup_thread():
+                """Wait for job to complete, then remove empty source directory"""
+                try:
+                    # Wait for job to finish
+                    while not self._job_queue.is_finished(job_id):
+                        time.sleep(0.5)
+
+                    # Check if job succeeded
+                    exit_status = self._job_queue.get_exitstatus(job_id)
+                    if exit_status == 0:
+                        # Job succeeded - remove empty source directory
+                        logging.info(f"Removing empty source directory: {cleanup_dir_after}")
+                        if src_remote_name or src_config:
+                            # Remote path - use rclone purge
+                            cleanup_cmd = [
+                                self.rclone_path,
+                                '--config', config_arg if config_arg else '/dev/null',
+                                'purge',
+                                actual_src
+                            ]
+                            subprocess.run(cleanup_cmd, env={**os.environ, **credentials},
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        else:
+                            # Local path - use os.rmdir (only removes if empty)
+                            try:
+                                os.rmdir(cleanup_dir_after)
+                            except OSError:
+                                pass  # Directory not empty or doesn't exist
+                except Exception as e:
+                    logging.error(f"Failed to cleanup directory {cleanup_dir_after}: {e}")
+
+            # Start cleanup thread
+            thread = threading.Thread(target=cleanup_thread, daemon=True)
+            thread.start()
 
         return job_id
 
