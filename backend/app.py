@@ -2,6 +2,7 @@
 Main Flask application for Motus
 Single-user rclone GUI with token authentication
 """
+import json
 import logging
 import os
 import signal
@@ -195,6 +196,41 @@ def register_routes(app: Flask, config: Config):
             'version': '1.0.0',
             'default_mode': config.default_mode,
         })
+
+    @app.route('/api/preferences', methods=['GET'])
+    @token_required
+    def get_preferences():
+        """Get user preferences"""
+        prefs_file = os.path.join(config.data_dir, 'preferences.json')
+        if os.path.exists(prefs_file):
+            try:
+                with open(prefs_file, 'r') as f:
+                    prefs = json.load(f)
+                return jsonify(prefs)
+            except Exception as e:
+                logging.error(f"Failed to load preferences: {e}")
+
+        # Return defaults
+        return jsonify({
+            'view_mode': 'list',
+            'show_hidden_files': False
+        })
+
+    @app.route('/api/preferences', methods=['POST'])
+    @token_required
+    def save_preferences():
+        """Save user preferences"""
+        try:
+            data = request.get_json()
+            prefs_file = os.path.join(config.data_dir, 'preferences.json')
+
+            with open(prefs_file, 'w') as f:
+                json.dump(data, f, indent=2)
+
+            return jsonify({'message': 'Preferences saved'})
+        except Exception as e:
+            logging.error(f"Failed to save preferences: {e}")
+            return jsonify({'error': 'Failed to save preferences'}), 500
 
     @app.route('/api/shutdown', methods=['POST'])
     @token_required
