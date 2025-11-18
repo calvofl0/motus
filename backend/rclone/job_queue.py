@@ -186,16 +186,6 @@ class JobQueue:
                 continue
 
             key, value = status_match.groups()
-
-            # Distinguish between byte-based and file-count "Transferred" lines
-            # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
-            # File-count: "0 / 1, 0%" (just numbers)
-            if key == 'Transferred':
-                if re.search(r'[KMGT]?i?B\s*/', value):
-                    key = 'Transferred (bytes)'
-                elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
-                    key = 'Transferred (files)'
-
             self._job_status[job_id][key] = value
             self._process_status(job_id)
 
@@ -221,78 +211,82 @@ class JobQueue:
         stop_event.set()
 
     def _process_status(self, job_id):
-        """Process status dict into formatted text and percentage"""
+        """Process status dict into formatted text and percentage (Motuz-style)"""
         status = self._job_status[job_id]
 
-        # Expected headers from rclone --progress
+        # Expected headers from rclone --progress (matching Motuz)
         headers = [
-            'Transferred',
+            'GTransferred',
             'Errors',
             'Checks',
+            'Transferred0',
             'Transferred',
             'Elapsed time',
             'Transferring',
         ]
 
+        # Handle outliers - Motuz splits combined "Transferring" + "Transferred" lines
+        outliers = []
+        for key in status.keys():
+            if key not in headers:
+                outliers.append(key)
+
+        if len(outliers) == 1:
+            value = status[outliers[0]]
+            try:
+                pos = value.index("Transferred:")
+                transferring, transferred = value[:pos], value[pos:]
+                transferring = transferring.replace("Transferring:", "").strip()
+                transferred = transferred.replace("Transferred:", "").strip()
+                status['Transferred0'] = transferred
+                status['Transferring'] = transferring
+                del status[outliers[0]]
+            except ValueError:
+                pass
+
+        # Clean up Transferred0 if it exists
+        if 'Transferred0' in status:
+            status['Transferred0'] = status['Transferred0'].replace("Transferred:", "").strip()
+
+        # Remove Transferring if job is complete
+        if status.get('Transferred') == "1 / 1, 100%":
+            status.pop('Transferring', None)
+
         # Format status text
         text_lines = []
-        for key, value in status.items():
-            text_lines.append(f"{key:>15}: {value}")
+        for header in headers:
+            if header in status:
+                display_header = " Transferred" if header == "Transferred0" else header
+                text_lines.append(f"{display_header:>15}: {status[header]}")
 
         self._job_text[job_id] = '\n'.join(text_lines)
 
-        # Extract percentage - prioritize byte-based progress over file-count progress
-        # Byte-based: "Transferred (bytes)" key with "1.699 GiB / 1.953 GiB, 87%, ..."
-        # File-count: "Transferred (files)" key with "0 / 1, 0%"
-        byte_progress = None
-        file_count_progress = None
-
-        for key, value in status.items():
-            # Look for byte-based progress
-            if key == 'Transferred (bytes)':
-                byte_match = re.search(r',\s*(\d+)%', value)
-                if byte_match:
-                    try:
-                        byte_progress = int(byte_match.group(1))
-                    except:
-                        pass
-            # Look for file-count progress
-            elif key == 'Transferred (files)':
-                count_match = re.search(r',\s*(\d+)%', value)
-                if count_match:
-                    try:
-                        file_count_progress = int(count_match.group(1))
-                    except:
-                        pass
-            # Fallback: old-style "Transferred" key (for backwards compatibility)
-            elif key == 'Transferred':
-                percent_match = re.search(r'(\d+)%', value)
-                if percent_match:
-                    try:
-                        # Try to determine if it's byte-based or file-count
-                        if re.search(r'[KMGT]?i?B\s*/', value):
-                            byte_progress = int(percent_match.group(1))
-                        else:
-                            file_count_progress = int(percent_match.group(1))
-                    except:
-                        pass
-
-        # Prefer byte-based progress, fall back to file count
-        # Only log when progress actually changes, and never go backwards
+        # Extract percentage (Motuz-style: check GTransferred then Transferred0)
         old_progress = self._job_percent.get(job_id, 0)
         new_progress = None
 
-        if byte_progress is not None:
-            new_progress = byte_progress
-        elif file_count_progress is not None:
-            new_progress = file_count_progress
+        # Check GTransferred first
+        if 'GTransferred' in status:
+            match = re.search(r'(\d+)%', status['GTransferred'])
+            if match:
+                new_progress = int(match.group(1))
 
-        if new_progress is not None:
-            # Never let progress go backwards (can happen with buffered output)
-            if new_progress >= old_progress:
-                self._job_percent[job_id] = new_progress
-                if new_progress != old_progress:
-                    source = "bytes" if byte_progress is not None else "file count"
-                    logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}% (from {source})")
-            elif new_progress < old_progress:
-                logging.warning(f"Job {job_id}: Ignoring backwards progress: {old_progress}% ← {new_progress}% (keeping {old_progress}%)")
+        # Fall back to Transferred0 (byte-based transfer info)
+        if new_progress is None and 'Transferred0' in status:
+            match = re.search(r'(\d+)%', status['Transferred0'])
+            if match:
+                new_progress = int(match.group(1))
+
+        # Fall back to Transferred (file count - less accurate)
+        if new_progress is None and 'Transferred' in status:
+            match = re.search(r'(\d+)%', status['Transferred'])
+            if match:
+                new_progress = int(match.group(1))
+
+        # Update progress (never go backwards)
+        if new_progress is not None and new_progress >= old_progress:
+            self._job_percent[job_id] = new_progress
+            if new_progress != old_progress:
+                logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}%")
+        elif new_progress is not None and new_progress < old_progress:
+            logging.warning(f"Job {job_id}: Ignoring backwards progress: {old_progress}% ← {new_progress}% (keeping {old_progress}%)")
