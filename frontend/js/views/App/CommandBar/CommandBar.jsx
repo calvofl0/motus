@@ -142,13 +142,13 @@ class CommandBar extends React.Component {
                     <div className="col-12">
                         <button
                             className="btn btn-link px-0 ml-0 mr-2 my-0"
-                            onClick={event => this.props.onShowMkdirDialog(side)}
-                            alt='Press to create folder'
-                            title='Press to create folder'
-                            aria-label='Press to create folder'
+                            onClick={event => this.props.onShowManageRemotesDialog()}
+                            alt='Press to manage remotes'
+                            title='Press to manage remotes'
+                            aria-label='Press to manage remotes'
                         >
-                            <Icon name='file-submodule' className='mr-2'/>
-                            <span>Create Folder</span>
+                            <Icon name='server' className='mr-2'/>
+                            <span>Manage Remotes</span>
                         </button>
                         <button
                             className="btn btn-link px-0 mx-2 my-0"
@@ -159,6 +159,16 @@ class CommandBar extends React.Component {
                         >
                             <Icon name='sync' className='mr-2'/>
                             <span>Refresh Window</span>
+                        </button>
+                        <button
+                            className="btn btn-link px-0 mx-2 my-0"
+                            onClick={event => this.props.onShowMkdirDialog(side)}
+                            alt='Press to create folder'
+                            title='Press to create folder'
+                            aria-label='Press to create folder'
+                        >
+                            <Icon name='file-submodule' className='mr-2'/>
+                            <span>Create Folder</span>
                         </button>
                     </div>
                 </div>
@@ -204,12 +214,13 @@ CommandBar.defaultProps = {
     onDirectoryChange: (side, path) => {},
     onShowNewCopyJobDialog: () => {},
     onShowMkdirDialog: (side) => {},
+    onShowManageRemotesDialog: () => {},
     onRefresh: (side) => {},
     onClick: side => {},
 }
 
 import {connect} from 'react-redux';
-import {showNewCopyJobDialog, showMkdirDialog} from 'actions/dialogActions.jsx'
+import {showNewCopyJobDialog, showMkdirDialog, showManageRemotesDialog} from 'actions/dialogActions.jsx'
 import {hostChange, directoryChange, sideFocus, refreshPane} from 'actions/paneActions.jsx';
 
 
@@ -223,6 +234,7 @@ const mapDispatchToProps = dispatch => ({
     onDirectoryChange: (side, path) => dispatch(directoryChange(side, path)),
     onShowNewCopyJobDialog: () => dispatch(showNewCopyJobDialog()),
     onShowMkdirDialog: (side) => dispatch(showMkdirDialog(side)),
+    onShowManageRemotesDialog: () => dispatch(showManageRemotesDialog()),
     onRefresh: (side) => dispatch(refreshPane(side)),
     onClick: side => dispatch(sideFocus(side)),
 });

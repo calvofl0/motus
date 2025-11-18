@@ -24,13 +24,6 @@ class Navbar extends React.PureComponent {
                     </Link>
                 </div>
                 <div className="nav navbar-nav ml-auto">
-                    <button
-                        type="button"
-                        className="btn btn-link nav-link"
-                        onClick={this.props.onShowManageRemotesDialog}
-                    >
-                        Manage Remotes
-                    </button>
                     <Link to="/clouds" className="nav-link">My Cloud Connections</Link>
                     <UserMenu />
                 </div>
@@ -41,17 +34,6 @@ class Navbar extends React.PureComponent {
 
 Navbar.defaultProps = {
     brandIsBackArrow: false,
-    onShowManageRemotesDialog: () => {},
 }
 
-import {connect} from 'react-redux';
-import {showManageRemotesDialog} from 'actions/dialogActions.jsx';
-
-const mapStateToProps = state => ({
-});
-
-const mapDispatchToProps = dispatch => ({
-    onShowManageRemotesDialog: () => dispatch(showManageRemotesDialog()),
-});
-
-export default connect(mapStateToProps, mapDispatchToProps)(Navbar);
+export default Navbar;
