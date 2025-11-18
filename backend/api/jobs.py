@@ -368,6 +368,9 @@ def list_jobs():
                     job['progress'] = rclone.job_percent(job['job_id'])
                     job['text'] = rclone.job_text(job['job_id'])
 
+                    # Debug: log progress value and type
+                    logging.debug(f"Job {job['job_id']}: progress={job['progress']} (type={type(job['progress']).__name__})")
+
                     # Update database with current progress
                     db.update_job(
                         job_id=job['job_id'],

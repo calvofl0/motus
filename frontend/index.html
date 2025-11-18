@@ -2678,7 +2678,7 @@
 
                 // Debug logging for first job
                 if (job.job_id && jobsData.jobs.indexOf(job) === 0) {
-                    console.log(`Job ${job.job_id}: progress=${progress}%, elapsedSec=${elapsedSec}s, text length=${job.text?.length || 0}`);
+                    console.log(`Job ${job.job_id}: progress=${progress}% (typeof=${typeof progress}, raw=${job.progress}), elapsedSec=${elapsedSec}s, text length=${job.text?.length || 0}`);
                 }
 
                 // Build transfer status string
