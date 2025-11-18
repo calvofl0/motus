@@ -46,11 +46,22 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
         # Stop all running jobs
         rclone.shutdown()
 
-        # Mark them as interrupted in database
+        # Save logs and mark them as interrupted in database
         for job_id in running_jobs:
             try:
-                db.update_job(job_id, status='interrupted',
-                              error_text='Job interrupted by server shutdown')
+                # Get log text before marking as interrupted
+                log_text = rclone.job_log_text(job_id)
+
+                # Update database with interrupted status and log
+                db.update_job(
+                    job_id=job_id,
+                    status='interrupted',
+                    error_text='Job interrupted by server shutdown',
+                    log_text=log_text
+                )
+
+                # Clean up log file
+                rclone.job_cleanup_log(job_id)
             except Exception as e:
                 logging.error(f"Error marking job {job_id} as interrupted: {e}")
 
@@ -166,6 +177,67 @@ def stop_idle_timer():
         _idle_timer_stop_event.set()
 
 
+def cleanup_orphaned_logs(logs_dir: str, db, rclone):
+    """
+    Clean up orphaned log files from previous runs
+
+    - For interrupted/running jobs: save logs to database
+    - For other orphaned logs: delete them
+    """
+    if not os.path.exists(logs_dir):
+        return
+
+    try:
+        log_files = [f for f in os.listdir(logs_dir) if f.startswith('job_') and f.endswith('.log')]
+
+        if not log_files:
+            return
+
+        logging.info(f"Found {len(log_files)} orphaned log files, cleaning up...")
+
+        # Get all interrupted jobs (these are the ones we care about saving logs for)
+        interrupted_jobs = db.list_jobs(status='interrupted')
+        interrupted_job_ids = {job['job_id'] for job in interrupted_jobs}
+
+        cleaned = 0
+        saved = 0
+
+        for log_file in log_files:
+            # Extract job_id from filename: job_123.log -> 123
+            try:
+                job_id = int(log_file.replace('job_', '').replace('.log', ''))
+            except ValueError:
+                logging.warning(f"Invalid log filename format: {log_file}")
+                continue
+
+            log_path = os.path.join(logs_dir, log_file)
+
+            # If this is an interrupted job, save the log to database
+            if job_id in interrupted_job_ids:
+                try:
+                    with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                        log_text = f.read()
+
+                    db.update_job(job_id=job_id, log_text=log_text)
+                    logging.info(f"Saved log for interrupted job {job_id} to database")
+                    saved += 1
+                except Exception as e:
+                    logging.warning(f"Failed to save log for job {job_id}: {e}")
+
+            # Delete the log file (whether we saved it or not)
+            try:
+                os.remove(log_path)
+                cleaned += 1
+            except Exception as e:
+                logging.warning(f"Failed to delete orphaned log file {log_file}: {e}")
+
+        if cleaned > 0 or saved > 0:
+            logging.info(f"Cleaned up {cleaned} log files ({saved} saved to database)")
+
+    except Exception as e:
+        logging.error(f"Error during log cleanup: {e}")
+
+
 def create_app(config: Config = None):
     """
     Create and configure Flask application
@@ -208,8 +280,8 @@ def create_app(config: Config = None):
     # Initialize rclone wrapper
     try:
         logging.info("Initializing rclone wrapper...")
-        # Store temporary job logs in a temp subdirectory (cleaned up after storing in DB)
-        logs_dir = os.path.join(config.data_dir, 'tmp', 'job_logs')
+        # Store temporary job logs in hidden directory (cleaned up after storing in DB)
+        logs_dir = os.path.join(config.data_dir, '.tmp-logs')
         rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file, logs_dir)
         # Initialize job counter from database to avoid ID conflicts
         rclone.initialize_job_counter(db)
@@ -222,6 +294,9 @@ def create_app(config: Config = None):
     orphaned_count = db.mark_running_as_interrupted()
     if orphaned_count > 0:
         logging.warning(f"Marked {orphaned_count} orphaned jobs as interrupted")
+
+    # Cleanup orphaned log files from previous runs
+    cleanup_orphaned_logs(logs_dir, db, rclone)
 
     # Auto-cleanup database if configured and no failed/interrupted jobs
     if config.auto_cleanup_db:

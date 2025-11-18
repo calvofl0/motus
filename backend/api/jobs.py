@@ -322,8 +322,18 @@ def stop_job(job_id):
         # Stop the job
         rclone.job_stop(job_id)
 
-        # Update database
-        db.update_job(job_id=job_id, status='cancelled')
+        # Get log text before marking as cancelled
+        log_text = rclone.job_log_text(job_id)
+
+        # Update database with cancelled status and log
+        db.update_job(
+            job_id=job_id,
+            status='cancelled',
+            log_text=log_text
+        )
+
+        # Clean up log file
+        rclone.job_cleanup_log(job_id)
 
         return jsonify({
             'message': 'Job stopped',
