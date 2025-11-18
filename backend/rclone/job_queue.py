@@ -110,14 +110,14 @@ class JobQueue:
         return len(running)
 
     def _execute_job(self, command, env, job_id):
-        """Execute rclone command and track progress"""
+        """Execute rclone command and track progress (Motuz-style synchronous reading)"""
         stop_event = self._stop_events[job_id]
 
         # Merge environment variables
         full_env = os.environ.copy()
         full_env.update(env)
 
-        # Start process in binary mode (matches original Motuz implementation)
+        # Start process (matches original Motuz implementation)
         try:
             process = subprocess.Popen(
                 command,
@@ -135,152 +135,79 @@ class JobQueue:
             stop_event.set()
             return
 
-        # Helper function to process output lines
-        def process_output_line(line):
-            # Decode from bytes and strip
-            try:
-                line = line.decode('utf-8', errors='replace').strip()
-            except Exception:
-                return
+        # Motuz uses specific ANSI reset sequences
+        reset_sequence1 = '\x1b[2K\x1b[0'  # Clear line + reset
+        reset_sequence2 = '\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[0'  # Multiple line clears
 
-            if not line:
-                return
+        # Main loop: read stdout synchronously (like Motuz)
+        while not stop_event.is_set():
+            line = process.stdout.readline().decode('utf-8')
 
-            # Log raw line for debugging (first few jobs only)
+            # Empty line check - see if process finished
+            if len(line) == 0:
+                if process.poll() is not None:
+                    stop_event.set()
+                else:
+                    time.sleep(0.5)
+                continue
+
+            line = line.strip()
+
+            # Strip ANSI sequences (Motuz approach)
+            q1 = line.find(reset_sequence1)
+            if q1 != -1:
+                line = line[q1 + len(reset_sequence1):]
+
+            q2 = line.find(reset_sequence2)
+            if q2 != -1:
+                line = line[q2 + len(reset_sequence1):]
+
+            line = line.replace(reset_sequence1, '')
+            line = line.replace(reset_sequence2, '')
+
+            # Log raw line for debugging
             if job_id <= 150:
                 logging.debug(f"Job {job_id}: Raw line: {repr(line[:100])}")
-
-            # Remove ALL ANSI escape sequences using regex
-            # This handles cursor movements, colors, clear sequences, etc.
-            ansi_escape = re.compile(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\[[0-9;]*m|\x1b\[[\d;]*[HfABCDsuJKmhl]')
-            line = ansi_escape.sub('', line)
 
             # Check for errors
             error_match = re.search(r'(ERROR.*)', line)
             if error_match:
-                error = error_match.group(1)
+                error = error_match.group(0)
                 logging.error(f"Job {job_id}: {error}")
                 self._job_error_text[job_id] += error + '\n'
                 self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
-                return
+                continue
 
-            # Parse status line
+            # Parse status line key-value pairs
             status_match = re.search(r'([A-Za-z ]+):\s*(.*)', line)
-            if status_match:
-                key, value = status_match.groups()
+            if status_match is None:
+                logging.info(f"Job {job_id}: No match in {repr(line[:100])}")
+                time.sleep(0.5)
+                continue
 
-                # Distinguish between byte-based and file-count "Transferred" lines
-                # to prevent them from overwriting each other
-                if key == 'Transferred':
-                    # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
-                    if re.search(r'[KMGT]?i?B\s*/.*,\s*\d+%', value):
-                        key = 'Transferred (bytes)'
-                        if job_id <= 150:
-                            logging.debug(f"Job {job_id}: Found byte transfer: {value}")
-                    # File-count: "0 / 1, 0%" (just numbers)
-                    elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
-                        key = 'Transferred (files)'
-                        if job_id <= 150:
-                            logging.debug(f"Job {job_id}: Found file count: {value}")
-                    else:
-                        logging.warning(f"Job {job_id}: Unknown Transferred format: {value}")
+            key, value = status_match.groups()
+            self._job_status[job_id][key] = value
+            self._process_status(job_id)
 
-                self._job_status[job_id][key] = value
-                self._process_status(job_id)
-
-        # Start a background thread to read stdout
-        # This prevents the pipe buffer from filling up and blocking the process
-        output_lines = []
-        output_lock = threading.Lock()
-
-        def read_stdout():
-            """Read stdout in background to prevent pipe buffer from filling"""
-            logging.info(f"Job {job_id}: stdout reader thread started")
-            try:
-                while True:
-                    # Read one line at a time (matches original Motuz implementation)
-                    line_bytes = process.stdout.readline()
-                    if not line_bytes:
-                        logging.info(f"Job {job_id}: stdout reader got EOF")
-                        break
-
-                    with output_lock:
-                        output_lines.append(line_bytes)
-                        process_output_line(line_bytes)
-
-            except Exception as e:
-                logging.error(f"Job {job_id}: stdout reader exception: {e}")
-
-        reader_thread = threading.Thread(target=read_stdout, daemon=True)
-        reader_thread.start()
-
-        # Start background thread to read stderr too
-        stderr_lines = []
-        def read_stderr():
-            """Read stderr in background - rclone progress goes here!"""
-            logging.info(f"Job {job_id}: stderr reader thread started")
-            try:
-                while True:
-                    line_bytes = process.stderr.readline()
-                    if not line_bytes:
-                        logging.info(f"Job {job_id}: stderr reader got EOF")
-                        break
-                    stderr_lines.append(line_bytes)
-                    # Process stderr lines for progress info (rclone sends progress to stderr)
-                    process_output_line(line_bytes)
-            except Exception as e:
-                logging.error(f"Job {job_id}: stderr reader exception: {e}")
-
-        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
-        stderr_thread.start()
-
-        # Main thread: just poll process status every 0.2s
-        # This ensures we detect completion quickly regardless of output
-        iteration = 0
-        while not stop_event.is_set():
-            poll_result = process.poll()
-            iteration += 1
-            if poll_result is not None:
-                # Process finished!
-                logging.info(f"Job {job_id}: Process exited with code {poll_result}")
-                break
-            time.sleep(0.2)
-
-        # Wait for reader threads to finish (with timeout)
-        reader_thread.join(timeout=1.0)
-        if reader_thread.is_alive():
-            logging.warning(f"Job {job_id}: stdout reader thread still alive after 1s timeout")
-
-        stderr_thread.join(timeout=1.0)
-        if stderr_thread.is_alive():
-            logging.warning(f"Job {job_id}: stderr reader thread still alive after 1s timeout")
-
-        # Job finished
+        # Job finished - set to 100%
         self._job_percent[job_id] = 100
         self._process_status(job_id)
 
         # Get exit status
         exitstatus = process.poll()
-        if exitstatus is None:
-            logging.warning(f"Job {job_id}: Exit status still None, calling wait()")
-            process.wait(timeout=5)
-            exitstatus = process.poll()
+        self._job_exitstatus[job_id] = exitstatus
 
-        self._job_exitstatus[job_id] = exitstatus if exitstatus is not None else -1
+        # Read any remaining stderr output (like Motuz does)
+        for _ in range(100000):
+            line = process.stderr.readline().decode('utf-8')
+            if len(line) == 0:
+                break
+            line = line.strip()
+            self._job_error_text[job_id] += line + '\n'
+            # Restrict size to 10000 characters
+            self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
 
-        # Collect any stderr output (decode from bytes)
-        if stderr_lines:
-            decoded_lines = []
-            for line in stderr_lines:
-                try:
-                    decoded_lines.append(line.decode('utf-8', errors='replace'))
-                except:
-                    pass
-            if decoded_lines:
-                self._job_error_text[job_id] += '\n'.join(decoded_lines) + '\n'
-                self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
-
-        logging.info(f"Job {job_id} finished with exit status {exitstatus}")
+        logging.info(f"Job {job_id}: Copy process exited with exit status {exitstatus}")
         stop_event.set()
 
     def _process_status(self, job_id):

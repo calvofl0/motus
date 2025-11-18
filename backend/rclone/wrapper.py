@@ -437,16 +437,15 @@ class RcloneWrapper:
             # Local path (use expanded path with tilde resolved)
             dst = dst_clean_path
 
-        # Build command - use rclone check with hash comparison
-        # Note: --progress only works with TTY, removed it for subprocess compatibility
+        # Build command - use rclone check with hash comparison (like Motuz)
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
             'check',
             src,
             dst,
+            '--progress',
             '--stats', '2s',
-            '--stats-one-line',
         ]
 
         logging.info(f"Starting integrity check: '{src}' vs '{dst}'")
@@ -740,16 +739,15 @@ class RcloneWrapper:
                 logging.warning(f"Failed to create directory {mkdir_path}: {e}")
                 # Continue anyway, rclone might handle it
 
-        # Build command
-        # Note: --progress only works with TTY, removed it for subprocess compatibility
+        # Build command (like Motuz: use --progress with --stats)
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
             rclone_cmd,
             actual_src,
             actual_dst,
+            '--progress',
             '--stats', '2s',
-            '--stats-one-line',
             '--contimeout=5m',
         ]
 
