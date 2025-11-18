@@ -195,11 +195,13 @@ class JobQueue:
 
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
+            logging.info(f"Job {job_id}: stdout reader thread started")
             try:
                 while True:
                     # Read one line at a time (matches original Motuz implementation)
                     line_bytes = process.stdout.readline()
                     if not line_bytes:
+                        logging.info(f"Job {job_id}: stdout reader got EOF")
                         break
 
                     with output_lock:
@@ -216,10 +218,12 @@ class JobQueue:
         stderr_lines = []
         def read_stderr():
             """Read stderr in background - rclone progress goes here!"""
+            logging.info(f"Job {job_id}: stderr reader thread started")
             try:
                 while True:
                     line_bytes = process.stderr.readline()
                     if not line_bytes:
+                        logging.info(f"Job {job_id}: stderr reader got EOF")
                         break
                     stderr_lines.append(line_bytes)
                     # Process stderr lines for progress info (rclone sends progress to stderr)

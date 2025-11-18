@@ -438,13 +438,13 @@ class RcloneWrapper:
             dst = dst_clean_path
 
         # Build command - use rclone check with hash comparison
+        # Note: --progress only works with TTY, removed it for subprocess compatibility
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
             'check',
             src,
             dst,
-            '--progress',
             '--stats', '2s',
             '--stats-one-line',
         ]
@@ -741,13 +741,13 @@ class RcloneWrapper:
                 # Continue anyway, rclone might handle it
 
         # Build command
+        # Note: --progress only works with TTY, removed it for subprocess compatibility
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else '/dev/null',
             rclone_cmd,
             actual_src,
             actual_dst,
-            '--progress',
             '--stats', '2s',
             '--stats-one-line',
             '--contimeout=5m',
