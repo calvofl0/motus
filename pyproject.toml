@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "motuz"
+name = "motus"
 version = "1.0.0"
 description = "A simplified, single-user web application for file transfers using rclone"
 readme = "README.md"
@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = "MIT"
 keywords = ["rclone", "file-transfer", "ondemand", "ood", "web-interface"]
 authors = [
-    { name = "Motuz Contributors" },
+    { name = "Motus Contributors" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -51,10 +51,10 @@ Issues = "https://github.com/calvofl0/ood-motuz/issues"
 Source = "https://github.com/calvofl0/ood-motuz"
 
 [project.scripts]
-motuz = "motuz.cli:main"
+motus = "motus.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend", "frontend", "motuz"]
+packages = ["backend", "frontend", "motus"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "run.py" = "run.py"
@@ -64,7 +64,7 @@ packages = ["backend", "frontend", "motuz"]
 include = [
     "/backend/**/*.py",
     "/frontend/**/*",
-    "/motuz/**/*.py",
+    "/motus/**/*.py",
     "/run.py",
     "/README.md",
     "/LICENSE",

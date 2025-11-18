@@ -1,5 +1,5 @@
 """
-Command-line interface for Motuz
+Command-line interface for Motus
 """
 import sys
 from pathlib import Path
@@ -11,7 +11,7 @@ from run import main as run_main
 
 
 def main():
-    """Entry point for the motuz CLI command"""
+    """Entry point for the motus CLI command"""
     run_main()
 
 

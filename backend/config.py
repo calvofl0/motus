@@ -97,7 +97,7 @@ class Config:
         )
 
         # Rclone config file path
-        # Priority: RCLONE_CONFIG env var > motuz config > rclone default
+        # Priority: RCLONE_CONFIG env var > motus config > rclone default
         self.rclone_config_file = self._get_config(
             'rclone_config_file',
             env_var='RCLONE_CONFIG',
@@ -126,7 +126,7 @@ class Config:
         ).lower()
 
         # Remote templates file path
-        # Priority: MOTUS_REMOTE_TEMPLATES env var > motuz config > default
+        # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > default
         self.remote_templates_file = self._get_config(
             'remote_templates_file',
             env_var='MOTUS_REMOTE_TEMPLATES',

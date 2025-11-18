@@ -1,6 +1,6 @@
 # Motus
 
-A simplified, single-user web application for file transfers using rclone, designed for integration with Open OnDemand (OOD). Based on the [Motuz](https://github.com/FredHutch/motuz) project (MIT License), but with a streamlined, token-based authentication backend suitable for OOD deployment.
+A simplified, single-user web application for file transfers using rclone, designed for integration with Open OnDemand (OOD). Based on the [Motus](https://github.com/FredHutch/motuz) project (MIT License), but with a streamlined, token-based authentication backend suitable for OOD deployment.
 
 ## Features
 
@@ -24,7 +24,7 @@ A simplified, single-user web application for file transfers using rclone, desig
 
 ### Frontend
 - Simple HTML/JS demo interface (included)
-- Can be replaced with full Motuz React frontend (instructions below)
+- Can be replaced with full Motus React frontend (instructions below)
 
 ## Requirements
 
@@ -132,14 +132,14 @@ python run.py
 
 ### Managing Remotes via UI
 
-Motuz includes a graphical remote management interface that allows you to add and delete rclone remotes without using the command line. To use this feature:
+Motus includes a graphical remote management interface that allows you to add and delete rclone remotes without using the command line. To use this feature:
 
 1. Create a remote templates file from the example:
    ```bash
    cp remote_templates.conf.example remote_templates.conf
    ```
 
-2. Configure Motuz to use the templates file:
+2. Configure Motus to use the templates file:
    ```bash
    # Via command line
    python run.py --remote-templates remote_templates.conf
@@ -494,9 +494,9 @@ ood-motuz/
 └── README.md              # This file
 ```
 
-## Upgrading to Full Motuz Frontend
+## Upgrading to Full Motus Frontend
 
-The current frontend is a simple demo. To use the full Motuz React frontend:
+The current frontend is a simple demo. To use the full Motus React frontend:
 
 ### 1. Install Node.js
 
@@ -536,7 +536,7 @@ npm run build
 
 ### 5. Adapt API Calls
 
-The Motuz frontend expects different API endpoints. You'll need to:
+The Motus frontend expects different API endpoints. You'll need to:
 
 1. Update `frontend/js/actions/*.jsx` to match our API structure
 2. Simplify/remove authentication flows in `frontend/js/reducers/authReducer.jsx`
@@ -574,7 +574,7 @@ ps aux | grep "run.py"
 
 ## License
 
-This project is based on [Motuz](https://github.com/FredHutch/motuz) (MIT License) and maintains the same MIT license.
+This project is based on [Motus](https://github.com/FredHutch/motuz) (MIT License) and maintains the same MIT license.
 
 ## Contributing
 
@@ -587,7 +587,7 @@ Contributions welcome! Please:
 
 ## Acknowledgments
 
-- Based on [Motuz](https://github.com/FredHutch/motuz) by Fred Hutchinson Cancer Research Center
+- Based on [Motus](https://github.com/FredHutch/motuz) by Fred Hutchinson Cancer Research Center
 - Uses [rclone](https://rclone.org/) for file operations
 - Designed for [Open OnDemand](https://openondemand.org/)
 

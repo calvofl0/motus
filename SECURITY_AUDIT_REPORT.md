@@ -1,4 +1,4 @@
-# Security Audit Report - Motuz File Transfer Application
+# Security Audit Report - Motus File Transfer Application
 **Date**: 2025-11-19
 **Audit Type**: White Box Penetration Test
 **Auditor**: Security Assessment
@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-This security audit identified **8 critical**, **6 high**, and **5 medium** severity vulnerabilities in the Motuz application. The most critical issues involve credential exposure, authentication weaknesses, and path traversal risks. Immediate remediation is recommended before production deployment.
+This security audit identified **8 critical**, **6 high**, and **5 medium** severity vulnerabilities in the Motus application. The most critical issues involve credential exposure, authentication weaknesses, and path traversal risks. Immediate remediation is recommended before production deployment.
 
 ### Risk Summary
 - **Critical**: 8 findings

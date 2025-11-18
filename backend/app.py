@@ -483,7 +483,7 @@ if __name__ == '__main__':
     app = create_app(config)
 
     print("\n" + "="*60)
-    print("OOD-Motuz Server Starting")
+    print("OOD-Motus Server Starting")
     print("="*60)
     print(f"URL: {config.get_url()}")
     print(f"Token: {config.token}")
