@@ -137,22 +137,20 @@ class JobQueue:
             stop_event.set()
             return
 
-        # ANSI reset sequences from rclone output
-        reset_sequence1 = '\x1b[2K\x1b[0'
-        reset_sequence2 = '\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[A\x1b[2K\x1b[0'
-
         # Helper function to process output lines
         def process_output_line(line):
             line = line.strip()
             if not line:
                 return
 
-            # Remove ANSI escape sequences
-            if reset_sequence1 in line:
-                line = line[line.find(reset_sequence1) + len(reset_sequence1):]
-            if reset_sequence2 in line:
-                line = line[line.find(reset_sequence2) + len(reset_sequence2):]
-            line = line.replace(reset_sequence1, '').replace(reset_sequence2, '')
+            # Log raw line for debugging (first few jobs only)
+            if job_id <= 110:
+                logging.debug(f"Job {job_id}: Raw line: {repr(line[:100])}")
+
+            # Remove ALL ANSI escape sequences using regex
+            # This handles cursor movements, colors, clear sequences, etc.
+            ansi_escape = re.compile(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\[[0-9;]*m|\x1b\[[\d;]*[HfABCDsuJKmhl]')
+            line = ansi_escape.sub('', line)
 
             # Check for errors
             error_match = re.search(r'(ERROR.*)', line)
@@ -174,9 +172,13 @@ class JobQueue:
                     # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
                     if re.search(r'[KMGT]?i?B\s*/.*,\s*\d+%', value):
                         key = 'Transferred (bytes)'
+                        if job_id <= 110:
+                            logging.debug(f"Job {job_id}: Found byte transfer: {value}")
                     # File-count: "0 / 1, 0%" (just numbers)
                     elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
                         key = 'Transferred (files)'
+                        if job_id <= 110:
+                            logging.debug(f"Job {job_id}: Found file count: {value}")
                     else:
                         logging.warning(f"Job {job_id}: Unknown Transferred format: {value}")
 
@@ -314,7 +316,7 @@ class JobQueue:
                         pass
 
         # Prefer byte-based progress, fall back to file count
-        # Only log when progress actually changes
+        # Only log when progress actually changes, and never go backwards
         old_progress = self._job_percent.get(job_id, 0)
         new_progress = None
 
@@ -324,7 +326,11 @@ class JobQueue:
             new_progress = file_count_progress
 
         if new_progress is not None:
-            self._job_percent[job_id] = new_progress
-            if new_progress != old_progress:
-                source = "bytes" if byte_progress is not None else "file count"
-                logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}% (from {source})")
+            # Never let progress go backwards (can happen with buffered output)
+            if new_progress >= old_progress:
+                self._job_percent[job_id] = new_progress
+                if new_progress != old_progress:
+                    source = "bytes" if byte_progress is not None else "file count"
+                    logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}% (from {source})")
+            elif new_progress < old_progress:
+                logging.warning(f"Job {job_id}: Ignoring backwards progress: {old_progress}% ← {new_progress}% (keeping {old_progress}%)")
