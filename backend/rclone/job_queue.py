@@ -117,7 +117,7 @@ class JobQueue:
         full_env = os.environ.copy()
         full_env.update(env)
 
-        # Start process in text mode so we get strings not bytes
+        # Start process in binary mode to avoid buffering issues
         try:
             process = subprocess.Popen(
                 command,
@@ -125,8 +125,7 @@ class JobQueue:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,  # Text mode - returns strings not bytes
-                bufsize=1,  # Line buffered
+                bufsize=0,  # Unbuffered
             )
             self._processes[job_id] = process
             logging.info(f"Job {job_id}: Started process PID {process.pid}")
@@ -139,7 +138,12 @@ class JobQueue:
 
         # Helper function to process output lines
         def process_output_line(line):
-            line = line.strip()
+            # Decode from bytes and strip
+            try:
+                line = line.decode('utf-8', errors='replace').strip()
+            except Exception:
+                return
+
             if not line:
                 return
 
@@ -193,22 +197,22 @@ class JobQueue:
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
             try:
-                buffer = ''
+                buffer = b''
                 while True:
-                    # Read one character at a time to avoid blocking
-                    char = process.stdout.read(1)
-                    if not char:
+                    # Read one byte at a time to avoid blocking
+                    byte = process.stdout.read(1)
+                    if not byte:
                         break
 
                     # Split on both \n and \r (rclone uses \r for progress updates)
-                    if char == '\n' or char == '\r':
+                    if byte == b'\n' or byte == b'\r':
                         if buffer.strip():
                             with output_lock:
                                 output_lines.append(buffer)
                                 process_output_line(buffer)
-                        buffer = ''
+                        buffer = b''
                     else:
-                        buffer += char
+                        buffer += byte
 
                 # Process any remaining buffer
                 if buffer.strip():

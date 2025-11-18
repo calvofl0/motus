@@ -1262,6 +1262,24 @@
                 document.getElementById('view-dropdown').classList.add('hidden');
             });
 
+            // Add context menu to empty container backgrounds
+            ['left', 'right'].forEach(pane => {
+                const container = document.getElementById(`${pane}-files`);
+                container.addEventListener('contextmenu', (e) => {
+                    // Only show menu if clicking on container itself or table, not on child file elements
+                    if (e.target === container || e.target.tagName === 'TABLE') {
+                        e.preventDefault();
+                        const state = pane === 'left' ? leftPaneState : rightPaneState;
+                        // Clear selection when right-clicking on empty space
+                        if (state.selectedIndexes.length > 0) {
+                            state.selectedIndexes = [];
+                            renderFiles(pane);
+                        }
+                        showContextMenu(e, pane);
+                    }
+                });
+            });
+
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 // Check if any modal is open
@@ -1779,6 +1797,13 @@
             // Sort files
             const sortedFiles = sortFiles(filesWithIndex, state.sortBy, state.sortAsc);
 
+            // Store visual order mapping for Shift+click range selection
+            // Maps original index -> visual position
+            state.visualOrder = {};
+            sortedFiles.forEach((file, visualPos) => {
+                state.visualOrder[file._originalIndex] = visualPos;
+            });
+
             container.innerHTML = '';
             container.className = viewMode === 'grid' ? 'file-grid' : 'file-list';
 
@@ -1940,6 +1965,15 @@
                     }
                     showContextMenu(e, pane);
                 });
+            } else {
+                // For ".." parent directory, add context menu without selection
+                div.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    // Clear selection for ".." - it's not a selectable item
+                    state.selectedIndexes = [];
+                    renderFiles(pane);
+                    showContextMenu(e, pane);
+                });
             }
             
             return div;
@@ -2035,6 +2069,15 @@
                     }
                     showContextMenu(e, pane);
                 });
+            } else {
+                // For ".." parent directory, add context menu without selection
+                tr.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    // Clear selection for ".." - it's not a selectable item
+                    state.selectedIndexes = [];
+                    renderFiles(pane);
+                    showContextMenu(e, pane);
+                });
             }
 
             return tr;
@@ -2106,13 +2149,21 @@
                 selectionChanged = true;
             } else if (event.shiftKey && state.selectedIndexes.length > 0) {
                 // Range selection from last selected to current
+                // Use visual order (sorted) not array order
                 const lastIndex = state.selectedIndexes[state.selectedIndexes.length - 1];
-                const start = Math.min(lastIndex, index);
-                const end = Math.max(lastIndex, index);
+                const lastVisual = state.visualOrder[lastIndex] ?? lastIndex;
+                const currentVisual = state.visualOrder[index] ?? index;
+                const visualStart = Math.min(lastVisual, currentVisual);
+                const visualEnd = Math.max(lastVisual, currentVisual);
+
+                // Convert visual positions back to original indexes
                 state.selectedIndexes = [];
-                for (let i = start; i <= end; i++) {
-                    state.selectedIndexes.push(i);
-                }
+                Object.keys(state.visualOrder).forEach(origIndex => {
+                    const visualPos = state.visualOrder[origIndex];
+                    if (visualPos >= visualStart && visualPos <= visualEnd) {
+                        state.selectedIndexes.push(parseInt(origIndex));
+                    }
+                });
                 selectionChanged = true;
             } else {
                 // Single selection - only change if different
@@ -2205,18 +2256,37 @@
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             contextMenuState.pane = pane;
             contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
-            
+
             const menu = document.getElementById('context-menu');
             menu.style.display = 'block';
             menu.style.left = event.pageX + 'px';
             menu.style.top = event.pageY + 'px';
-            
-            // Show rename only for single file
-            const renameItem = menu.querySelector('.context-menu-item:first-child');
-            if (state.selectedIndexes.length === 1) {
+
+            // Get menu items
+            const menuItems = menu.querySelectorAll('.context-menu-item');
+            const createFolderItem = menuItems[0];  // 📁 Create Folder
+            const renameItem = menuItems[1];  // ✏️ Rename
+            const deleteItem = menuItems[2];  // 🗑️ Delete
+
+            // Show/hide items based on selection
+            const hasSelection = state.selectedIndexes.length > 0;
+            const isSingleSelection = state.selectedIndexes.length === 1;
+
+            // Create Folder: always available
+            createFolderItem.style.display = 'block';
+
+            // Rename: only for single selection
+            if (isSingleSelection) {
                 renameItem.style.display = 'block';
             } else {
                 renameItem.style.display = 'none';
+            }
+
+            // Delete: only when something is selected
+            if (hasSelection) {
+                deleteItem.style.display = 'block';
+            } else {
+                deleteItem.style.display = 'none';
             }
         }
 
