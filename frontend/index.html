@@ -2286,6 +2286,10 @@
             const pane = contextMenuState.pane;
             const state = pane === 'left' ? leftPaneState : rightPaneState;
 
+            // Close modal immediately for better UX
+            closeDeleteConfirmModal();
+
+            // Perform deletes in background
             for (const file of contextMenuState.items) {
                 const path = state.remote ?
                     `${state.remote}:${buildPath(state.path, file.Name)}` :
@@ -2297,9 +2301,9 @@
                     alert(`Failed to delete ${file.Name}: ${error.message}`);
                 }
             }
-            
-            closeDeleteConfirmModal();
-            refreshPane(pane);
+
+            // Refresh after all deletes complete
+            refreshPane(pane, true);
         }
 
         // Create folder

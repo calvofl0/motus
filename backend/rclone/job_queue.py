@@ -174,11 +174,9 @@ class JobQueue:
                     # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
                     if re.search(r'[KMGT]?i?B\s*/.*,\s*\d+%', value):
                         key = 'Transferred (bytes)'
-                        logging.info(f"Job {job_id}: Parsed byte-based transfer: {value}")
                     # File-count: "0 / 1, 0%" (just numbers)
                     elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
                         key = 'Transferred (files)'
-                        logging.info(f"Job {job_id}: Parsed file-count transfer: {value}")
                     else:
                         logging.warning(f"Job {job_id}: Unknown Transferred format: {value}")
 
@@ -316,9 +314,17 @@ class JobQueue:
                         pass
 
         # Prefer byte-based progress, fall back to file count
+        # Only log when progress actually changes
+        old_progress = self._job_percent.get(job_id, 0)
+        new_progress = None
+
         if byte_progress is not None:
-            self._job_percent[job_id] = byte_progress
-            logging.info(f"Job {job_id}: Set progress to {byte_progress}% (from bytes)")
+            new_progress = byte_progress
         elif file_count_progress is not None:
-            self._job_percent[job_id] = file_count_progress
-            logging.info(f"Job {job_id}: Set progress to {file_count_progress}% (from file count)")
+            new_progress = file_count_progress
+
+        if new_progress is not None:
+            self._job_percent[job_id] = new_progress
+            if new_progress != old_progress:
+                source = "bytes" if byte_progress is not None else "file count"
+                logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}% (from {source})")
