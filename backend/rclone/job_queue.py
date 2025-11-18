@@ -195,40 +195,26 @@ class JobQueue:
             try:
                 buffer = ''
                 while True:
-                    chunk = process.stdout.read(1024)
-                    if not chunk:
+                    # Read one character at a time to avoid blocking
+                    char = process.stdout.read(1)
+                    if not char:
                         break
 
-                    buffer += chunk
-
-                    # Split on both \n and \r to handle rclone's progress updates
-                    # rclone uses \r to overwrite the same line
-                    lines = buffer.split('\n')
-
-                    # Keep the last incomplete line in the buffer
-                    buffer = lines[-1]
-
-                    # Process complete lines
-                    for line in lines[:-1]:
-                        # Split on \r to get the final version of overwritten lines
-                        sublines = line.split('\r')
-                        # Only process the last subline (the final overwrite)
-                        if sublines:
-                            final_line = sublines[-1]
-                            if final_line:
-                                with output_lock:
-                                    output_lines.append(final_line)
-                                    process_output_line(final_line)
+                    # Split on both \n and \r (rclone uses \r for progress updates)
+                    if char == '\n' or char == '\r':
+                        if buffer.strip():
+                            with output_lock:
+                                output_lines.append(buffer)
+                                process_output_line(buffer)
+                        buffer = ''
+                    else:
+                        buffer += char
 
                 # Process any remaining buffer
-                if buffer:
-                    sublines = buffer.split('\r')
-                    if sublines:
-                        final_line = sublines[-1]
-                        if final_line:
-                            with output_lock:
-                                output_lines.append(final_line)
-                                process_output_line(final_line)
+                if buffer.strip():
+                    with output_lock:
+                        output_lines.append(buffer)
+                        process_output_line(buffer)
 
             except Exception as e:
                 logging.error(f"Job {job_id}: stdout reader exception: {e}")
