@@ -48,7 +48,7 @@
             gap: 10px;
         }
 
-        .mode-toggle-button, .quit-button, .view-toggle-button {
+        .mode-toggle-button, .quit-button, .view-toggle-button, .manage-remotes-button {
             padding: 10px 20px;
             border: none;
             border-radius: 4px;
@@ -56,6 +56,15 @@
             font-size: 14px;
             font-weight: 500;
             transition: all 0.3s ease;
+        }
+
+        .manage-remotes-button {
+            background: #6f42c1;
+            color: white;
+        }
+
+        .manage-remotes-button:hover {
+            background: #5a32a3;
         }
 
         .view-dropdown-container {
@@ -866,6 +875,9 @@
             <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
         </div>
         <div class="header-right">
+            <button class="manage-remotes-button" onclick="openManageRemotesDialog()">
+                Manage Remotes
+            </button>
             <div class="view-dropdown-container">
                 <button class="view-toggle-button" onclick="toggleViewMenu(event)" id="view-menu-btn">
                     View ▾
@@ -1150,6 +1162,48 @@
             <div class="modal-buttons">
                 <button onclick="closeDeleteConfirmModal()">Cancel</button>
                 <button onclick="confirmDelete()" style="background: #dc3545;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Remotes Modal -->
+    <div class="modal" id="manage-remotes-modal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <!-- Step 1: List Remotes -->
+            <div id="manage-remotes-step1" class="manage-remotes-step">
+                <div class="modal-header">🔧 Manage Remotes</div>
+                <div id="remotes-list-container" style="margin-bottom: 15px;">
+                    <p style="color: #666; text-align: center;">Loading remotes...</p>
+                </div>
+                <div class="modal-buttons">
+                    <button onclick="closeManageRemotesDialog()">Close</button>
+                    <button id="add-remote-btn" onclick="showTemplateSelection()" style="background: #28a745; display: none;">+ Add Remote</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Select Template -->
+            <div id="manage-remotes-step2" class="manage-remotes-step" style="display: none;">
+                <div class="modal-header">📋 Select Template</div>
+                <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
+                <div id="templates-list-container">
+                    <p style="color: #666; text-align: center;">Loading templates...</p>
+                </div>
+                <div class="modal-buttons">
+                    <button onclick="showRemotesList()">Back</button>
+                    <button id="template-next-btn" onclick="showRemoteForm()" style="background: #007bff;" disabled>Next</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Configure Remote -->
+            <div id="manage-remotes-step3" class="manage-remotes-step" style="display: none;">
+                <div class="modal-header">⚙️ Configure Remote</div>
+                <div id="remote-form-container">
+                    <!-- Form will be generated dynamically -->
+                </div>
+                <div class="modal-buttons">
+                    <button onclick="showTemplateSelection()">Back</button>
+                    <button id="create-remote-btn" onclick="createRemote()" style="background: #28a745;">Create Remote</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2467,6 +2521,243 @@
                 refreshPane(pane);
             } catch (error) {
                 alert(`Failed to create folder: ${error.message}`);
+            }
+        }
+
+        // Manage Remotes Dialog
+        let manageRemotesState = {
+            remotes: [],
+            templates: [],
+            selectedTemplate: null,
+            formValues: {}
+        };
+
+        async function openManageRemotesDialog() {
+            document.getElementById('manage-remotes-modal').style.display = 'flex';
+            showRemotesList();
+            await loadRemotesList();
+            await loadTemplatesList();
+        }
+
+        function closeManageRemotesDialog() {
+            document.getElementById('manage-remotes-modal').style.display = 'none';
+            manageRemotesState.selectedTemplate = null;
+            manageRemotesState.formValues = {};
+        }
+
+        function showRemotesList() {
+            document.getElementById('manage-remotes-step1').style.display = 'block';
+            document.getElementById('manage-remotes-step2').style.display = 'none';
+            document.getElementById('manage-remotes-step3').style.display = 'none';
+        }
+
+        function showTemplateSelection() {
+            document.getElementById('manage-remotes-step1').style.display = 'none';
+            document.getElementById('manage-remotes-step2').style.display = 'block';
+            document.getElementById('manage-remotes-step3').style.display = 'none';
+            document.getElementById('template-next-btn').disabled = !manageRemotesState.selectedTemplate;
+        }
+
+        function showRemoteForm() {
+            document.getElementById('manage-remotes-step1').style.display = 'none';
+            document.getElementById('manage-remotes-step2').style.display = 'none';
+            document.getElementById('manage-remotes-step3').style.display = 'block';
+            generateRemoteForm();
+        }
+
+        async function loadRemotesList() {
+            try {
+                const data = await apiCall('/api/remotes');
+                manageRemotesState.remotes = data.remotes || [];
+                renderRemotesList();
+            } catch (error) {
+                document.getElementById('remotes-list-container').innerHTML =
+                    `<p style="color: #dc3545;">Error loading remotes: ${error.message}</p>`;
+            }
+        }
+
+        async function loadTemplatesList() {
+            try {
+                const data = await apiCall('/api/templates');
+                manageRemotesState.templates = data.templates || [];
+
+                // Show/hide Add Remote button based on template availability
+                const addBtn = document.getElementById('add-remote-btn');
+                if (data.available && data.templates.length > 0) {
+                    addBtn.style.display = 'inline-block';
+                } else {
+                    addBtn.style.display = 'none';
+                }
+
+                renderTemplatesList();
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                document.getElementById('add-remote-btn').style.display = 'none';
+            }
+        }
+
+        function renderRemotesList() {
+            const container = document.getElementById('remotes-list-container');
+
+            if (manageRemotesState.remotes.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center;">No remotes configured</p>';
+                return;
+            }
+
+            let html = '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<thead><tr style="border-bottom: 2px solid #ddd;">';
+            html += '<th style="text-align: left; padding: 8px;">Name</th>';
+            html += '<th style="text-align: left; padding: 8px;">Type</th>';
+            html += '<th style="text-align: center; padding: 8px; width: 80px;">Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            manageRemotesState.remotes.forEach(remote => {
+                html += '<tr style="border-bottom: 1px solid #eee;">';
+                html += `<td style="padding: 8px;">${remote.name}</td>`;
+                html += `<td style="padding: 8px;">${remote.type}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">`;
+                html += `<button onclick="deleteRemote('${remote.name}')" style="background: #dc3545; color: white; padding: 4px 12px; border: none; border-radius: 3px; cursor: pointer;" title="Delete remote">−</button>`;
+                html += '</td></tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderTemplatesList() {
+            const container = document.getElementById('templates-list-container');
+
+            if (manageRemotesState.templates.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center;">No templates available</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+
+            manageRemotesState.templates.forEach(template => {
+                const isSelected = manageRemotesState.selectedTemplate?.name === template.name;
+                const selectedStyle = isSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
+
+                html += `<div onclick="selectTemplate('${template.name}')" style="padding: 12px; ${selectedStyle} border-radius: 6px; cursor: pointer;">`;
+                html += `<strong style="display: block; margin-bottom: 4px;">${template.name}</strong>`;
+                html += `<small style="color: #666;">Fields: ${template.fields.map(f => f.label).join(', ')}</small>`;
+                html += '</div>';
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function selectTemplate(templateName) {
+            const template = manageRemotesState.templates.find(t => t.name === templateName);
+            manageRemotesState.selectedTemplate = template;
+            renderTemplatesList();
+            document.getElementById('template-next-btn').disabled = false;
+        }
+
+        function generateRemoteForm() {
+            const container = document.getElementById('remote-form-container');
+            const template = manageRemotesState.selectedTemplate;
+
+            if (!template) return;
+
+            let html = `<p style="margin-bottom: 15px;"><strong>Template:</strong> ${template.name}</p>`;
+            html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
+
+            // Remote Name field
+            html += '<div>';
+            html += '<label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>';
+            html += '<input type="text" id="remote-name-input" placeholder="Enter remote name" ';
+            html += 'pattern="[a-zA-Z0-9_-]+" title="Use only letters, numbers, underscores, and hyphens" ';
+            html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+            html += '<small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>';
+            html += '</div>';
+
+            // Template fields
+            template.fields.forEach(field => {
+                const isSecret = field.label.toLowerCase().includes('password') ||
+                                field.label.toLowerCase().includes('secret') ||
+                                field.label.toLowerCase().includes('key');
+                const inputType = isSecret ? 'password' : 'text';
+
+                html += '<div>';
+                html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">${field.label}</label>`;
+                html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
+                html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+                html += '</div>';
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function deleteRemote(remoteName) {
+            if (!confirm(`Are you sure you want to delete the remote "${remoteName}"?`)) {
+                return;
+            }
+
+            try {
+                await apiCall(`/api/remotes/${remoteName}`, 'DELETE');
+                await loadRemotesList();
+
+                // Reload remote dropdowns
+                await loadRemotes();
+            } catch (error) {
+                alert(`Failed to delete remote: ${error.message}`);
+            }
+        }
+
+        async function createRemote() {
+            const remoteName = document.getElementById('remote-name-input').value.trim();
+            const template = manageRemotesState.selectedTemplate;
+
+            if (!remoteName) {
+                alert('Please enter a remote name');
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_-]+$/.test(remoteName)) {
+                alert('Invalid remote name. Use only letters, numbers, underscores, and hyphens.');
+                return;
+            }
+
+            // Collect field values
+            const values = {};
+            for (const field of template.fields) {
+                const input = document.getElementById(`field-${field.key}`);
+                if (!input || !input.value.trim()) {
+                    alert(`Please fill in all fields: ${field.label}`);
+                    return;
+                }
+                values[field.label] = input.value.trim();
+            }
+
+            try {
+                const createBtn = document.getElementById('create-remote-btn');
+                createBtn.disabled = true;
+                createBtn.textContent = 'Creating...';
+
+                await apiCall('/api/remotes', 'POST', {
+                    name: remoteName,
+                    template: template.name,
+                    values: values
+                });
+
+                // Reload remotes list and dropdowns
+                await loadRemotesList();
+                await loadRemotes();
+
+                // Go back to step 1
+                showRemotesList();
+
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Remote';
+
+            } catch (error) {
+                alert(`Failed to create remote: ${error.message}`);
+                const createBtn = document.getElementById('create-remote-btn');
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Remote';
             }
         }
 
