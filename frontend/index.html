@@ -1081,9 +1081,9 @@
 
     <!-- Context Menu -->
     <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" onclick="contextMenuAction('newfolder')">📁 Create Folder</div>
         <div class="context-menu-item" onclick="contextMenuAction('rename')">✏️ Rename</div>
         <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ Delete</div>
-        <div class="context-menu-item" onclick="contextMenuAction('newfolder')">📁 New Folder</div>
         <div class="context-menu-item has-submenu">
             📊 Sort by
             <div class="context-submenu">
@@ -2481,12 +2481,13 @@
             }
 
             // Helper function to parse transfer info from rclone text output
-            // Text format: "Transferred:   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
+            // Text format: "Transferred (bytes):   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
+            // or legacy: "Transferred:   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
             function parseTransferInfo(text) {
                 if (!text) return null;
 
-                // Look for "Transferred:" line
-                const transferMatch = text.match(/Transferred:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+)s.*?ETA\s+(.+?)$/m);
+                // Look for "Transferred (bytes):" or "Transferred:" line with byte-based progress
+                const transferMatch = text.match(/Transferred(?:\s+\(bytes\))?:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+)s.*?ETA\s+(.+?)$/m);
                 if (transferMatch) {
                     const transferred = transferMatch[1];
                     const transferredUnit = transferMatch[2];
