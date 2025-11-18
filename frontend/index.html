@@ -1774,6 +1774,7 @@
             } catch (error) {
                 console.error(`Failed to refresh ${pane} pane:`, error);
                 alert(`Error: ${error.message}`);
+                throw error; // Re-throw so callers can handle it
             }
         }
 
@@ -2084,7 +2085,7 @@
         }
 
         // Navigate up
-        function navigateUp(pane) {
+        async function navigateUp(pane) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
             let newPath;
 
@@ -2110,17 +2111,36 @@
                 newPath = '/' + pathParts.join('/');
             }
 
+            // Save old path in case navigation fails
+            const oldPath = state.path;
             state.path = newPath;
             document.getElementById(`${pane}-path`).value = newPath;
-            refreshPane(pane);
+
+            try {
+                await refreshPane(pane);
+            } catch (error) {
+                // Revert to old path if navigation failed
+                state.path = oldPath;
+                document.getElementById(`${pane}-path`).value = oldPath;
+            }
         }
 
         // Navigate into directory
-        function navigateInto(pane, dirname) {
+        async function navigateInto(pane, dirname) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
-            state.path = state.path.endsWith('/') ? state.path + dirname : state.path + '/' + dirname;
-            document.getElementById(`${pane}-path`).value = state.path;
-            refreshPane(pane);
+            const oldPath = state.path;
+            const newPath = state.path.endsWith('/') ? state.path + dirname : state.path + '/' + dirname;
+
+            state.path = newPath;
+            document.getElementById(`${pane}-path`).value = newPath;
+
+            try {
+                await refreshPane(pane);
+            } catch (error) {
+                // Revert to old path if navigation failed
+                state.path = oldPath;
+                document.getElementById(`${pane}-path`).value = oldPath;
+            }
         }
 
         // File selection
