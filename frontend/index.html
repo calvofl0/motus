@@ -1078,6 +1078,8 @@
                     <div class="hint">Press ENTER to get status</div>
                 </div>
                 <button onclick="getJobStatus()">Get Status</button>
+                <button onclick="watchJobProgress()" style="background: #17a2b8;" id="watch-progress-btn">Watch Progress (SSE)</button>
+                <button onclick="stopWatchingProgress()" style="background: #6c757d; display: none;" id="stop-watch-btn">Stop Watching</button>
                 <button onclick="showJobLog()" style="background: #6c757d;">Show Log</button>
                 <button onclick="resumeJobById()" style="background: #28a745;">Resume</button>
                 <button onclick="stopJob()" style="background: #dc3545;">Stop Job</button>
@@ -3611,6 +3613,89 @@ ${job.text || '(no output yet)'}
             } catch (error) {
                 document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
             }
+        }
+
+        // SSE Progress Watching
+        let progressEventSource = null;
+
+        function watchJobProgress() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            // Stop any existing connection
+            stopWatchingProgress();
+
+            // Build SSE URL with token
+            const token = getToken();
+            const baseUrl = window.location.origin;
+            const sseUrl = `${baseUrl}/api/stream/jobs/${jobId}?token=${token}`;
+
+            // Show watching indicator
+            document.getElementById('watch-progress-btn').style.display = 'none';
+            document.getElementById('stop-watch-btn').style.display = 'inline-block';
+            document.getElementById('job-status-output').textContent = `🔴 Watching job ${jobId} (real-time updates)...\n\n`;
+
+            // Create EventSource connection
+            progressEventSource = new EventSource(sseUrl);
+
+            progressEventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.error) {
+                        document.getElementById('job-status-output').textContent = `Error: ${data.error}`;
+                        stopWatchingProgress();
+                        return;
+                    }
+
+                    // Format progress update
+                    const timestamp = new Date().toLocaleTimeString();
+                    const output = `
+🔴 LIVE UPDATE - ${timestamp}
+
+Job ID: ${data.job_id}
+Progress: ${data.progress}%
+Status: ${data.finished ? 'Finished' : 'Running'}
+Exit Status: ${data.exit_status}
+${data.error_text ? 'Error: ' + data.error_text : ''}
+
+Recent Output:
+${data.text || '(no output yet)'}
+                    `.trim();
+
+                    document.getElementById('job-status-output').textContent = output;
+
+                    // Auto-stop when job finishes
+                    if (data.finished) {
+                        setTimeout(() => {
+                            stopWatchingProgress();
+                            // Show completion status
+                            const finalOutput = output.replace('🔴 LIVE UPDATE', '✓ Job Completed');
+                            document.getElementById('job-status-output').textContent = finalOutput;
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('Error parsing SSE data:', error);
+                }
+            };
+
+            progressEventSource.onerror = function(error) {
+                console.error('SSE error:', error);
+                document.getElementById('job-status-output').textContent += '\n\n⚠️ Connection lost. Click "Watch Progress" to reconnect.';
+                stopWatchingProgress();
+            };
+        }
+
+        function stopWatchingProgress() {
+            if (progressEventSource) {
+                progressEventSource.close();
+                progressEventSource = null;
+            }
+            document.getElementById('watch-progress-btn').style.display = 'inline-block';
+            document.getElementById('stop-watch-btn').style.display = 'none';
         }
 
         async function stopJob() {
