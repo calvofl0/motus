@@ -285,4 +285,5 @@ class JobQueue:
             if new_progress != old_progress:
                 logging.info(f"Job {job_id}: Progress updated: {old_progress}% → {new_progress}%")
         elif new_progress is not None and new_progress < old_progress:
-            logging.warning(f"Job {job_id}: Ignoring backwards progress: {old_progress}% ← {new_progress}% (keeping {old_progress}%)")
+            # Don't spam logs - this is normal for rclone multi-file transfers
+            logging.debug(f"Job {job_id}: Ignoring backwards progress: {old_progress}% ← {new_progress}% (keeping {old_progress}%)")

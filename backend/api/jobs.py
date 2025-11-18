@@ -223,8 +223,8 @@ def get_job_status(job_id):
                 log_text=log_text,
             )
 
-            # Clean up log file after storing in database
-            if finished and log_text:
+            # Clean up log file after storing in database (always cleanup when finished)
+            if finished:
                 rclone.job_cleanup_log(job_id)
         else:
             # Job not in queue - use database status as-is
@@ -260,9 +260,8 @@ def get_job_status(job_id):
                         log_text=log_text,
                     )
 
-                    # Clean up log file after storing in database
-                    if log_text:
-                        rclone.job_cleanup_log(job_id)
+                    # Clean up log file after storing in database (always cleanup)
+                    rclone.job_cleanup_log(job_id)
                 else:
                     # Job says 'running' but not in queue and not finished?
                     # This shouldn't happen, but keep current status
@@ -414,9 +413,8 @@ def list_jobs():
                             log_text=log_text,
                         )
 
-                        # Clean up log file after storing in database
-                        if log_text:
-                            rclone.job_cleanup_log(job['job_id'])
+                        # Clean up log file after storing in database (always cleanup)
+                        rclone.job_cleanup_log(job['job_id'])
 
         return jsonify({'jobs': jobs})
 
