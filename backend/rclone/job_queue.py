@@ -117,7 +117,7 @@ class JobQueue:
         full_env = os.environ.copy()
         full_env.update(env)
 
-        # Start process in binary mode to avoid buffering issues
+        # Start process in binary mode (matches original Motuz implementation)
         try:
             process = subprocess.Popen(
                 command,
@@ -125,7 +125,6 @@ class JobQueue:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=0,  # Unbuffered
             )
             self._processes[job_id] = process
             logging.info(f"Job {job_id}: Started process PID {process.pid}")
@@ -197,28 +196,15 @@ class JobQueue:
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
             try:
-                buffer = b''
                 while True:
-                    # Read one byte at a time to avoid blocking
-                    byte = process.stdout.read(1)
-                    if not byte:
+                    # Read one line at a time (matches original Motuz implementation)
+                    line_bytes = process.stdout.readline()
+                    if not line_bytes:
                         break
 
-                    # Split on both \n and \r (rclone uses \r for progress updates)
-                    if byte == b'\n' or byte == b'\r':
-                        if buffer.strip():
-                            with output_lock:
-                                output_lines.append(buffer)
-                                process_output_line(buffer)
-                        buffer = b''
-                    else:
-                        buffer += byte
-
-                # Process any remaining buffer
-                if buffer.strip():
                     with output_lock:
-                        output_lines.append(buffer)
-                        process_output_line(buffer)
+                        output_lines.append(line_bytes)
+                        process_output_line(line_bytes)
 
             except Exception as e:
                 logging.error(f"Job {job_id}: stdout reader exception: {e}")
@@ -231,22 +217,11 @@ class JobQueue:
         def read_stderr():
             """Read stderr in background"""
             try:
-                buffer = b''
                 while True:
-                    byte = process.stderr.read(1)
-                    if not byte:
+                    line_bytes = process.stderr.readline()
+                    if not line_bytes:
                         break
-
-                    if byte == b'\n' or byte == b'\r':
-                        if buffer.strip():
-                            stderr_lines.append(buffer)
-                        buffer = b''
-                    else:
-                        buffer += byte
-
-                # Process any remaining buffer
-                if buffer.strip():
-                    stderr_lines.append(buffer)
+                    stderr_lines.append(line_bytes)
             except Exception as e:
                 logging.error(f"Job {job_id}: stderr reader exception: {e}")
 
