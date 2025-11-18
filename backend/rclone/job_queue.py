@@ -193,10 +193,43 @@ class JobQueue:
         def read_stdout():
             """Read stdout in background to prevent pipe buffer from filling"""
             try:
-                for line in iter(process.stdout.readline, ''):
-                    with output_lock:
-                        output_lines.append(line)
-                        process_output_line(line)
+                buffer = ''
+                while True:
+                    chunk = process.stdout.read(1024)
+                    if not chunk:
+                        break
+
+                    buffer += chunk
+
+                    # Split on both \n and \r to handle rclone's progress updates
+                    # rclone uses \r to overwrite the same line
+                    lines = buffer.split('\n')
+
+                    # Keep the last incomplete line in the buffer
+                    buffer = lines[-1]
+
+                    # Process complete lines
+                    for line in lines[:-1]:
+                        # Split on \r to get the final version of overwritten lines
+                        sublines = line.split('\r')
+                        # Only process the last subline (the final overwrite)
+                        if sublines:
+                            final_line = sublines[-1]
+                            if final_line:
+                                with output_lock:
+                                    output_lines.append(final_line)
+                                    process_output_line(final_line)
+
+                # Process any remaining buffer
+                if buffer:
+                    sublines = buffer.split('\r')
+                    if sublines:
+                        final_line = sublines[-1]
+                        if final_line:
+                            with output_lock:
+                                output_lines.append(final_line)
+                                process_output_line(final_line)
+
             except Exception as e:
                 logging.error(f"Job {job_id}: stdout reader exception: {e}")
 
