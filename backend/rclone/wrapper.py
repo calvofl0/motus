@@ -22,19 +22,27 @@ class RcloneWrapper:
     Supports local filesystem and cloud backends (S3, SFTP, etc.)
     """
 
-    def __init__(self, rclone_path: str = None, rclone_config_file: str = None):
+    def __init__(self, rclone_path: str = None, rclone_config_file: str = None, logs_dir: str = None):
         """
         Initialize rclone wrapper
 
         Args:
             rclone_path: Path to rclone executable (default: searches PATH)
             rclone_config_file: Path to rclone config file (default: rclone default)
+            logs_dir: Directory to store job log files (default: None, logging disabled)
         """
         self.rclone_path = rclone_path or self._find_rclone()
         self.rclone_config_file = rclone_config_file
+        self.logs_dir = logs_dir
         self._job_queue = JobQueue()
         self._next_job_id = 1
         self._job_id_lock = __import__('threading').Lock()  # Thread-safe job ID generation
+        self._job_log_files = {}  # Track log file paths for each job
+
+        # Create logs directory if specified
+        if self.logs_dir:
+            os.makedirs(self.logs_dir, exist_ok=True)
+            logging.info(f"Job logs will be stored in: {self.logs_dir}")
 
         # Verify rclone is installed
         self._verify_rclone()
@@ -751,6 +759,14 @@ class RcloneWrapper:
             '--contimeout=5m',
         ]
 
+        # Add logging if logs_dir is configured
+        log_file_path = None
+        if self.logs_dir:
+            log_file_path = os.path.join(self.logs_dir, f'job_{job_id}.log')
+            command.extend(['-v', '--log-file', log_file_path])
+            self._job_log_files[job_id] = log_file_path
+            logging.debug(f"Job {job_id} will log to: {log_file_path}")
+
         # Add S3-specific options (for legacy mode only)
         if (src_config and src_config.get('type') == 's3') or \
            (dst_config and dst_config.get('type') == 's3'):
@@ -827,6 +843,19 @@ class RcloneWrapper:
 
     def job_percent(self, job_id: int) -> int:
         return self._job_queue.get_percent(job_id)
+
+    def job_log_text(self, job_id: int) -> Optional[str]:
+        """Get the log file content for a job"""
+        log_file = self._job_log_files.get(job_id)
+        if not log_file or not os.path.exists(log_file):
+            return None
+
+        try:
+            with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+        except Exception as e:
+            logging.error(f"Failed to read log file for job {job_id}: {e}")
+            return None
 
     def job_stop(self, job_id: int):
         self._job_queue.stop(job_id)

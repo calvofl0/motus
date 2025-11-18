@@ -26,6 +26,12 @@ from .api.stream import stream_bp, init_stream
 from .api.remotes import remotes_bp, init_remote_management
 
 
+# Global variables for idle timer
+_last_activity_time = None
+_idle_timer_thread = None
+_idle_timer_stop_event = None
+
+
 def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
     """
     Perform graceful shutdown - stop jobs and cleanup
@@ -83,6 +89,9 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
         sig_name = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
         logging.info(f"\n{sig_name} received, shutting down gracefully...")
 
+        # Stop idle timer if running
+        stop_idle_timer()
+
         perform_shutdown(rclone, db, config)
         sys.exit(0)
 
@@ -90,6 +99,71 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
     signal.signal(signal.SIGTERM, shutdown_handler)
     signal.signal(signal.SIGINT, shutdown_handler)
     logging.info("Signal handlers registered for graceful shutdown")
+
+
+def update_activity():
+    """Update the last activity timestamp"""
+    global _last_activity_time
+    _last_activity_time = time.time()
+
+
+def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
+    """Background worker to monitor idle time and shutdown if exceeded"""
+    global _idle_timer_stop_event, _last_activity_time
+
+    logging.info(f"Idle timer started - will shutdown after {max_idle_time} seconds of inactivity")
+
+    while not _idle_timer_stop_event.is_set():
+        time.sleep(10)  # Check every 10 seconds
+
+        if _last_activity_time is None:
+            continue  # No activity yet, skip
+
+        # Check if there are any running jobs
+        running_jobs = rclone.get_running_jobs()
+        if running_jobs:
+            # There are active jobs, reset activity time
+            update_activity()
+            continue
+
+        # Calculate idle time
+        idle_time = time.time() - _last_activity_time
+
+        if idle_time >= max_idle_time:
+            logging.info(f"Idle timeout reached ({idle_time:.1f}s >= {max_idle_time}s) - shutting down")
+            # Shutdown in separate thread to avoid blocking
+            def shutdown_delayed():
+                perform_shutdown(rclone, db, config)
+                os._exit(0)
+
+            threading.Thread(target=shutdown_delayed, daemon=True).start()
+            break
+
+
+def start_idle_timer(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
+    """Start the idle timer background thread"""
+    global _idle_timer_thread, _idle_timer_stop_event, _last_activity_time
+
+    if max_idle_time <= 0:
+        return  # Idle timer disabled
+
+    _idle_timer_stop_event = threading.Event()
+    _last_activity_time = time.time()  # Initialize with current time
+
+    _idle_timer_thread = threading.Thread(
+        target=idle_timer_worker,
+        args=(max_idle_time, rclone, db, config),
+        daemon=True
+    )
+    _idle_timer_thread.start()
+
+
+def stop_idle_timer():
+    """Stop the idle timer background thread"""
+    global _idle_timer_stop_event
+
+    if _idle_timer_stop_event:
+        _idle_timer_stop_event.set()
 
 
 def create_app(config: Config = None):
@@ -134,7 +208,8 @@ def create_app(config: Config = None):
     # Initialize rclone wrapper
     try:
         logging.info("Initializing rclone wrapper...")
-        rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file)
+        logs_dir = os.path.join(config.data_dir, 'job_logs')
+        rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file, logs_dir)
         # Initialize job counter from database to avoid ID conflicts
         rclone.initialize_job_counter(db)
         logging.info("rclone initialized successfully")
@@ -146,6 +221,22 @@ def create_app(config: Config = None):
     orphaned_count = db.mark_running_as_interrupted()
     if orphaned_count > 0:
         logging.warning(f"Marked {orphaned_count} orphaned jobs as interrupted")
+
+    # Auto-cleanup database if configured and no failed/interrupted jobs
+    if config.auto_cleanup_db:
+        failed_jobs = db.list_jobs(status='failed', limit=1)
+        interrupted_jobs = db.list_aborted_jobs(limit=1)
+
+        if not failed_jobs and not interrupted_jobs:
+            logging.info("Auto-cleanup enabled and no failed/interrupted jobs found - cleaning database")
+            count, _ = db.delete_all_jobs()
+            if count > 0:
+                logging.info(f"Deleted {count} jobs from database")
+            # Reset job counter to 1
+            rclone._job_counter = 0
+            logging.info("Reset job counter to start at 1")
+        else:
+            logging.info("Auto-cleanup enabled but failed/interrupted jobs exist - skipping cleanup")
 
     # Initialize API modules with dependencies
     init_files_rclone(rclone)
@@ -168,8 +259,19 @@ def create_app(config: Config = None):
     # Setup signal handlers for graceful shutdown
     setup_signal_handlers(rclone, db, config)
 
+    # Add activity tracking middleware
+    @app.before_request
+    def track_activity():
+        """Track user activity for idle timer"""
+        # Only track API requests (not static files)
+        if request.path.startswith('/api/'):
+            update_activity()
+
     # Add routes
     register_routes(app, config)
+
+    # Start idle timer if configured
+    start_idle_timer(config.max_idle_time, rclone, db, config)
 
     logging.info("Flask application created successfully")
 

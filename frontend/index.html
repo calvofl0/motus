@@ -1076,6 +1076,7 @@
                     <div class="hint">Press ENTER to get status</div>
                 </div>
                 <button onclick="getJobStatus()">Get Status</button>
+                <button onclick="showJobLog()" style="background: #6c757d;">Show Log</button>
                 <button onclick="resumeJobById()" style="background: #28a745;">Resume</button>
                 <button onclick="stopJob()" style="background: #dc3545;">Stop Job</button>
                 <div class="output" id="job-status-output"></div>
@@ -3589,6 +3590,22 @@ Output:
 ${job.text || '(no output yet)'}
                 `.trim();
                 document.getElementById('job-status-output').textContent = output;
+            } catch (error) {
+                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function showJobLog() {
+            const jobId = document.getElementById('job-id').value;
+            if (!jobId) {
+                alert('Please enter a job ID');
+                return;
+            }
+
+            try {
+                const data = await apiCall(`/api/jobs/${jobId}/log`);
+                const logText = data.log_text || '(no log available)';
+                document.getElementById('job-status-output').textContent = `=== Job ${jobId} Log ===\n\n${logText}`;
             } catch (error) {
                 document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
             }

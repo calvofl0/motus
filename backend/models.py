@@ -34,6 +34,7 @@ class Database:
                     status TEXT DEFAULT 'running',
                     progress INTEGER DEFAULT 0,
                     error_text TEXT,
+                    log_text TEXT,
                     resumed_by_job_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +98,7 @@ class Database:
         status: Optional[str] = None,
         progress: Optional[int] = None,
         error_text: Optional[str] = None,
+        log_text: Optional[str] = None,
     ):
         """Update job status"""
         updates = []
@@ -113,6 +115,10 @@ class Database:
         if error_text is not None:
             updates.append('error_text = ?')
             values.append(error_text)
+
+        if log_text is not None:
+            updates.append('log_text = ?')
+            values.append(log_text)
 
         if status in ['completed', 'failed', 'cancelled', 'interrupted', 'resumed']:
             updates.append('finished_at = ?')
@@ -268,6 +274,20 @@ class Database:
                 DELETE FROM jobs
                 WHERE status != 'running'
             ''')
+            conn.commit()
+            return cursor.rowcount, deleted_job_ids
+
+    def delete_all_jobs(self) -> tuple[int, List[int]]:
+        """Delete all jobs and return count + list of deleted job IDs"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # First get the job IDs we're about to delete
+            cursor.execute('SELECT job_id FROM jobs')
+            deleted_job_ids = [row[0] for row in cursor.fetchall()]
+
+            # Now delete them all
+            cursor.execute('DELETE FROM jobs')
             conn.commit()
             return cursor.rowcount, deleted_job_ids
 

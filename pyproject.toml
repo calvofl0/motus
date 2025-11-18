@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "motuz"
+version = "1.0.0"
+description = "A simplified, single-user web application for file transfers using rclone"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["rclone", "file-transfer", "ondemand", "ood", "web-interface"]
+authors = [
+    { name = "Motuz Contributors" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Filesystems",
+]
+dependencies = [
+    "Flask>=2.3.0,<3.0.0",
+    "flask-cors>=4.0.0",
+    "PyYAML>=6.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-flask>=1.2.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "hatch>=1.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/calvofl0/ood-motuz"
+Documentation = "https://github.com/calvofl0/ood-motuz#readme"
+Issues = "https://github.com/calvofl0/ood-motuz/issues"
+Source = "https://github.com/calvofl0/ood-motuz"
+
+[project.scripts]
+motuz = "motuz.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend", "frontend", "motuz"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"run.py" = "run.py"
+"frontend" = "frontend"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/backend/**/*.py",
+    "/frontend/**/*",
+    "/motuz/**/*.py",
+    "/run.py",
+    "/README.md",
+    "/LICENSE",
+    "/requirements.txt",
+    "/remote_templates.conf.example",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "E266", "E501", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]

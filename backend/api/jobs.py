@@ -209,12 +209,18 @@ def get_job_status(job_id):
             else:
                 status = 'running'
 
+            # Get log text if job is finished
+            log_text = None
+            if finished:
+                log_text = rclone.job_log_text(job_id)
+
             # Update database with live status
             db.update_job(
                 job_id=job_id,
                 status=status,
                 progress=progress,
                 error_text=error_text if error_text else None,
+                log_text=log_text,
             )
         else:
             # Job not in queue - use database status as-is
@@ -238,12 +244,16 @@ def get_job_status(job_id):
 
                     logging.info(f"Job {job_id}: Fast job finished - updating DB to status={status}, exit={exit_status}")
 
+                    # Get log text
+                    log_text = rclone.job_log_text(job_id)
+
                     # Update database with final status
                     db.update_job(
                         job_id=job_id,
                         status=status,
                         progress=progress,
                         error_text=error_text if error_text else None,
+                        log_text=log_text,
                     )
                 else:
                     # Job says 'running' but not in queue and not finished?
@@ -384,12 +394,16 @@ def list_jobs():
 
                         logging.info(f"Job {job['job_id']}: Fast job detected in list_jobs - updating to {job['status']}")
 
+                        # Get log text
+                        log_text = rclone.job_log_text(job['job_id'])
+
                         # Update database
                         db.update_job(
                             job_id=job['job_id'],
                             status=job['status'],
                             progress=100,
                             error_text=rclone.job_error_text(job['job_id']) or None,
+                            log_text=log_text,
                         )
 
         return jsonify({'jobs': jobs})
@@ -633,4 +647,39 @@ def clear_stopped_jobs():
 
     except Exception as e:
         logging.error(f"Error clearing stopped jobs: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@jobs_bp.route('/api/jobs/<int:job_id>/log', methods=['GET'])
+@token_required
+def get_job_log(job_id):
+    """
+    Get the full rclone log for a job
+
+    Response:
+    {
+        "job_id": 123,
+        "log_text": "rclone log content..."
+    }
+    """
+    try:
+        # Get job from database
+        job = db.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Get log text from database (stored after job completion)
+        log_text = job.get('log_text', '')
+
+        # If log text is not in database, try to get it from rclone (for running jobs)
+        if not log_text:
+            log_text = rclone.job_log_text(job_id) or ''
+
+        return jsonify({
+            'job_id': job_id,
+            'log_text': log_text,
+        })
+
+    except Exception as e:
+        logging.error(f"Error getting job log: {e}")
         return jsonify({'error': 'Internal server error'}), 500

@@ -248,6 +248,16 @@ def main():
         type=str,
         help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
     )
+    parser.add_argument(
+        '--max-idle-time',
+        type=int,
+        help='Auto-quit after N seconds of inactivity (0=disabled, default: 0, or MOTUS_MAX_IDLE_TIME env var)'
+    )
+    parser.add_argument(
+        '--auto-cleanup-db',
+        action='store_true',
+        help='Auto-cleanup database at startup if no failed/interrupted jobs (default: false, or MOTUS_AUTO_CLEANUP_DB env var)'
+    )
 
     args = parser.parse_args()
 
@@ -272,6 +282,10 @@ def main():
         config.default_mode = 'expert'
     if args.remote_templates:
         config.remote_templates_file = args.remote_templates
+    if args.max_idle_time is not None:
+        config.max_idle_time = args.max_idle_time
+    if args.auto_cleanup_db:
+        config.auto_cleanup_db = True
 
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)

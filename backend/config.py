@@ -133,6 +133,21 @@ class Config:
             default=None
         )
 
+        # Max idle time (in seconds) before auto-quit
+        # 0 or None means disabled
+        self.max_idle_time = int(self._get_config(
+            'max_idle_time',
+            env_var='MOTUS_MAX_IDLE_TIME',
+            default=0
+        ) or 0)
+
+        # Auto-cleanup database at startup if no failed/interrupted jobs
+        self.auto_cleanup_db = self._get_config(
+            'auto_cleanup_db',
+            env_var='MOTUS_AUTO_CLEANUP_DB',
+            default='false'
+        ).lower() == 'true'
+
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""
         # Check environment variable first
