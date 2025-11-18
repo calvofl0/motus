@@ -8,11 +8,11 @@ const isProd = nodeEnv === 'production';
 
 module.exports = {
     entry: {
-        app: './src/frontend/js/main.jsx',
+        app: './frontend/js/main.jsx',
     },
 
     output: {
-        path: path.resolve(__dirname, '..', '..', '..', 'build'),
+        path: path.resolve(__dirname, '..'),
         filename: 'js/[name]-[hash].bundle.js',
         publicPath: '/',
     },
@@ -45,8 +45,7 @@ module.exports = {
     plugins: [
         new HtmlWebpackPlugin({
             filename: './index.html',
-            template: './src/frontend/index.html',
-            title: 'WebApp',
+            title: 'Motuz File Transfer',
             minify: true,
             meta: {
             }
@@ -59,9 +58,9 @@ module.exports = {
 
     resolve: {
         modules: [
-            path.resolve('./src/frontend/js'),
-            path.resolve('./src/frontend/css'),
-            path.resolve('./src/frontend/img'),
+            path.resolve('./frontend/js'),
+            path.resolve('./frontend/css'),
+            path.resolve('./frontend/img'),
             path.resolve('./node_modules')
         ]
     },
