@@ -215,13 +215,15 @@ class JobQueue:
         # Start background thread to read stderr too
         stderr_lines = []
         def read_stderr():
-            """Read stderr in background"""
+            """Read stderr in background - rclone progress goes here!"""
             try:
                 while True:
                     line_bytes = process.stderr.readline()
                     if not line_bytes:
                         break
                     stderr_lines.append(line_bytes)
+                    # Process stderr lines for progress info (rclone sends progress to stderr)
+                    process_output_line(line_bytes)
             except Exception as e:
                 logging.error(f"Job {job_id}: stderr reader exception: {e}")
 
