@@ -3,6 +3,7 @@ Database models for job tracking
 Uses SQLite for simple persistence
 """
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -51,6 +52,14 @@ class Database:
             cursor.execute('''
                 CREATE INDEX IF NOT EXISTS idx_status ON jobs(status)
             ''')
+
+            # Migration: Add log_text column if it doesn't exist
+            # Check if log_text column exists
+            cursor.execute("PRAGMA table_info(jobs)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'log_text' not in columns:
+                logging.info("Migrating database: adding log_text column")
+                cursor.execute('ALTER TABLE jobs ADD COLUMN log_text TEXT')
 
             conn.commit()
 
