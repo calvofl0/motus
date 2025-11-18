@@ -2702,10 +2702,32 @@
             container.innerHTML = html;
 
             document.getElementById('view-remote-config-modal').style.display = 'flex';
+
+            // Add Ctrl-C listener
+            document.addEventListener('keydown', handleViewRemoteConfigKeydown);
         }
 
         function closeViewRemoteConfigModal() {
             document.getElementById('view-remote-config-modal').style.display = 'none';
+
+            // Remove Ctrl-C listener
+            document.removeEventListener('keydown', handleViewRemoteConfigKeydown);
+        }
+
+        function handleViewRemoteConfigKeydown(event) {
+            // Check for Ctrl-C or Cmd-C (Mac)
+            if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+                // Only trigger if the modal is actually visible
+                const modal = document.getElementById('view-remote-config-modal');
+                if (modal.style.display === 'flex') {
+                    // Don't prevent default if user is selecting text to copy normally
+                    const selection = window.getSelection();
+                    if (!selection || selection.toString().length === 0) {
+                        event.preventDefault();
+                        copyRemoteConfigToClipboard();
+                    }
+                }
+            }
         }
 
         async function copyRemoteConfigToClipboard() {
