@@ -1216,6 +1216,10 @@
                 <!-- Config will be populated here -->
             </div>
             <div class="modal-buttons">
+                <button onclick="copyRemoteConfigToClipboard()" style="background: #28a745; position: relative;">
+                    📋 Copy to Clipboard
+                    <span id="copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
+                </button>
                 <button onclick="closeViewRemoteConfigModal()">Close</button>
             </div>
         </div>
@@ -2568,12 +2572,21 @@
             if (event.key === 'Enter') {
                 // Check which step is visible
                 const step2 = document.getElementById('manage-remotes-step2');
+                const step3 = document.getElementById('manage-remotes-step3');
+
                 if (step2.style.display !== 'none') {
                     // In template selection step - trigger Next button
                     const nextBtn = document.getElementById('template-next-btn');
                     if (!nextBtn.disabled) {
                         event.preventDefault();
                         showRemoteForm();
+                    }
+                } else if (step3.style.display !== 'none') {
+                    // In remote form step - trigger Create Remote button
+                    const createBtn = document.getElementById('create-remote-btn');
+                    if (createBtn && !createBtn.disabled) {
+                        event.preventDefault();
+                        createRemote();
                     }
                 }
             }
@@ -2646,7 +2659,7 @@
             html += '</tr></thead><tbody>';
 
             manageRemotesState.remotes.forEach(remote => {
-                html += '<tr style="border-bottom: 1px solid #eee; cursor: pointer;" onclick="viewRemoteConfig(\'' + remote.name + '\')" title="Click to view configuration">';
+                html += '<tr style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;" onclick="viewRemoteConfig(\'' + remote.name + '\')" title="Click to view configuration" onmouseover="this.style.backgroundColor=\'#f0f8ff\'" onmouseout="this.style.backgroundColor=\'white\'">';
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
@@ -2661,6 +2674,9 @@
         function viewRemoteConfig(remoteName) {
             const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
             if (!remote) return;
+
+            // Store remote config for copying
+            manageRemotesState.currentViewedRemote = remote;
 
             const container = document.getElementById('remote-config-content');
 
@@ -2690,6 +2706,33 @@
 
         function closeViewRemoteConfigModal() {
             document.getElementById('view-remote-config-modal').style.display = 'none';
+        }
+
+        async function copyRemoteConfigToClipboard() {
+            const remote = manageRemotesState.currentViewedRemote;
+            if (!remote) return;
+
+            // Generate rclone config format with unmasked values
+            let configText = `[${remote.name}]\n`;
+            for (const [key, value] of Object.entries(remote.config)) {
+                configText += `${key} = ${value}\n`;
+            }
+
+            try {
+                await navigator.clipboard.writeText(configText);
+
+                // Show tooltip
+                const tooltip = document.getElementById('copy-tooltip');
+                tooltip.style.display = 'inline';
+
+                // Hide after 1 second
+                setTimeout(() => {
+                    tooltip.style.display = 'none';
+                }, 1000);
+            } catch (error) {
+                console.error('Failed to copy to clipboard:', error);
+                alert('Failed to copy to clipboard');
+            }
         }
 
         function renderTemplatesList() {
@@ -2757,6 +2800,44 @@
 
             html += '</div>';
             container.innerHTML = html;
+
+            // Add event listeners for validation
+            setTimeout(() => {
+                validateRemoteForm(); // Initial validation - button should be disabled
+
+                // Add input listeners to all fields
+                document.getElementById('remote-name-input').addEventListener('input', validateRemoteForm);
+                template.fields.forEach(field => {
+                    document.getElementById(`field-${field.key}`).addEventListener('input', validateRemoteForm);
+                });
+            }, 0);
+        }
+
+        function validateRemoteForm() {
+            const template = manageRemotesState.selectedTemplate;
+            if (!template) return;
+
+            const createBtn = document.getElementById('create-remote-btn');
+            if (!createBtn) return;
+
+            // Check remote name
+            const remoteName = document.getElementById('remote-name-input')?.value.trim();
+            if (!remoteName) {
+                createBtn.disabled = true;
+                return;
+            }
+
+            // Check all template fields
+            for (const field of template.fields) {
+                const input = document.getElementById(`field-${field.key}`);
+                if (!input || !input.value.trim()) {
+                    createBtn.disabled = true;
+                    return;
+                }
+            }
+
+            // All fields are filled
+            createBtn.disabled = false;
         }
 
         async function deleteRemote(remoteName) {
