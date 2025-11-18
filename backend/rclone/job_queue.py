@@ -186,6 +186,16 @@ class JobQueue:
                 continue
 
             key, value = status_match.groups()
+
+            # Distinguish between byte-based and file-count "Transferred" lines
+            # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
+            # File-count: "0 / 1, 0%" (just numbers)
+            if key == 'Transferred':
+                if re.search(r'[KMGT]?i?B\s*/', value):
+                    key = 'Transferred (bytes)'
+                elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
+                    key = 'Transferred (files)'
+
             self._job_status[job_id][key] = value
             self._process_status(job_id)
 
