@@ -1908,6 +1908,16 @@
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
                             console.log(`mousedown: Auto-selecting file ${index} before drag`);
+
+                            // Clear opposite pane selection
+                            const oppositeState = pane === 'left' ? rightPaneState : leftPaneState;
+                            const oppositePane = pane === 'left' ? 'right' : 'left';
+                            if (oppositeState.selectedIndexes.length > 0) {
+                                oppositeState.selectedIndexes = [];
+                                const oppositeContainer = document.getElementById(oppositePane === 'left' ? 'left-files' : 'right-files');
+                                oppositeContainer.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                            }
+
                             // Update state
                             state.selectedIndexes = [index];
                             // Update DOM directly without re-rendering to avoid interrupting drag
@@ -1993,6 +2003,16 @@
                         // This ensures visual feedback before drag starts
                         if (!state.selectedIndexes.includes(index)) {
                             console.log(`mousedown: Auto-selecting file ${index} before drag`);
+
+                            // Clear opposite pane selection
+                            const oppositeState = pane === 'left' ? rightPaneState : leftPaneState;
+                            const oppositePane = pane === 'left' ? 'right' : 'left';
+                            if (oppositeState.selectedIndexes.length > 0) {
+                                oppositeState.selectedIndexes = [];
+                                const oppositeContainer = document.getElementById(oppositePane === 'left' ? 'left-files' : 'right-files');
+                                oppositeContainer.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                            }
+
                             // Update state
                             state.selectedIndexes = [index];
                             // Update DOM directly without re-rendering to avoid interrupting drag
@@ -2064,7 +2084,16 @@
         function handleFileClick(pane, index, event) {
             lastFocusedPane = pane;  // Track which pane was clicked
             const state = pane === 'left' ? leftPaneState : rightPaneState;
+            const oppositeState = pane === 'left' ? rightPaneState : leftPaneState;
+            const oppositePane = pane === 'left' ? 'right' : 'left';
             let selectionChanged = false;
+            let oppositeChanged = false;
+
+            // Clear selection on opposite pane
+            if (oppositeState.selectedIndexes.length > 0) {
+                oppositeState.selectedIndexes = [];
+                oppositeChanged = true;
+            }
 
             if (event.ctrlKey || event.metaKey) {
                 // Toggle selection
@@ -2076,7 +2105,7 @@
                 }
                 selectionChanged = true;
             } else if (event.shiftKey && state.selectedIndexes.length > 0) {
-                // Range selection
+                // Range selection from last selected to current
                 const lastIndex = state.selectedIndexes[state.selectedIndexes.length - 1];
                 const start = Math.min(lastIndex, index);
                 const end = Math.max(lastIndex, index);
@@ -2093,9 +2122,12 @@
                 }
             }
 
-            // Only re-render if selection actually changed
+            // Re-render panes if selection changed
             if (selectionChanged) {
                 renderFiles(pane);
+            }
+            if (oppositeChanged) {
+                renderFiles(oppositePane);
             }
         }
 

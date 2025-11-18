@@ -446,6 +446,7 @@ class RcloneWrapper:
             dst,
             '--progress',
             '--stats', '2s',
+            '--stats-one-line',
         ]
 
         logging.info(f"Starting integrity check: '{src}' vs '{dst}'")
@@ -748,6 +749,7 @@ class RcloneWrapper:
             actual_dst,
             '--progress',
             '--stats', '2s',
+            '--stats-one-line',
             '--contimeout=5m',
         ]
 
