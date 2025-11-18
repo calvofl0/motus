@@ -4,7 +4,7 @@ import { Link } from "react-router-dom"
 import Icon from 'components/Icon.jsx'
 import UserMenu from 'components/UserMenu.jsx'
 
-export default class Navbar extends React.PureComponent {
+class Navbar extends React.PureComponent {
     render() {
         return (
             <nav className="navbar navbar-expand-sm navbar-light bg-light">
@@ -24,6 +24,13 @@ export default class Navbar extends React.PureComponent {
                     </Link>
                 </div>
                 <div className="nav navbar-nav ml-auto">
+                    <button
+                        type="button"
+                        className="btn btn-link nav-link"
+                        onClick={this.props.onShowManageRemotesDialog}
+                    >
+                        Manage Remotes
+                    </button>
                     <Link to="/clouds" className="nav-link">My Cloud Connections</Link>
                     <UserMenu />
                 </div>
@@ -34,4 +41,17 @@ export default class Navbar extends React.PureComponent {
 
 Navbar.defaultProps = {
     brandIsBackArrow: false,
+    onShowManageRemotesDialog: () => {},
 }
+
+import {connect} from 'react-redux';
+import {showManageRemotesDialog} from 'actions/dialogActions.jsx';
+
+const mapStateToProps = state => ({
+});
+
+const mapDispatchToProps = dispatch => ({
+    onShowManageRemotesDialog: () => dispatch(showManageRemotesDialog()),
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(Navbar);

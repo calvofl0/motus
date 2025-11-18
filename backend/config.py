@@ -125,6 +125,14 @@ class Config:
             default='easy'
         ).lower()
 
+        # Remote templates file path
+        # Priority: MOTUS_REMOTE_TEMPLATES env var > motuz config > default
+        self.remote_templates_file = self._get_config(
+            'remote_templates_file',
+            env_var='MOTUS_REMOTE_TEMPLATES',
+            default=None
+        )
+
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""
         # Check environment variable first

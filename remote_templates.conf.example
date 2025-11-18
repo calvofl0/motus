@@ -1,0 +1,82 @@
+# Remote Templates Configuration File for Motuz
+# This file contains templates for creating new rclone remotes
+# Copy this file and customize it for your needs
+#
+# Template format:
+# [template_name]
+# key = value
+# key = {{ Field Name }}  # This will be a form field
+#
+# Example usage:
+# 1. Copy this file: cp remote_templates.conf.example remote_templates.conf
+# 2. Configure Motuz to use it:
+#    - Set in config: remote_templates_file: /path/to/remote_templates.conf
+#    - Or via env var: export MOTUS_REMOTE_TEMPLATES=/path/to/remote_templates.conf
+#    - Or via CLI arg: python run.py --remote-templates /path/to/remote_templates.conf
+# 3. Customize templates as needed
+
+# AWS S3 storage
+[AWS_S3]
+type = s3
+provider = AWS
+region = {{ Region }}
+access_key_id = {{ Access Key ID }}
+secret_access_key = {{ Secret Access Key }}
+
+# S3-compatible storage (MinIO, Ceph, etc.)
+[S3_Compatible]
+type = s3
+provider = Other
+no_check_bucket = true
+endpoint = {{ Endpoint URL }}
+access_key_id = {{ Access Key ID }}
+secret_access_key = {{ Secret Access Key }}
+
+# SFTP connection
+[SFTP]
+type = sftp
+host = {{ Host }}
+port = 22
+user = {{ Username }}
+pass = {{ Password }}
+shell_type = unix
+md5sum_command = md5sum
+sha1sum_command = sha1sum
+
+# SFTP with key file authentication
+[SFTP_Key]
+type = sftp
+host = {{ Host }}
+port = 22
+user = {{ Username }}
+key_file = {{ Path to SSH Key }}
+shell_type = unix
+md5sum_command = md5sum
+sha1sum_command = sha1sum
+
+# Google Cloud Storage
+[Google_Cloud]
+type = google cloud storage
+project_number = {{ Project Number }}
+service_account_file = {{ Path to Service Account JSON }}
+object_acl = private
+bucket_acl = private
+
+# Azure Blob Storage
+[Azure_Blob]
+type = azureblob
+account = {{ Storage Account Name }}
+key = {{ Access Key }}
+
+# Dropbox
+[Dropbox]
+type = dropbox
+token = {{ Access Token }}
+
+# WebDAV
+[WebDAV]
+type = webdav
+url = {{ WebDAV URL }}
+vendor = {{ Vendor }}
+user = {{ Username }}
+pass = {{ Password }}

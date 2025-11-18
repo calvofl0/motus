@@ -23,6 +23,7 @@ from .auth import token_required
 from .api.files import files_bp, init_rclone as init_files_rclone
 from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
+from .api.remotes import remotes_bp, init_remote_management
 
 
 def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
@@ -150,11 +151,13 @@ def create_app(config: Config = None):
     init_files_rclone(rclone)
     init_jobs(rclone, db)
     init_stream(rclone, db)
+    init_remote_management(config.rclone_config_file, config.remote_templates_file)
 
     # Register blueprints
     app.register_blueprint(files_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(stream_bp)
+    app.register_blueprint(remotes_bp)
 
     # Store instances in app context
     app.rclone = rclone

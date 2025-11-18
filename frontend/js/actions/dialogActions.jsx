@@ -33,6 +33,9 @@ export const HIDE_MKDIR_DIALOG = '@@dialog/HIDE_MKDIR_DIALOG';
 export const SHOW_SETTINGS_DIALOG = '@@dialog/SHOW_SETTINGS_DIALOG';
 export const HIDE_SETTINGS_DIALOG = '@@dialog/HIDE_SETTINGS_DIALOG';
 
+export const SHOW_MANAGE_REMOTES_DIALOG = '@@dialog/SHOW_MANAGE_REMOTES_DIALOG';
+export const HIDE_MANAGE_REMOTES_DIALOG = '@@dialog/HIDE_MANAGE_REMOTES_DIALOG';
+
 
 export const showNewCopyJobDialog = (data) => {
     if (data != null) {
@@ -157,4 +160,12 @@ export const showSettingsDialog = () => ({
 
 export const hideSettingsDialog = () => ({
     type: HIDE_SETTINGS_DIALOG,
+});
+
+export const showManageRemotesDialog = () => ({
+    type: SHOW_MANAGE_REMOTES_DIALOG,
+});
+
+export const hideManageRemotesDialog = () => ({
+    type: HIDE_MANAGE_REMOTES_DIALOG,
 });

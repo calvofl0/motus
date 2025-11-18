@@ -130,6 +130,58 @@ python run.py
 # rclone_config_file: /path/to/rclone.conf
 ```
 
+### Managing Remotes via UI
+
+Motuz includes a graphical remote management interface that allows you to add and delete rclone remotes without using the command line. To use this feature:
+
+1. Create a remote templates file from the example:
+   ```bash
+   cp remote_templates.conf.example remote_templates.conf
+   ```
+
+2. Configure Motuz to use the templates file:
+   ```bash
+   # Via command line
+   python run.py --remote-templates remote_templates.conf
+
+   # Via environment variable
+   export MOTUS_REMOTE_TEMPLATES=/path/to/remote_templates.conf
+   python run.py
+
+   # Or in ~/.motus/config.yml:
+   # remote_templates_file: /path/to/remote_templates.conf
+   ```
+
+3. In the web interface, click **Manage Remotes** in the navigation bar
+
+4. Use the interface to:
+   - View all configured remotes
+   - Delete existing remotes (click the `-` button)
+   - Add new remotes from templates (click the `+` button)
+
+#### Creating Custom Templates
+
+Templates use a simple INI-style format with template variables:
+
+```ini
+# Template name in square brackets
+[MyS3Storage]
+type = s3
+provider = Other
+no_check_bucket = true
+# Template variables use {{ Variable Name }} syntax
+access_key_id = {{ Access Key ID }}
+secret_access_key = {{ Secret Access Key }}
+endpoint = https://s3.example.com
+```
+
+When adding a remote from this template, users will be prompted to provide:
+- Remote Name (the name for the new remote)
+- Access Key ID
+- Secret Access Key
+
+The resulting rclone configuration will have all static values (like `endpoint`) copied directly, and template variables replaced with user input.
+
 ### Configuration Options
 
 #### Command Line Arguments

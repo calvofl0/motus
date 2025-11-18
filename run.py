@@ -243,6 +243,11 @@ def main():
         action='store_true',
         help='Start in Expert mode instead of Easy mode (default: Easy, or MOTUS_DEFAULT_MODE env var)'
     )
+    parser.add_argument(
+        '--remote-templates',
+        type=str,
+        help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
+    )
 
     args = parser.parse_args()
 
@@ -265,6 +270,8 @@ def main():
         config.allow_cors = True
     if args.expert_mode:
         config.default_mode = 'expert'
+    if args.remote_templates:
+        config.remote_templates_file = args.remote_templates
 
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)

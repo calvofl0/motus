@@ -39,6 +39,9 @@ const initialState = {
 
     displaySettingsDialog: false,
     settingsDialogData: {},
+
+    displayManageRemotesDialog: false,
+    manageRemotesDialogData: {},
 };
 
 export default (state=initialState, action) => {
@@ -198,6 +201,20 @@ export default (state=initialState, action) => {
         return {
             ...state,
             displaySettingsDialog: false,
+        }
+    }
+
+    case dialog.SHOW_MANAGE_REMOTES_DIALOG: {
+        return {
+            ...state,
+            displayManageRemotesDialog: true,
+        }
+    }
+
+    case dialog.HIDE_MANAGE_REMOTES_DIALOG: {
+        return {
+            ...state,
+            displayManageRemotesDialog: false,
         }
     }
 
