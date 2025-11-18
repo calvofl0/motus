@@ -148,7 +148,7 @@ class JobQueue:
                 return
 
             # Log raw line for debugging (first few jobs only)
-            if job_id <= 110:
+            if job_id <= 150:
                 logging.debug(f"Job {job_id}: Raw line: {repr(line[:100])}")
 
             # Remove ALL ANSI escape sequences using regex
@@ -176,12 +176,12 @@ class JobQueue:
                     # Byte-based: "1.699 GiB / 1.953 GiB, 87%, ..." (has size units)
                     if re.search(r'[KMGT]?i?B\s*/.*,\s*\d+%', value):
                         key = 'Transferred (bytes)'
-                        if job_id <= 110:
+                        if job_id <= 150:
                             logging.debug(f"Job {job_id}: Found byte transfer: {value}")
                     # File-count: "0 / 1, 0%" (just numbers)
                     elif re.search(r'^\s*\d+\s*/\s*\d+\s*,\s*\d+%', value):
                         key = 'Transferred (files)'
-                        if job_id <= 110:
+                        if job_id <= 150:
                             logging.debug(f"Job {job_id}: Found file count: {value}")
                     else:
                         logging.warning(f"Job {job_id}: Unknown Transferred format: {value}")
@@ -231,8 +231,22 @@ class JobQueue:
         def read_stderr():
             """Read stderr in background"""
             try:
-                for line in iter(process.stderr.readline, ''):
-                    stderr_lines.append(line)
+                buffer = b''
+                while True:
+                    byte = process.stderr.read(1)
+                    if not byte:
+                        break
+
+                    if byte == b'\n' or byte == b'\r':
+                        if buffer.strip():
+                            stderr_lines.append(buffer)
+                        buffer = b''
+                    else:
+                        buffer += byte
+
+                # Process any remaining buffer
+                if buffer.strip():
+                    stderr_lines.append(buffer)
             except Exception as e:
                 logging.error(f"Job {job_id}: stderr reader exception: {e}")
 
@@ -273,10 +287,17 @@ class JobQueue:
 
         self._job_exitstatus[job_id] = exitstatus if exitstatus is not None else -1
 
-        # Collect any stderr output
+        # Collect any stderr output (decode from bytes)
         if stderr_lines:
-            self._job_error_text[job_id] += ''.join(stderr_lines)
-            self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
+            decoded_lines = []
+            for line in stderr_lines:
+                try:
+                    decoded_lines.append(line.decode('utf-8', errors='replace'))
+                except:
+                    pass
+            if decoded_lines:
+                self._job_error_text[job_id] += '\n'.join(decoded_lines) + '\n'
+                self._job_error_text[job_id] = self._job_error_text[job_id][-10000:]
 
         logging.info(f"Job {job_id} finished with exit status {exitstatus}")
         stop_event.set()
