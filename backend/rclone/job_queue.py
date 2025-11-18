@@ -165,10 +165,6 @@ class JobQueue:
             line = line.replace(reset_sequence1, '')
             line = line.replace(reset_sequence2, '')
 
-            # Log raw line for debugging
-            if job_id <= 150:
-                logging.debug(f"Job {job_id}: Raw line: {repr(line[:100])}")
-
             # Check for errors
             error_match = re.search(r'(ERROR.*)', line)
             if error_match:
@@ -233,8 +229,6 @@ class JobQueue:
 
         if len(outliers) == 1:
             value = status[outliers[0]]
-            if job_id <= 150:
-                logging.debug(f"Job {job_id}: Outlier detected: key={repr(outliers[0])}, value={repr(value)}")
             try:
                 pos = value.index("Transferred:")
                 transferring, transferred = value[:pos], value[pos:]
@@ -242,12 +236,9 @@ class JobQueue:
                 transferred = transferred.replace("Transferred:", "").strip()
                 status['Transferred0'] = transferred
                 status['Transferring'] = transferring
-                if job_id <= 150:
-                    logging.debug(f"Job {job_id}: After split: Transferred0={repr(transferred)}, Transferring={repr(transferring)}")
                 del status[outliers[0]]
             except ValueError:
-                if job_id <= 150:
-                    logging.debug(f"Job {job_id}: No 'Transferred:' found in outlier value")
+                pass
 
         # Clean up Transferred0 if it exists
         if 'Transferred0' in status:
@@ -275,24 +266,18 @@ class JobQueue:
             match = re.search(r'(\d+)%', status['GTransferred'])
             if match:
                 new_progress = int(match.group(1))
-                if job_id <= 150:
-                    logging.debug(f"Job {job_id}: Extracted {new_progress}% from GTransferred: {repr(status['GTransferred'])}")
 
         # Fall back to Transferred0 (byte-based transfer info)
         if new_progress is None and 'Transferred0' in status:
             match = re.search(r'(\d+)%', status['Transferred0'])
             if match:
                 new_progress = int(match.group(1))
-                if job_id <= 150:
-                    logging.debug(f"Job {job_id}: Extracted {new_progress}% from Transferred0: {repr(status['Transferred0'])}")
 
         # Fall back to Transferred (file count - less accurate)
         if new_progress is None and 'Transferred' in status:
             match = re.search(r'(\d+)%', status['Transferred'])
             if match:
                 new_progress = int(match.group(1))
-                if job_id <= 150:
-                    logging.debug(f"Job {job_id}: Extracted {new_progress}% from Transferred: {repr(status['Transferred'])}")
 
         # Update progress (never go backwards)
         if new_progress is not None and new_progress >= old_progress:
