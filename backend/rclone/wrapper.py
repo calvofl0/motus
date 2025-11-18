@@ -456,6 +456,14 @@ class RcloneWrapper:
             '--stats', '2s',
         ]
 
+        # Add logging if logs_dir is configured
+        log_file_path = None
+        if self.logs_dir:
+            log_file_path = os.path.join(self.logs_dir, f'job_{job_id}.log')
+            command.extend(['-v', '--log-file', log_file_path])
+            self._job_log_files[job_id] = log_file_path
+            logging.debug(f"Job {job_id} will log to: {log_file_path}")
+
         logging.info(f"Starting integrity check: '{src}' vs '{dst}'")
 
         self._log_command(command, credentials)
@@ -856,6 +864,18 @@ class RcloneWrapper:
         except Exception as e:
             logging.error(f"Failed to read log file for job {job_id}: {e}")
             return None
+
+    def job_cleanup_log(self, job_id: int):
+        """Delete the log file for a job after it's been stored in the database"""
+        log_file = self._job_log_files.get(job_id)
+        if log_file and os.path.exists(log_file):
+            try:
+                os.remove(log_file)
+                logging.debug(f"Deleted log file for job {job_id}: {log_file}")
+                # Remove from tracking dict
+                del self._job_log_files[job_id]
+            except Exception as e:
+                logging.warning(f"Failed to delete log file for job {job_id}: {e}")
 
     def job_stop(self, job_id: int):
         self._job_queue.stop(job_id)

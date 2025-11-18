@@ -208,7 +208,8 @@ def create_app(config: Config = None):
     # Initialize rclone wrapper
     try:
         logging.info("Initializing rclone wrapper...")
-        logs_dir = os.path.join(config.data_dir, 'job_logs')
+        # Store temporary job logs in a temp subdirectory (cleaned up after storing in DB)
+        logs_dir = os.path.join(config.data_dir, 'tmp', 'job_logs')
         rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file, logs_dir)
         # Initialize job counter from database to avoid ID conflicts
         rclone.initialize_job_counter(db)

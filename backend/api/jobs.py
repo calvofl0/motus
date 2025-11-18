@@ -222,6 +222,10 @@ def get_job_status(job_id):
                 error_text=error_text if error_text else None,
                 log_text=log_text,
             )
+
+            # Clean up log file after storing in database
+            if finished and log_text:
+                rclone.job_cleanup_log(job_id)
         else:
             # Job not in queue - use database status as-is
             # (interrupted, cancelled, completed, failed jobs are not in the queue)
@@ -255,6 +259,10 @@ def get_job_status(job_id):
                         error_text=error_text if error_text else None,
                         log_text=log_text,
                     )
+
+                    # Clean up log file after storing in database
+                    if log_text:
+                        rclone.job_cleanup_log(job_id)
                 else:
                     # Job says 'running' but not in queue and not finished?
                     # This shouldn't happen, but keep current status
@@ -405,6 +413,10 @@ def list_jobs():
                             error_text=rclone.job_error_text(job['job_id']) or None,
                             log_text=log_text,
                         )
+
+                        # Clean up log file after storing in database
+                        if log_text:
+                            rclone.job_cleanup_log(job['job_id'])
 
         return jsonify({'jobs': jobs})
 
