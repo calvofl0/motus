@@ -362,6 +362,16 @@ def register_routes(app: Flask, config: Config):
         """Serve frontend"""
         return send_from_directory(app.static_folder, 'index.html')
 
+    @app.route('/favicon.ico')
+    def favicon_ico():
+        """Serve favicon.ico if present in frontend directory"""
+        return send_from_directory(app.static_folder, 'favicon.ico')
+
+    @app.route('/favicon.png')
+    def favicon_png():
+        """Serve favicon.png if present in frontend directory"""
+        return send_from_directory(app.static_folder, 'favicon.png')
+
     @app.route('/api/health')
     def health():
         """Health check endpoint"""
