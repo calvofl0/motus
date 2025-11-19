@@ -967,8 +967,8 @@
                 -->
 
                 <!-- CURRENT: Green triangular arrows (simple) -->
-                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">▶</div>
-                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">◀</div>
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #28a745; font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">▶</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #28a745; font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">◀</div>
 
             </div>
 
@@ -1487,10 +1487,12 @@ type = s3
                         return;
                     }
                     if (editRemoteModal.style.display === 'flex') {
+                        e.stopImmediatePropagation(); // Prevent other handlers from running
                         closeEditRemoteConfigModal();
                         return;
                     }
                     if (viewRemoteModal.style.display === 'flex') {
+                        e.stopImmediatePropagation(); // Prevent other handlers from running
                         closeViewRemoteConfigModal();
                         return;
                     }
