@@ -933,10 +933,47 @@
                 </div>
             </div>
 
-            <!-- Arrow Buttons - Green arrows (orange style) -->
+            <!-- Arrow Buttons - Choose your favorite style below -->
             <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 0 15px;">
+
+                <!-- CURRENT: Green double arrows -->
                 <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⇨</div>
                 <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⇦</div>
+
+                <!-- OPTION 1: Blue circular arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #007bff; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⭢</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #007bff; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⭠</div>
+                -->
+
+                <!-- OPTION 2: Orange heavy arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #fd7e14; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">➡</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #fd7e14; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⬅</div>
+                -->
+
+                <!-- OPTION 3: Purple thick arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #6f42c1; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⟹</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #6f42c1; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⟸</div>
+                -->
+
+                <!-- OPTION 4: Teal curved arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #17a2b8; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">↪</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #17a2b8; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">↩</div>
+                -->
+
+                <!-- OPTION 5: Pink/red triangular
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #e83e8c; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">▶</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #e83e8c; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">◀</div>
+                -->
+
+                <!-- OPTION 6: Gold/yellow dashed arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #ffc107; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⇢</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #ffc107; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⇠</div>
+                -->
+
+                <!-- OPTION 7: Dark gray simple arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #6c757d; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">→</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #6c757d; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">←</div>
+                -->
 
             </div>
 
@@ -2368,6 +2405,8 @@ type = s3
             if (oppositeChanged) {
                 renderFiles(oppositePane);
             }
+            // Always update arrow buttons after any selection change
+            updateArrowButtons();
         }
 
         // Drag and drop
@@ -2967,6 +3006,7 @@ type = s3
                 // Close modal and refresh
                 closeEditRemoteConfigModal();
                 await loadRemotesList();
+                await loadRemotes();  // Refresh dropdowns in Server A/B
                 await refreshPane('left');
                 await refreshPane('right');
 
