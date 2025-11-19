@@ -263,6 +263,50 @@ def update_remote_raw(remote_name):
         return jsonify({'error': str(e)}), 500
 
 
+@remotes_bp.route('/api/remotes/raw', methods=['POST'])
+@token_required
+def create_remote_raw():
+    """
+    Create a new remote from raw configuration text
+
+    Request JSON:
+    {
+        "raw_config": "[myremote]\\ntype = s3\\n..."
+    }
+
+    Response:
+    {
+        "message": "Remote created successfully",
+        "name": "myremote"
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'raw_config' not in data:
+            return jsonify({'error': 'Missing required field: raw_config'}), 400
+
+        raw_config = data['raw_config']
+
+        logging.info("Creating new remote from raw config")
+
+        # Create remote from raw config
+        success, remote_name = rclone_config.add_remote_raw(raw_config)
+
+        if not success:
+            if remote_name is None:
+                return jsonify({'error': 'Invalid configuration or remote already exists'}), 400
+            return jsonify({'error': f'Failed to create remote'}), 400
+
+        return jsonify({
+            'message': 'Remote created successfully',
+            'name': remote_name,
+        })
+
+    except Exception as e:
+        logging.error(f"Create remote raw error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @remotes_bp.route('/api/templates', methods=['GET'])
 @token_required
 def list_templates():

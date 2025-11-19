@@ -236,6 +236,49 @@ class RcloneConfig:
         logging.info(f"Updated remote {old_name} -> {new_name} in-place")
         return True, new_name
 
+    def add_remote_raw(self, raw_config_text: str) -> Tuple[bool, Optional[str]]:
+        """
+        Add a new remote from raw configuration text
+
+        Args:
+            raw_config_text: Raw config text including [name] section and all fields
+
+        Returns:
+            Tuple of (success: bool, remote_name: Optional[str])
+        """
+        # Parse to extract remote name
+        section_pattern = re.compile(r'^\[([^\]]+)\]')
+        remote_name = None
+        for line in raw_config_text.split('\n'):
+            match = section_pattern.match(line.strip())
+            if match:
+                remote_name = match.group(1)
+                break
+
+        if not remote_name:
+            logging.error("No [remote_name] section found in raw config")
+            return False, None
+
+        # Check if remote already exists
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r') as f:
+                content = f.read()
+            if f'[{remote_name}]' in content:
+                logging.error(f"Remote {remote_name} already exists")
+                return False, None
+
+        # Append the new remote to the config file
+        with open(self.config_file, 'a') as f:
+            # Ensure there's a blank line before the new remote
+            f.write('\n')
+            f.write(raw_config_text)
+            if not raw_config_text.endswith('\n'):
+                f.write('\n')
+
+        self.reload()
+        logging.info(f"Added new remote {remote_name} from raw config")
+        return True, remote_name
+
     def add_remote(self, name: str, config: Dict[str, str]):
         """
         Add or update a remote configuration

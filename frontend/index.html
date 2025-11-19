@@ -2853,6 +2853,11 @@ type = s3
                 return;
             }
 
+            // Get currently active remotes
+            const activeRemotes = new Set();
+            if (leftPaneState.remote) activeRemotes.add(leftPaneState.remote);
+            if (rightPaneState.remote) activeRemotes.add(rightPaneState.remote);
+
             let html = '<table style="width: 100%; border-collapse: collapse;">';
             html += '<thead><tr style="border-bottom: 2px solid #ddd;">';
             html += '<th style="text-align: left; padding: 8px;">Name</th>';
@@ -2861,12 +2866,17 @@ type = s3
             html += '</tr></thead><tbody>';
 
             manageRemotesState.remotes.forEach(remote => {
+                const isActive = activeRemotes.has(remote.name);
                 html += '<tr style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;" onclick="viewRemoteConfig(\'' + remote.name + '\')" title="Click to view configuration" onmouseover="this.style.backgroundColor=\'#f0f8ff\'" onmouseout="this.style.backgroundColor=\'white\'">';
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
-                // Edit icon (gear)
-                html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
+                // Edit icon (gear) - disabled if remote is active
+                if (isActive) {
+                    html += `<button disabled style="background: none; border: none; font-size: 18px; cursor: not-allowed; color: #ccc; padding: 4px 8px; margin-right: 4px;" title="Cannot edit remote while in use">⚙️</button>`;
+                } else {
+                    html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
+                }
                 // Delete icon (red X)
                 html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
                 html += '</td></tr>';
@@ -3034,6 +3044,7 @@ type = s3
 
             let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
 
+            // Render regular templates
             manageRemotesState.templates.forEach(template => {
                 const isSelected = manageRemotesState.selectedTemplate?.name === template.name;
                 const selectedStyle = isSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
@@ -3044,13 +3055,29 @@ type = s3
                 html += '</div>';
             });
 
+            // Add "Custom remote" option at the bottom
+            const isCustomSelected = manageRemotesState.selectedTemplate?.name === '__custom__';
+            const customSelectedStyle = isCustomSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
+            html += `<div onclick="selectTemplate('__custom__')" style="padding: 12px; ${customSelectedStyle} border-radius: 6px; cursor: pointer;">`;
+            html += `<strong style="display: block; margin-bottom: 4px;">Custom remote</strong>`;
+            html += `<small style="color: #666;">Manually enter remote configuration</small>`;
+            html += '</div>';
+
             html += '</div>';
             container.innerHTML = html;
         }
 
         function selectTemplate(templateName) {
-            const template = manageRemotesState.templates.find(t => t.name === templateName);
-            manageRemotesState.selectedTemplate = template;
+            if (templateName === '__custom__') {
+                // Special handling for custom remote
+                manageRemotesState.selectedTemplate = {
+                    name: '__custom__',
+                    fields: []
+                };
+            } else {
+                const template = manageRemotesState.templates.find(t => t.name === templateName);
+                manageRemotesState.selectedTemplate = template;
+            }
             renderTemplatesList();
             document.getElementById('template-next-btn').disabled = false;
         }
@@ -3061,6 +3088,27 @@ type = s3
 
             if (!template) return;
 
+            // Check if this is the custom remote option
+            if (template.name === '__custom__') {
+                // Show free text field for manual config entry
+                let html = `<p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>`;
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>';
+                html += '<textarea id="custom-remote-config" ';
+                html += 'style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;" ';
+                html += 'placeholder="[myremote]\ntype = s3\naccess_key_id = YOUR_ACCESS_KEY\nsecret_access_key = YOUR_SECRET_KEY\nregion = us-east-1\n..."></textarea>';
+                html += '</div>';
+                container.innerHTML = html;
+
+                // Add event listener for validation
+                setTimeout(() => {
+                    validateRemoteForm(); // Initial validation
+                    document.getElementById('custom-remote-config').addEventListener('input', validateRemoteForm);
+                }, 0);
+                return;
+            }
+
+            // Regular template form
             let html = `<p style="margin-bottom: 15px;"><strong>Template:</strong> ${template.name}</p>`;
             html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
 
@@ -3109,6 +3157,15 @@ type = s3
             const createBtn = document.getElementById('create-remote-btn');
             if (!createBtn) return;
 
+            // Handle custom remote validation
+            if (template.name === '__custom__') {
+                const configText = document.getElementById('custom-remote-config')?.value.trim();
+                // Check if config has content and contains a [remote_name] section header
+                const hasSection = configText && /^\[.+\]/m.test(configText);
+                createBtn.disabled = !hasSection;
+                return;
+            }
+
             // Check remote name
             const remoteName = document.getElementById('remote-name-input')?.value.trim();
             if (!remoteName) {
@@ -3146,8 +3203,51 @@ type = s3
         }
 
         async function createRemote() {
-            const remoteName = document.getElementById('remote-name-input').value.trim();
             const template = manageRemotesState.selectedTemplate;
+
+            // Handle custom remote creation
+            if (template.name === '__custom__') {
+                const configText = document.getElementById('custom-remote-config').value.trim();
+
+                // Extract remote name from config
+                const match = configText.match(/^\[(.+?)\]/m);
+                if (!match) {
+                    alert('Configuration must include a [remote_name] section header');
+                    return;
+                }
+                const remoteName = match[1];
+
+                try {
+                    const createBtn = document.getElementById('create-remote-btn');
+                    createBtn.disabled = true;
+                    createBtn.textContent = 'Creating...';
+
+                    // Use the raw config API to create the remote
+                    await apiCall('/api/remotes/raw', 'POST', {
+                        raw_config: configText
+                    });
+
+                    // Reload remotes list and dropdowns
+                    await loadRemotesList();
+                    await loadRemotes();
+
+                    // Go back to step 1
+                    showRemotesList();
+                    manageRemotesState.selectedTemplate = null;
+                    manageRemotesState.formValues = {};
+
+                    alert(`Remote "${remoteName}" created successfully`);
+                } catch (error) {
+                    alert(`Failed to create remote: ${error.message}`);
+                    const createBtn = document.getElementById('create-remote-btn');
+                    createBtn.disabled = false;
+                    createBtn.textContent = 'Create Remote';
+                }
+                return;
+            }
+
+            // Regular template-based remote creation
+            const remoteName = document.getElementById('remote-name-input').value.trim();
 
             if (!remoteName) {
                 alert('Please enter a remote name');
