@@ -933,10 +933,40 @@
                 </div>
             </div>
 
-            <!-- Arrow Buttons - Green triangular arrows -->
+            <!-- Arrow Buttons -->
             <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 0 15px;">
 
-                <!-- CURRENT: Green triangular arrows -->
+                <!-- OPTION 1: Green emoji arrows (icons style) -->
+                <!--
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="font-size: 32px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; filter: hue-rotate(80deg) saturate(1.5);" title="Copy selected files to right pane">➡️</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="font-size: 32px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; filter: hue-rotate(80deg) saturate(1.5);" title="Copy selected files to left pane">⬅️</div>
+                -->
+
+                <!-- OPTION 2: Green double arrows emoji -->
+                <!--
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; filter: hue-rotate(80deg) saturate(1.5);" title="Copy selected files to right pane">⏩</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; filter: hue-rotate(80deg) saturate(1.5);" title="Copy selected files to left pane">⏪</div>
+                -->
+
+                <!-- OPTION 3: Circular arrows emoji (copy/transfer style) -->
+                <!--
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; transform: rotate(-90deg);" title="Copy selected files to right pane">🔄</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="font-size: 28px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; transform: rotate(90deg);" title="Copy selected files to left pane">🔄</div>
+                -->
+
+                <!-- OPTION 4: CSS-styled green circular buttons with white arrows -->
+                <!--
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="width: 40px; height: 40px; border-radius: 50%; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Copy selected files to right pane">→</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="width: 40px; height: 40px; border-radius: 50%; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Copy selected files to left pane">←</div>
+                -->
+
+                <!-- OPTION 5: CSS-styled green square buttons with white triangular arrows -->
+                <!--
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="width: 44px; height: 44px; border-radius: 6px; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Copy selected files to right pane">▶</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="width: 44px; height: 44px; border-radius: 6px; background: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Copy selected files to left pane">◀</div>
+                -->
+
+                <!-- CURRENT: Green triangular arrows (simple) -->
                 <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">▶</div>
                 <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">◀</div>
 
