@@ -918,12 +918,18 @@
                         <button class="toolbar-button secondary" onclick="refreshPane('left', true)" title="Refresh">🔄</button>
                     </div>
                 </div>
-                <div class="file-grid" id="left-files" 
+                <div class="file-grid" id="left-files"
                      ondragover="handleDragOver(event, 'left')"
                      ondrop="handleDrop(event, 'left')"
                      ondragleave="handleDragLeave(event, 'left')">
                     <!-- Files will be populated here -->
                 </div>
+            </div>
+
+            <!-- Arrow Buttons -->
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; padding: 0 10px;">
+                <button id="copy-right-btn" onclick="copySelectedToRight()" style="background: #007bff; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; transition: opacity 0.3s;" title="Copy selected files to right pane" disabled>→</button>
+                <button id="copy-left-btn" onclick="copySelectedToLeft()" style="background: #007bff; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; transition: opacity 0.3s;" title="Copy selected files to left pane" disabled>←</button>
             </div>
 
             <!-- Right Pane -->
@@ -1249,7 +1255,10 @@
     <!-- View Remote Config Modal -->
     <div class="modal" id="view-remote-config-modal">
         <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">📄 Remote Configuration</div>
+            <div class="modal-header" style="position: relative;">
+                📄 Remote Configuration
+                <button onclick="closeViewRemoteConfigModal()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
+            </div>
             <div id="remote-config-content" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;">
                 <!-- Config will be populated here -->
             </div>
@@ -1258,7 +1267,6 @@
                     📋 Copy to Clipboard
                     <span id="copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
                 </button>
-                <button onclick="closeViewRemoteConfigModal()">Close</button>
             </div>
         </div>
     </div>
@@ -1962,6 +1970,9 @@ type = s3
             } else {
                 renderListView(pane, sortedFiles, container, state);
             }
+
+            // Update arrow button states
+            updateArrowButtons();
         }
 
         function renderGridView(pane, files, container, state) {
@@ -2803,8 +2814,8 @@ type = s3
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
-                // Edit icon (pencil)
-                html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
+                // Edit icon (gear)
+                html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
                 // Delete icon (red X)
                 html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
                 html += '</td></tr>';
@@ -2879,16 +2890,14 @@ type = s3
         }
 
         async function copyRemoteConfigToClipboard() {
-            const remote = manageRemotesState.currentViewedRemote;
-            if (!remote) return;
-
-            // Generate rclone config format with unmasked values
-            let configText = `[${remote.name}]\n`;
-            for (const [key, value] of Object.entries(remote.config)) {
-                configText += `${key} = ${value}\n`;
-            }
+            const remoteName = manageRemotesState.currentViewedRemote?.name;
+            if (!remoteName) return;
 
             try {
+                // Get raw config from API
+                const data = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`);
+                const configText = data.raw_config;
+
                 await navigator.clipboard.writeText(configText);
 
                 // Show tooltip
@@ -2906,27 +2915,25 @@ type = s3
         }
 
         // Edit Remote Config
-        function editRemoteConfig(remoteName) {
-            const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
-            if (!remote) return;
+        async function editRemoteConfig(remoteName) {
+            try {
+                // Get raw config from API (includes comments)
+                const data = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`);
 
-            // Store the original remote name for comparison
-            manageRemotesState.editingRemote = {
-                originalName: remoteName,
-                remote: remote
-            };
+                // Store the original remote name
+                manageRemotesState.editingRemote = {
+                    originalName: remoteName
+                };
 
-            // Generate rclone config format
-            let configText = `[${remote.name}]\n`;
-            for (const [key, value] of Object.entries(remote.config)) {
-                configText += `${key} = ${value}\n`;
+                // Populate the textarea (no trailing newline)
+                document.getElementById('edit-remote-config-text').value = data.raw_config;
+
+                // Show the modal
+                document.getElementById('edit-remote-config-modal').style.display = 'flex';
+            } catch (error) {
+                console.error('Error loading remote config:', error);
+                alert(`Failed to load remote config: ${error.message}`);
             }
-
-            // Populate the textarea
-            document.getElementById('edit-remote-config-text').value = configText;
-
-            // Show the modal
-            document.getElementById('edit-remote-config-modal').style.display = 'flex';
         }
 
         function closeEditRemoteConfigModal() {
@@ -2937,60 +2944,17 @@ type = s3
         async function saveRemoteConfig() {
             if (!manageRemotesState.editingRemote) return;
 
-            const configText = document.getElementById('edit-remote-config-text').value.trim();
+            const configText = document.getElementById('edit-remote-config-text').value;
             const originalName = manageRemotesState.editingRemote.originalName;
 
             try {
-                // Parse the config text to extract remote name and config
-                const lines = configText.split('\n');
-                let newRemoteName = null;
-                const newConfig = {};
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed.startsWith('#')) continue;
-
-                    // Check for remote name [name]
-                    const nameMatch = trimmed.match(/^\[([^\]]+)\]$/);
-                    if (nameMatch) {
-                        newRemoteName = nameMatch[1];
-                        continue;
-                    }
-
-                    // Parse key = value
-                    const configMatch = trimmed.match(/^([^=]+)\s*=\s*(.*)$/);
-                    if (configMatch) {
-                        const key = configMatch[1].trim();
-                        const value = configMatch[2].trim();
-                        newConfig[key] = value;
-                    }
-                }
-
-                if (!newRemoteName) {
-                    alert('Error: Could not find remote name [name] in configuration');
-                    return;
-                }
-
-                // Check if remote is being renamed
-                const isRename = newRemoteName !== originalName;
-
-                if (isRename) {
-                    // Check if new name conflicts with existing remote
-                    const existingRemote = manageRemotesState.remotes.find(r => r.name === newRemoteName && r.name !== originalName);
-                    if (existingRemote) {
-                        alert(`Error: A remote named "${newRemoteName}" already exists`);
-                        return;
-                    }
-
-                    // Delete old remote and create new one
-                    await apiCall(`/api/remotes/${encodeURIComponent(originalName)}`, 'DELETE');
-                }
-
-                // Update/create the remote
-                await apiCall('/api/remotes', 'POST', {
-                    name: newRemoteName,
-                    config: newConfig
+                // Use the new raw API to update in-place
+                const data = await apiCall(`/api/remotes/${encodeURIComponent(originalName)}/raw`, 'PUT', {
+                    raw_config: configText
                 });
+
+                const newName = data.new_name;
+                const isRename = newName !== originalName;
 
                 // Close modal and refresh
                 closeEditRemoteConfigModal();
@@ -2999,8 +2963,8 @@ type = s3
                 await refreshPane('right');
 
                 alert(isRename ?
-                    `Remote successfully renamed from "${originalName}" to "${newRemoteName}"` :
-                    `Remote "${newRemoteName}" updated successfully`);
+                    `Remote successfully renamed from "${originalName}" to "${newName}"` :
+                    `Remote "${newName}" updated successfully`);
 
             } catch (error) {
                 console.error('Error saving remote:', error);
@@ -3997,14 +3961,98 @@ ${data.text || '(no output yet)'}
 
         async function clearStoppedJobs() {
             if (!confirm('Clear all stopped jobs?')) return;
-            
+
             try {
                 const data = await apiCall('/api/jobs/clear-stopped', 'POST');
-                document.getElementById('all-jobs-output').textContent = 
+                document.getElementById('all-jobs-output').textContent =
                     `Cleared ${data.count} stopped job(s)`;
             } catch (error) {
                 document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
             }
+        }
+
+        // Arrow button functions
+        function updateArrowButtons() {
+            const leftBtn = document.getElementById('copy-left-btn');
+            const rightBtn = document.getElementById('copy-right-btn');
+
+            if (!leftBtn || !rightBtn) return;
+
+            // Enable right arrow if left pane has selections
+            if (leftPaneState.selectedIndexes.length > 0) {
+                rightBtn.disabled = false;
+                rightBtn.style.opacity = '1';
+                rightBtn.style.cursor = 'pointer';
+            } else {
+                rightBtn.disabled = true;
+                rightBtn.style.opacity = '0.3';
+                rightBtn.style.cursor = 'not-allowed';
+            }
+
+            // Enable left arrow if right pane has selections
+            if (rightPaneState.selectedIndexes.length > 0) {
+                leftBtn.disabled = false;
+                leftBtn.style.opacity = '1';
+                leftBtn.style.cursor = 'pointer';
+            } else {
+                leftBtn.disabled = true;
+                leftBtn.style.opacity = '0.3';
+                leftBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        async function copySelectedToRight() {
+            if (leftPaneState.selectedIndexes.length === 0) return;
+
+            // Build list of files and paths for confirmation
+            const files = leftPaneState.selectedIndexes.map(index => leftPaneState.files[index]);
+            const fileNames = files.map(f => f.Name);
+
+            const sourcePath = leftPaneState.remote ?
+                `${leftPaneState.remote}:${leftPaneState.path}` :
+                leftPaneState.path;
+            const destPath = rightPaneState.remote ?
+                `${rightPaneState.remote}:${rightPaneState.path}` :
+                rightPaneState.path;
+
+            // Store pending operation and show confirmation
+            pendingDragDrop = {
+                sourcePane: 'left',
+                targetPane: 'right',
+                sourceState: leftPaneState,
+                targetState: rightPaneState,
+                indexes: leftPaneState.selectedIndexes,
+                files: files
+            };
+
+            showDragDropConfirmModal(fileNames, sourcePath, destPath);
+        }
+
+        async function copySelectedToLeft() {
+            if (rightPaneState.selectedIndexes.length === 0) return;
+
+            // Build list of files and paths for confirmation
+            const files = rightPaneState.selectedIndexes.map(index => rightPaneState.files[index]);
+            const fileNames = files.map(f => f.Name);
+
+            const sourcePath = rightPaneState.remote ?
+                `${rightPaneState.remote}:${rightPaneState.path}` :
+                rightPaneState.path;
+            const destPath = leftPaneState.remote ?
+                `${leftPaneState.remote}:${leftPaneState.path}` :
+                leftPaneState.path;
+
+            // Store pending operation and show confirmation
+            pendingDragDrop = {
+                sourcePane: 'right',
+                targetPane: 'left',
+                sourceState: rightPaneState,
+                targetState: leftPaneState,
+                indexes: rightPaneState.selectedIndexes,
+                files: files
+            };
+
+            showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
     </script>
 </body>
