@@ -1416,6 +1416,8 @@ type = s3
                 const deleteModal = document.getElementById('delete-confirm-modal');
                 const createFolderModal = document.getElementById('create-folder-modal');
                 const dragDropModal = document.getElementById('drag-drop-confirm-modal');
+                const editRemoteModal = document.getElementById('edit-remote-config-modal');
+                const viewRemoteModal = document.getElementById('view-remote-config-modal');
 
                 // Handle Escape key
                 if (e.key === 'Escape') {
@@ -1434,6 +1436,14 @@ type = s3
                     }
                     if (dragDropModal.style.display === 'flex') {
                         closeDragDropConfirmModal();
+                        return;
+                    }
+                    if (editRemoteModal.style.display === 'flex') {
+                        closeEditRemoteConfigModal();
+                        return;
+                    }
+                    if (viewRemoteModal.style.display === 'flex') {
+                        closeViewRemoteConfigModal();
                         return;
                     }
                     // Close menus
@@ -2689,11 +2699,21 @@ type = s3
         }
 
         function handleManageRemotesKeydown(event) {
-            if (event.key === 'Enter') {
-                // Check which step is visible
-                const step2 = document.getElementById('manage-remotes-step2');
-                const step3 = document.getElementById('manage-remotes-step3');
+            // Check which step is visible
+            const step1 = document.getElementById('manage-remotes-step1');
+            const step2 = document.getElementById('manage-remotes-step2');
+            const step3 = document.getElementById('manage-remotes-step3');
 
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                // If on wizard steps 2 or 3, return to remotes list
+                if (step2.style.display !== 'none' || step3.style.display !== 'none') {
+                    showRemotesList();
+                } else {
+                    // Otherwise close the entire dialog
+                    closeManageRemotesDialog();
+                }
+            } else if (event.key === 'Enter') {
                 if (step2.style.display !== 'none') {
                     // In template selection step - trigger Next button
                     const nextBtn = document.getElementById('template-next-btn');
