@@ -2485,21 +2485,24 @@ type = s3
         async function handleExternalFileDrop(files, targetPane) {
             const targetState = targetPane === 'left' ? leftPaneState : rightPaneState;
 
+            // Convert FileList to Array immediately (FileList becomes invalid after event)
+            const filesArray = Array.from(files);
+
             // Build destination path
             const destPath = targetState.remote ?
                 `${targetState.remote}:${targetState.path}` :
                 targetState.path;
 
             // Get file names for confirmation
-            const fileNames = Array.from(files).map(f => f.name);
+            const fileNames = filesArray.map(f => f.name);
 
             // Show confirmation modal
             showDragDropConfirmModal(fileNames, 'Your Computer', destPath);
 
-            // Store external file drop info
+            // Store external file drop info with proper array
             pendingDragDrop = {
                 isExternal: true,
-                externalFiles: files,
+                externalFiles: filesArray,  // Store as array, not FileList
                 targetPane,
                 targetState
             };
@@ -2569,18 +2572,25 @@ type = s3
         async function handleExternalFileUploadAndCopy() {
             const { externalFiles, targetState, targetPane } = pendingDragDrop;
 
+            console.log('Starting external file upload. Files:', externalFiles);
+            console.log('Target state:', targetState);
+            console.log('Number of files:', externalFiles.length);
+
             // Check if destination is local (no remote) - if so, upload directly
             const isLocalDestination = !targetState.remote;
 
             if (isLocalDestination) {
+                console.log('Uploading directly to local filesystem:', targetState.path);
                 // Direct upload to local filesystem (no cache needed)
                 await handleDirectLocalUpload(externalFiles, targetState, targetPane);
                 return;
             }
 
             // Remote destination - use cache approach
+            console.log('Uploading to remote via cache:', targetState.remote);
             // Generate unique job ID
             const jobId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            console.log('Generated job ID:', jobId);
 
             try {
                 // Step 1: Upload files to cache
@@ -2650,9 +2660,13 @@ type = s3
 
         async function handleDirectLocalUpload(files, targetState, targetPane) {
             // Upload directly to local filesystem
+            console.log('handleDirectLocalUpload called with', files.length, 'files');
+            console.log('Destination:', targetState.path);
+
             try {
                 const formData = new FormData();
                 for (const file of files) {
+                    console.log('Adding file to FormData:', file.name, 'size:', file.size);
                     formData.append('files[]', file);
                 }
                 // Use a placeholder job_id (not actually used for direct upload)
@@ -2660,6 +2674,7 @@ type = s3
                 formData.append('destination', targetState.path);
                 formData.append('direct_upload', 'true');  // Flag for direct upload
 
+                console.log('Sending upload request...');
                 const uploadResult = await fetch('/api/upload', {
                     method: 'POST',
                     headers: {
