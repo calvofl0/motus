@@ -1242,6 +1242,29 @@
         </div>
     </div>
 
+    <!-- Upload Progress Modal -->
+    <div class="modal" id="upload-progress-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">📤 Uploading Files</div>
+            <div style="margin-bottom: 15px; color: #333;">
+                <div id="upload-progress-message" style="font-weight: 500; margin-bottom: 10px;">
+                    Preparing upload...
+                </div>
+                <div style="background: #f0f0f0; border-radius: 10px; height: 24px; overflow: hidden; position: relative;">
+                    <div id="upload-progress-bar" style="background: linear-gradient(90deg, #28a745, #20c997); height: 100%; width: 0%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;">
+                        <span id="upload-progress-percent" style="color: white; font-weight: bold; font-size: 12px; position: absolute; left: 50%; transform: translateX(-50%); text-shadow: 0 0 3px rgba(0,0,0,0.3);">0%</span>
+                    </div>
+                </div>
+                <div id="upload-progress-details" style="font-size: 12px; color: #666; margin-top: 8px;">
+                    <!-- Details like file count, speed, etc. -->
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="upload-cancel-btn" onclick="cancelUpload()" style="background: #dc3545;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Manage Remotes Modal -->
     <div class="modal" id="manage-remotes-modal">
         <div class="modal-content" style="max-width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
@@ -1373,6 +1396,8 @@ type = s3
         let previousJobState = 'empty';  // Track previous state: 'empty' or 'non-empty'
         let trackedJobs = new Set();  // Track running jobs for completion detection
         let pendingDragDrop = null;  // Store pending drag-drop operation for confirmation
+        let uploadAbortController = null;  // AbortController for canceling uploads
+        let uploadStartTime = null;  // Track upload start time for speed calculation
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -2636,6 +2661,49 @@ type = s3
             pendingDragDrop = null;
         }
 
+        function showUploadProgressModal(fileCount) {
+            // Reset progress
+            uploadAbortController = new AbortController();
+            uploadStartTime = Date.now();
+
+            document.getElementById('upload-progress-message').textContent =
+                `Uploading ${fileCount} file${fileCount !== 1 ? 's' : ''}...`;
+            document.getElementById('upload-progress-bar').style.width = '0%';
+            document.getElementById('upload-progress-percent').textContent = '0%';
+            document.getElementById('upload-progress-details').textContent = '';
+            document.getElementById('upload-cancel-btn').disabled = false;
+
+            document.getElementById('upload-progress-modal').style.display = 'flex';
+        }
+
+        function updateUploadProgress(loaded, total) {
+            const percent = Math.round((loaded / total) * 100);
+            const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
+            const speedMBps = (loaded / 1024 / 1024) / elapsedSeconds;
+
+            document.getElementById('upload-progress-bar').style.width = percent + '%';
+            document.getElementById('upload-progress-percent').textContent = percent + '%';
+
+            const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+            const totalMB = (total / 1024 / 1024).toFixed(1);
+            document.getElementById('upload-progress-details').textContent =
+                `${loadedMB} MB / ${totalMB} MB (${speedMBps.toFixed(1)} MB/s)`;
+        }
+
+        function closeUploadProgressModal() {
+            document.getElementById('upload-progress-modal').style.display = 'none';
+            uploadAbortController = null;
+            uploadStartTime = null;
+        }
+
+        function cancelUpload() {
+            if (uploadAbortController) {
+                uploadAbortController.abort();
+                document.getElementById('upload-cancel-btn').disabled = true;
+                document.getElementById('upload-progress-message').textContent = 'Canceling upload...';
+            }
+        }
+
         async function confirmDragDrop() {
             if (!pendingDragDrop) return;
 
@@ -2709,6 +2777,9 @@ type = s3
             const jobId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
             console.log('Generated job ID:', jobId);
 
+            // Show progress modal
+            showUploadProgressModal(externalFiles.length);
+
             try {
                 // Step 1: Upload files to cache
                 const formData = new FormData();
@@ -2734,21 +2805,55 @@ type = s3
                 const destPath = `${targetState.remote}:${targetState.path}`;
                 formData.append('destination', destPath);
 
-                // Upload files
-                const uploadResult = await fetch('/api/upload', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: formData
+                // Upload files with progress tracking using XMLHttpRequest
+                const uploadData = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+
+                    // Track upload progress
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            updateUploadProgress(e.loaded, e.total);
+                        }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch (e) {
+                                reject(new Error('Invalid response from server'));
+                            }
+                        } else {
+                            reject(new Error('Upload failed: ' + xhr.statusText));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => {
+                        reject(new Error('Network error during upload'));
+                    });
+
+                    xhr.addEventListener('abort', () => {
+                        reject(new Error('Upload canceled'));
+                    });
+
+                    xhr.open('POST', '/api/upload');
+                    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+
+                    // Wire up abort controller
+                    if (uploadAbortController) {
+                        uploadAbortController.signal.addEventListener('abort', () => {
+                            xhr.abort();
+                        });
+                    }
+
+                    xhr.send(formData);
                 });
 
-                if (!uploadResult.ok) {
-                    throw new Error('Upload failed: ' + uploadResult.statusText);
-                }
-
-                const uploadData = await uploadResult.json();
                 console.log('Files uploaded to cache:', uploadData);
+
+                // Update progress message
+                document.getElementById('upload-progress-message').textContent = 'Upload complete! Starting transfer to destination...';
+                document.getElementById('upload-cancel-btn').disabled = true;
 
                 // Step 2: Copy from cache to destination
                 const cachePath = uploadData.cache_path;
@@ -2766,12 +2871,18 @@ type = s3
                 // This will be monitored by watching the job status
                 monitorUploadJobForCleanup(copyResult.job_id, jobId);
 
+                // Close progress modal
+                setTimeout(() => {
+                    closeUploadProgressModal();
+                }, 1000);  // Keep modal visible for 1 second to show completion
+
                 // Refresh target pane and update jobs
                 refreshPane(targetPane);
                 updateJobs();
 
             } catch (error) {
                 console.error('External file upload/copy failed:', error);
+                closeUploadProgressModal();
                 alert(`Failed to upload files: ${error.message}`);
 
                 // Clean up cache on error
@@ -2793,6 +2904,9 @@ type = s3
             console.log('handleDirectLocalUpload called with', files.length, 'files');
             console.log('Destination:', targetState.path);
             console.log('Has directories:', hasDirectories);
+
+            // Show progress modal
+            showUploadProgressModal(files.length);
 
             try {
                 const formData = new FormData();
@@ -2820,26 +2934,68 @@ type = s3
                 formData.append('has_directories', hasDirectories ? 'true' : 'false');
 
                 console.log('Sending upload request...');
-                const uploadResult = await fetch('/api/upload', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: formData
+
+                // Upload with progress tracking using XMLHttpRequest
+                const uploadData = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+
+                    // Track upload progress
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            updateUploadProgress(e.loaded, e.total);
+                        }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch (e) {
+                                reject(new Error('Invalid response from server'));
+                            }
+                        } else {
+                            reject(new Error('Upload failed: ' + xhr.statusText));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => {
+                        reject(new Error('Network error during upload'));
+                    });
+
+                    xhr.addEventListener('abort', () => {
+                        reject(new Error('Upload canceled'));
+                    });
+
+                    xhr.open('POST', '/api/upload');
+                    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+
+                    // Wire up abort controller
+                    if (uploadAbortController) {
+                        uploadAbortController.signal.addEventListener('abort', () => {
+                            xhr.abort();
+                        });
+                    }
+
+                    xhr.send(formData);
                 });
 
-                if (!uploadResult.ok) {
-                    throw new Error('Upload failed: ' + uploadResult.statusText);
-                }
-
-                const uploadData = await uploadResult.json();
                 console.log('Files uploaded directly to local filesystem:', uploadData);
+
+                // Update progress message
+                document.getElementById('upload-progress-message').textContent = 'Upload complete!';
+                document.getElementById('upload-cancel-btn').disabled = true;
+
+                // Close progress modal after a short delay
+                setTimeout(() => {
+                    closeUploadProgressModal();
+                }, 1000);
 
                 // Refresh target pane
                 refreshPane(targetPane);
 
             } catch (error) {
                 console.error('Direct local upload failed:', error);
+                closeUploadProgressModal();
                 alert(`Failed to upload files: ${error.message}`);
             }
         }
