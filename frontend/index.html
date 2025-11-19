@@ -2752,6 +2752,13 @@ type = s3
         }
 
         function handleManageRemotesKeydown(event) {
+            // Don't handle keys if Edit or View remote modals are open (let global handler deal with them)
+            const editRemoteModal = document.getElementById('edit-remote-config-modal');
+            const viewRemoteModal = document.getElementById('view-remote-config-modal');
+            if (editRemoteModal.style.display === 'flex' || viewRemoteModal.style.display === 'flex') {
+                return; // Let the global handler close these modals
+            }
+
             // Check which step is visible
             const step1 = document.getElementById('manage-remotes-step1');
             const step2 = document.getElementById('manage-remotes-step2');
