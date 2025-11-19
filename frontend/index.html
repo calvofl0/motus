@@ -2569,6 +2569,16 @@ type = s3
         async function handleExternalFileUploadAndCopy() {
             const { externalFiles, targetState, targetPane } = pendingDragDrop;
 
+            // Check if destination is local (no remote) - if so, upload directly
+            const isLocalDestination = !targetState.remote;
+
+            if (isLocalDestination) {
+                // Direct upload to local filesystem (no cache needed)
+                await handleDirectLocalUpload(externalFiles, targetState, targetPane);
+                return;
+            }
+
+            // Remote destination - use cache approach
             // Generate unique job ID
             const jobId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
@@ -2581,9 +2591,7 @@ type = s3
                 formData.append('job_id', jobId);
 
                 // Destination path
-                const destPath = targetState.remote ?
-                    `${targetState.remote}:${targetState.path}` :
-                    targetState.path;
+                const destPath = `${targetState.remote}:${targetState.path}`;
                 formData.append('destination', destPath);
 
                 // Upload files
@@ -2604,9 +2612,7 @@ type = s3
 
                 // Step 2: Copy from cache to destination
                 const cachePath = uploadData.cache_path;
-                const dstPath = targetState.remote ?
-                    `${targetState.remote}:${targetState.path}/` :
-                    `${targetState.path}/`;
+                const dstPath = `${targetState.remote}:${targetState.path}/`;
 
                 const copyResult = await apiCall('/api/jobs/copy', 'POST', {
                     src_path: cachePath + '/',  // Copy all files from cache directory
@@ -2639,6 +2645,42 @@ type = s3
                 } catch (cleanupError) {
                     console.error('Cache cleanup failed:', cleanupError);
                 }
+            }
+        }
+
+        async function handleDirectLocalUpload(files, targetState, targetPane) {
+            // Upload directly to local filesystem
+            try {
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('files[]', file);
+                }
+                // Use a placeholder job_id (not actually used for direct upload)
+                formData.append('job_id', 'direct-' + Date.now());
+                formData.append('destination', targetState.path);
+                formData.append('direct_upload', 'true');  // Flag for direct upload
+
+                const uploadResult = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+
+                if (!uploadResult.ok) {
+                    throw new Error('Upload failed: ' + uploadResult.statusText);
+                }
+
+                const uploadData = await uploadResult.json();
+                console.log('Files uploaded directly to local filesystem:', uploadData);
+
+                // Refresh target pane
+                refreshPane(targetPane);
+
+            } catch (error) {
+                console.error('Direct local upload failed:', error);
+                alert(`Failed to upload files: ${error.message}`);
             }
         }
 

@@ -62,18 +62,19 @@ def cleanup_cache(exclude_job_ids=None):
 @token_required
 def upload_files():
     """
-    Upload files from desktop to temporary cache
+    Upload files from desktop to temporary cache or directly to local filesystem
 
     Request:
         - multipart/form-data with files
         - form field 'destination': target path (e.g., "/path" or "remote:/path")
         - form field 'job_id': unique job ID for this upload session
+        - form field 'direct_upload': 'true' for direct local upload (optional)
 
     Response:
         {
             "message": "Files uploaded successfully",
             "job_id": "...",
-            "cache_path": "/full/path/to/cache",
+            "cache_path": "/full/path/to/cache",  # or "direct_path" for direct upload
             "files": ["file1.txt", "file2.pdf"]
         }
     """
@@ -83,6 +84,7 @@ def upload_files():
 
         destination = request.form.get('destination')
         job_id = request.form.get('job_id')
+        direct_upload = request.form.get('direct_upload') == 'true'
 
         if not destination or not job_id:
             return jsonify({'error': 'Missing destination or job_id'}), 400
@@ -91,6 +93,33 @@ def upload_files():
         if not files:
             return jsonify({'error': 'No files provided'}), 400
 
+        # Direct upload to local filesystem (no cache)
+        if direct_upload:
+            uploaded_files = []
+            dest_path = Path(destination)
+
+            # Ensure destination directory exists
+            dest_path.mkdir(parents=True, exist_ok=True)
+
+            for file in files:
+                if file.filename:
+                    # Secure the filename
+                    filename = secure_filename(file.filename)
+                    file_path = dest_path / filename
+
+                    # Save the file directly to destination
+                    file.save(str(file_path))
+                    uploaded_files.append(filename)
+                    logging.info(f"Uploaded file directly to local filesystem: {filename}")
+
+            return jsonify({
+                'message': 'Files uploaded successfully',
+                'job_id': job_id,
+                'direct_path': str(dest_path),
+                'files': uploaded_files
+            })
+
+        # Upload to cache (for remote destinations)
         # Create job-specific cache directory
         job_cache = cache_dir / f"job-{job_id}"
         job_cache.mkdir(parents=True, exist_ok=True)
