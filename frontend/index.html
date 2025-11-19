@@ -2529,17 +2529,23 @@ type = s3
         async function confirmDragDrop() {
             if (!pendingDragDrop) return;
 
+            // Save reference before closing modal (closeDragDropConfirmModal sets pendingDragDrop to null)
+            const operation = pendingDragDrop;
+
             // Close modal
             closeDragDropConfirmModal();
 
             // Handle external file drop
-            if (pendingDragDrop.isExternal) {
+            if (operation.isExternal) {
+                // Restore pendingDragDrop for handleExternalFileUploadAndCopy
+                pendingDragDrop = operation;
                 await handleExternalFileUploadAndCopy();
+                pendingDragDrop = null;
                 return;
             }
 
             // Handle internal drag-drop
-            const { sourceState, targetState, targetPane, indexes } = pendingDragDrop;
+            const { sourceState, targetState, targetPane, indexes } = operation;
 
             // Start copy jobs for each selected file
             for (const index of indexes) {
