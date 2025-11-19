@@ -69,13 +69,15 @@ def upload_files():
         - form field 'destination': target path (e.g., "/path" or "remote:/path")
         - form field 'job_id': unique job ID for this upload session
         - form field 'direct_upload': 'true' for direct local upload (optional)
+        - form field 'has_directories': 'true' if upload includes folders (optional)
+        - form field 'paths[]': relative paths for each file (optional, for folder structure)
 
     Response:
         {
             "message": "Files uploaded successfully",
             "job_id": "...",
             "cache_path": "/full/path/to/cache",  # or "direct_path" for direct upload
-            "files": ["file1.txt", "file2.pdf"]
+            "files": ["file1.txt", "folder/file2.pdf"]
         }
     """
     try:
@@ -85,11 +87,14 @@ def upload_files():
         destination = request.form.get('destination')
         job_id = request.form.get('job_id')
         direct_upload = request.form.get('direct_upload') == 'true'
+        has_directories = request.form.get('has_directories') == 'true'
 
         if not destination or not job_id:
             return jsonify({'error': 'Missing destination or job_id'}), 400
 
         files = request.files.getlist('files[]')
+        paths = request.form.getlist('paths[]') if has_directories else []
+
         if not files:
             return jsonify({'error': 'No files provided'}), 400
 
@@ -102,15 +107,24 @@ def upload_files():
             # Ensure destination directory exists
             dest_path.mkdir(parents=True, exist_ok=True)
 
-            for file in files:
+            for i, file in enumerate(files):
                 if file.filename:
-                    # Secure the filename
-                    filename = secure_filename(file.filename)
-                    file_path = dest_path / filename
+                    # Use provided path or secure filename
+                    if has_directories and i < len(paths):
+                        relative_path = paths[i]
+                        # Don't secure the path - keep directory structure
+                        file_path = dest_path / relative_path
+                    else:
+                        # Simple file - secure the filename
+                        filename = secure_filename(file.filename)
+                        file_path = dest_path / filename
+
+                    # Create parent directories if needed
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
 
                     # Save the file directly to destination
                     file.save(str(file_path))
-                    uploaded_files.append(filename)
+                    uploaded_files.append(str(file_path.relative_to(dest_path)))
                     logging.info(f"Uploaded file directly to local filesystem: {file_path}")
 
             return jsonify({
@@ -126,19 +140,25 @@ def upload_files():
         job_cache.mkdir(parents=True, exist_ok=True)
 
         uploaded_files = []
-        for file in files:
+        for i, file in enumerate(files):
             if file.filename:
-                # Secure the filename and preserve directory structure
-                filename = secure_filename(file.filename)
-                file_path = job_cache / filename
+                # Use provided path or secure filename
+                if has_directories and i < len(paths):
+                    relative_path = paths[i]
+                    # Don't secure the path - keep directory structure
+                    file_path = job_cache / relative_path
+                else:
+                    # Simple file - secure the filename
+                    filename = secure_filename(file.filename)
+                    file_path = job_cache / filename
 
                 # Create parent directories if needed
                 file_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Save the file
                 file.save(str(file_path))
-                uploaded_files.append(filename)
-                logging.info(f"Uploaded file to cache: {filename}")
+                uploaded_files.append(str(file_path.relative_to(job_cache)))
+                logging.info(f"Uploaded file to cache: {file_path}")
 
         return jsonify({
             'message': 'Files uploaded successfully',

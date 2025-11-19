@@ -2437,11 +2437,18 @@ type = s3
 
             // Check if this is external file drop (from desktop)
             const dragDataText = event.dataTransfer.getData('text/plain');
+            const items = event.dataTransfer.items;
             const externalFiles = event.dataTransfer.files;
 
-            if (externalFiles && externalFiles.length > 0 && !dragDataText) {
-                // External file drop from desktop
-                await handleExternalFileDrop(externalFiles, targetPane);
+            if ((items || externalFiles) && externalFiles.length > 0 && !dragDataText) {
+                // External file drop from desktop - check for folders
+                if (items && items.length > 0) {
+                    // Use DataTransferItem API to support folders (Chrome/Edge/Safari)
+                    await handleExternalDropWithFolders(items, targetPane);
+                } else {
+                    // Fallback to simple file drop (Firefox)
+                    await handleExternalFileDrop(externalFiles, targetPane);
+                }
                 return;
             }
 
@@ -2480,6 +2487,109 @@ type = s3
 
             // Show confirmation dialog
             showDragDropConfirmModal(fileNames, sourcePath, destPath);
+        }
+
+        async function handleExternalDropWithFolders(items, targetPane) {
+            const targetState = targetPane === 'left' ? leftPaneState : rightPaneState;
+
+            console.log('Processing drop with folder support...');
+
+            try {
+                // Collect all files (including from folders recursively)
+                const filesWithPaths = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : item.getAsEntry?.();
+                        if (entry) {
+                            await traverseFileTree(entry, '', filesWithPaths);
+                        } else {
+                            // Fallback for browsers without folder support
+                            const file = item.getAsFile();
+                            if (file) {
+                                filesWithPaths.push({ file, path: file.name });
+                            }
+                        }
+                    }
+                }
+
+                if (filesWithPaths.length === 0) {
+                    alert('No files found to upload');
+                    return;
+                }
+
+                console.log(`Found ${filesWithPaths.length} files (including in folders)`);
+
+                // Build destination path
+                const destPath = targetState.remote ?
+                    `${targetState.remote}:${targetState.path}` :
+                    targetState.path;
+
+                // Get file names for confirmation (show paths for nested files)
+                const fileNames = filesWithPaths.map(f => f.path);
+
+                // Show confirmation modal
+                showDragDropConfirmModal(fileNames, 'Your Computer', destPath);
+
+                // Store external file drop info
+                pendingDragDrop = {
+                    isExternal: true,
+                    externalFiles: filesWithPaths,  // Array of {file, path}
+                    targetPane,
+                    targetState,
+                    hasDirectories: true
+                };
+
+            } catch (error) {
+                console.error('Error processing folder drop:', error);
+                alert('Error processing dropped folders. Your browser may not support folder uploads.\n\nTry using Chrome, Edge, or Safari for folder support.');
+            }
+        }
+
+        async function traverseFileTree(entry, path, filesWithPaths) {
+            if (entry.isFile) {
+                // It's a file, get the File object
+                return new Promise((resolve, reject) => {
+                    entry.file(
+                        file => {
+                            const fullPath = path + file.name;
+                            filesWithPaths.push({ file, path: fullPath });
+                            resolve();
+                        },
+                        error => {
+                            console.error('Error reading file:', error);
+                            resolve(); // Continue even if one file fails
+                        }
+                    );
+                });
+            } else if (entry.isDirectory) {
+                // It's a directory, read its contents
+                const dirReader = entry.createReader();
+                return new Promise((resolve, reject) => {
+                    const readEntries = () => {
+                        dirReader.readEntries(
+                            async entries => {
+                                if (entries.length === 0) {
+                                    resolve(); // No more entries
+                                    return;
+                                }
+                                // Process all entries in this batch
+                                for (const childEntry of entries) {
+                                    await traverseFileTree(childEntry, path + entry.name + '/', filesWithPaths);
+                                }
+                                // Continue reading (directories can have multiple batches)
+                                readEntries();
+                            },
+                            error => {
+                                console.error('Error reading directory:', error);
+                                resolve(); // Continue even if one directory fails
+                            }
+                        );
+                    };
+                    readEntries();
+                });
+            }
         }
 
         async function handleExternalFileDrop(files, targetPane) {
@@ -2576,11 +2686,12 @@ type = s3
         }
 
         async function handleExternalFileUploadAndCopy() {
-            const { externalFiles, targetState, targetPane } = pendingDragDrop;
+            const { externalFiles, targetState, targetPane, hasDirectories } = pendingDragDrop;
 
             console.log('Starting external file upload. Files:', externalFiles);
             console.log('Target state:', targetState);
             console.log('Number of files:', externalFiles.length);
+            console.log('Has directories:', hasDirectories);
 
             // Check if destination is local (no remote) - if so, upload directly
             const isLocalDestination = !targetState.remote;
@@ -2588,7 +2699,7 @@ type = s3
             if (isLocalDestination) {
                 console.log('Uploading directly to local filesystem:', targetState.path);
                 // Direct upload to local filesystem (no cache needed)
-                await handleDirectLocalUpload(externalFiles, targetState, targetPane);
+                await handleDirectLocalUpload(externalFiles, targetState, targetPane, hasDirectories);
                 return;
             }
 
@@ -2601,10 +2712,23 @@ type = s3
             try {
                 // Step 1: Upload files to cache
                 const formData = new FormData();
-                for (const file of externalFiles) {
-                    formData.append('files[]', file);
+
+                // Handle both formats: array of Files or array of {file, path} objects
+                if (hasDirectories) {
+                    // filesWithPaths format: [{file: File, path: "folder/file.txt"}, ...]
+                    for (const item of externalFiles) {
+                        formData.append('files[]', item.file);
+                        formData.append('paths[]', item.path);  // Relative path including folders
+                    }
+                } else {
+                    // Simple File array format
+                    for (const file of externalFiles) {
+                        formData.append('files[]', file);
+                    }
                 }
+
                 formData.append('job_id', jobId);
+                formData.append('has_directories', hasDirectories ? 'true' : 'false');
 
                 // Destination path
                 const destPath = `${targetState.remote}:${targetState.path}`;
@@ -2664,21 +2788,36 @@ type = s3
             }
         }
 
-        async function handleDirectLocalUpload(files, targetState, targetPane) {
+        async function handleDirectLocalUpload(files, targetState, targetPane, hasDirectories) {
             // Upload directly to local filesystem
             console.log('handleDirectLocalUpload called with', files.length, 'files');
             console.log('Destination:', targetState.path);
+            console.log('Has directories:', hasDirectories);
 
             try {
                 const formData = new FormData();
-                for (const file of files) {
-                    console.log('Adding file to FormData:', file.name, 'size:', file.size);
-                    formData.append('files[]', file);
+
+                // Handle both formats: array of Files or array of {file, path} objects
+                if (hasDirectories) {
+                    // filesWithPaths format: [{file: File, path: "folder/file.txt"}, ...]
+                    for (const item of files) {
+                        console.log('Adding file to FormData:', item.path, 'size:', item.file.size);
+                        formData.append('files[]', item.file);
+                        formData.append('paths[]', item.path);  // Relative path including folders
+                    }
+                } else {
+                    // Simple File array format
+                    for (const file of files) {
+                        console.log('Adding file to FormData:', file.name, 'size:', file.size);
+                        formData.append('files[]', file);
+                    }
                 }
+
                 // Use a placeholder job_id (not actually used for direct upload)
                 formData.append('job_id', 'direct-' + Date.now());
                 formData.append('destination', targetState.path);
                 formData.append('direct_upload', 'true');  // Flag for direct upload
+                formData.append('has_directories', hasDirectories ? 'true' : 'false');
 
                 console.log('Sending upload request...');
                 const uploadResult = await fetch('/api/upload', {
