@@ -188,6 +188,81 @@ def add_remote():
         return jsonify({'error': str(e)}), 500
 
 
+@remotes_bp.route('/api/remotes/<remote_name>/raw', methods=['GET'])
+@token_required
+def get_remote_raw(remote_name):
+    """
+    Get raw configuration text for a remote, including comments
+
+    Response:
+    {
+        "name": "myS3",
+        "raw_config": "# My S3 remote\\n[myS3]\\ntype = s3\\n..."
+    }
+    """
+    try:
+        logging.info(f"Getting raw config for remote: {remote_name}")
+
+        # Get raw config text
+        raw_config = rclone_config.get_remote_raw(remote_name)
+
+        if raw_config is None:
+            return jsonify({'error': f'Remote not found: {remote_name}'}), 404
+
+        return jsonify({
+            'name': remote_name,
+            'raw_config': raw_config,
+        })
+
+    except Exception as e:
+        logging.error(f"Get remote raw error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/<remote_name>/raw', methods=['PUT'])
+@token_required
+def update_remote_raw(remote_name):
+    """
+    Update a remote's configuration in-place with raw config text
+
+    Request JSON:
+    {
+        "raw_config": "# Comment\\n[newname]\\ntype = s3\\n..."
+    }
+
+    Response:
+    {
+        "message": "Remote updated successfully",
+        "old_name": "myS3",
+        "new_name": "myS3renamed"
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'raw_config' not in data:
+            return jsonify({'error': 'Missing required field: raw_config'}), 400
+
+        raw_config = data['raw_config']
+
+        logging.info(f"Updating remote raw config: {remote_name}")
+
+        # Update remote in-place
+        success, new_name = rclone_config.update_remote_raw(remote_name, raw_config)
+
+        if not success:
+            return jsonify({'error': f'Failed to update remote: {remote_name}'}), 400
+
+        return jsonify({
+            'message': 'Remote updated successfully',
+            'old_name': remote_name,
+            'new_name': new_name,
+        })
+
+    except Exception as e:
+        logging.error(f"Update remote raw error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @remotes_bp.route('/api/templates', methods=['GET'])
 @token_required
 def list_templates():
