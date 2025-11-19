@@ -1201,19 +1201,24 @@
         <div class="modal-content" style="max-width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
             <!-- Step 1: List Remotes -->
             <div id="manage-remotes-step1" class="manage-remotes-step" style="display: flex; flex-direction: column; max-height: 80vh;">
-                <div class="modal-header">🔧 Manage Remotes</div>
+                <div class="modal-header" style="position: relative;">
+                    🔧 Manage Remotes
+                    <button onclick="closeManageRemotesDialog()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
+                </div>
                 <div id="remotes-list-container" style="margin-bottom: 15px; overflow-y: auto; max-height: 50vh;">
                     <p style="color: #666; text-align: center;">Loading remotes...</p>
                 </div>
                 <div class="modal-buttons">
-                    <button onclick="closeManageRemotesDialog()">Close</button>
                     <button id="add-remote-btn" onclick="showTemplateSelection()" style="background: #28a745; display: none;">+ Add Remote</button>
                 </div>
             </div>
 
             <!-- Step 2: Select Template -->
             <div id="manage-remotes-step2" class="manage-remotes-step" style="display: none; flex-direction: column; max-height: 80vh;">
-                <div class="modal-header">📋 Select Template</div>
+                <div class="modal-header" style="position: relative;">
+                    📋 Select Template
+                    <button onclick="showRemotesList()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
+                </div>
                 <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
                 <div id="templates-list-container" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
                     <p style="color: #666; text-align: center;">Loading templates...</p>
@@ -1226,7 +1231,10 @@
 
             <!-- Step 3: Configure Remote -->
             <div id="manage-remotes-step3" class="manage-remotes-step" style="display: none; flex-direction: column; max-height: 80vh;">
-                <div class="modal-header">⚙️ Configure Remote</div>
+                <div class="modal-header" style="position: relative;">
+                    ⚙️ Configure Remote
+                    <button onclick="showRemotesList()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
+                </div>
                 <div id="remote-form-container" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
                     <!-- Form will be generated dynamically -->
                 </div>
@@ -1251,6 +1259,25 @@
                     <span id="copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
                 </button>
                 <button onclick="closeViewRemoteConfigModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Remote Config Modal -->
+    <div class="modal" id="edit-remote-config-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">✏️ Edit Remote Configuration</div>
+            <div style="margin-bottom: 15px;">
+                <p style="color: #666; margin-bottom: 10px;">Edit the rclone configuration for this remote. You can rename the remote by changing the value between [brackets].</p>
+                <textarea id="edit-remote-config-text"
+                          style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
+                          placeholder="[remote_name]
+type = s3
+..."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeEditRemoteConfigModal()">Cancel</button>
+                <button onclick="saveRemoteConfig()" style="background: #28a745;">Save</button>
             </div>
         </div>
     </div>
@@ -2748,7 +2775,7 @@
             html += '<thead><tr style="border-bottom: 2px solid #ddd;">';
             html += '<th style="text-align: left; padding: 8px;">Name</th>';
             html += '<th style="text-align: left; padding: 8px;">Type</th>';
-            html += '<th style="text-align: center; padding: 8px; width: 80px;">Actions</th>';
+            html += '<th style="text-align: center; padding: 8px; width: 100px;">Actions</th>';
             html += '</tr></thead><tbody>';
 
             manageRemotesState.remotes.forEach(remote => {
@@ -2756,7 +2783,10 @@
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
-                html += `<button onclick="deleteRemote('${remote.name}')" style="background: #dc3545; color: white; padding: 4px 12px; border: none; border-radius: 3px; cursor: pointer;" title="Delete remote">−</button>`;
+                // Edit icon (pencil)
+                html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
+                // Delete icon (red X)
+                html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
                 html += '</td></tr>';
             });
 
@@ -2847,6 +2877,109 @@
             } catch (error) {
                 console.error('Failed to copy to clipboard:', error);
                 alert('Failed to copy to clipboard');
+            }
+        }
+
+        // Edit Remote Config
+        function editRemoteConfig(remoteName) {
+            const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
+            if (!remote) return;
+
+            // Store the original remote name for comparison
+            manageRemotesState.editingRemote = {
+                originalName: remoteName,
+                remote: remote
+            };
+
+            // Generate rclone config format
+            let configText = `[${remote.name}]\n`;
+            for (const [key, value] of Object.entries(remote.config)) {
+                configText += `${key} = ${value}\n`;
+            }
+
+            // Populate the textarea
+            document.getElementById('edit-remote-config-text').value = configText;
+
+            // Show the modal
+            document.getElementById('edit-remote-config-modal').style.display = 'flex';
+        }
+
+        function closeEditRemoteConfigModal() {
+            document.getElementById('edit-remote-config-modal').style.display = 'none';
+            manageRemotesState.editingRemote = null;
+        }
+
+        async function saveRemoteConfig() {
+            if (!manageRemotesState.editingRemote) return;
+
+            const configText = document.getElementById('edit-remote-config-text').value.trim();
+            const originalName = manageRemotesState.editingRemote.originalName;
+
+            try {
+                // Parse the config text to extract remote name and config
+                const lines = configText.split('\n');
+                let newRemoteName = null;
+                const newConfig = {};
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('#')) continue;
+
+                    // Check for remote name [name]
+                    const nameMatch = trimmed.match(/^\[([^\]]+)\]$/);
+                    if (nameMatch) {
+                        newRemoteName = nameMatch[1];
+                        continue;
+                    }
+
+                    // Parse key = value
+                    const configMatch = trimmed.match(/^([^=]+)\s*=\s*(.*)$/);
+                    if (configMatch) {
+                        const key = configMatch[1].trim();
+                        const value = configMatch[2].trim();
+                        newConfig[key] = value;
+                    }
+                }
+
+                if (!newRemoteName) {
+                    alert('Error: Could not find remote name [name] in configuration');
+                    return;
+                }
+
+                // Check if remote is being renamed
+                const isRename = newRemoteName !== originalName;
+
+                if (isRename) {
+                    // Check if new name conflicts with existing remote
+                    const existingRemote = manageRemotesState.remotes.find(r => r.name === newRemoteName && r.name !== originalName);
+                    if (existingRemote) {
+                        alert(`Error: A remote named "${newRemoteName}" already exists`);
+                        return;
+                    }
+
+                    // Delete old remote and create new one
+                    await apiCall(`/api/remotes/${encodeURIComponent(originalName)}`, 'DELETE');
+                }
+
+                // Update/create the remote
+                await apiCall('/api/remotes', 'POST', {
+                    name: newRemoteName,
+                    config: newConfig
+                });
+
+                // Close modal and refresh
+                closeEditRemoteConfigModal();
+                await loadRemotesList();
+                await refreshPane('left');
+                await refreshPane('right');
+
+                alert(isRename ?
+                    `Remote successfully renamed from "${originalName}" to "${newRemoteName}"` :
+                    `Remote "${newRemoteName}" updated successfully`);
+
+            } catch (error) {
+                console.error('Error saving remote:', error);
+                alert(`Failed to save remote: ${error.message}`);
             }
         }
 
