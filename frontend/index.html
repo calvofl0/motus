@@ -1171,6 +1171,31 @@
         </div>
     </div>
 
+    <!-- Drag and Drop Confirmation Modal -->
+    <div class="modal" id="drag-drop-confirm-modal">
+        <div class="modal-content">
+            <div class="modal-header">📋 Confirm Copy Operation</div>
+            <p style="margin-bottom: 15px; color: #333; font-weight: 500;">
+                Copy the following files?
+            </p>
+            <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto;">
+                <div id="drag-drop-file-list" style="font-family: monospace; font-size: 12px; color: #333;"></div>
+            </div>
+            <div style="margin-bottom: 15px; background: #e3f2fd; padding: 12px; border-radius: 6px;">
+                <div style="font-weight: 600; color: #1976d2; margin-bottom: 8px;">Source:</div>
+                <div id="drag-drop-source" style="font-family: monospace; font-size: 12px; color: #333; word-break: break-all;"></div>
+            </div>
+            <div style="margin-bottom: 20px; background: #e8f5e9; padding: 12px; border-radius: 6px;">
+                <div style="font-weight: 600; color: #388e3c; margin-bottom: 8px;">Destination:</div>
+                <div id="drag-drop-destination" style="font-family: monospace; font-size: 12px; color: #333; word-break: break-all;"></div>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeDragDropConfirmModal()">Cancel</button>
+                <button onclick="confirmDragDrop()" style="background: #28a745;">Copy</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Manage Remotes Modal -->
     <div class="modal" id="manage-remotes-modal">
         <div class="modal-content" style="max-width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
@@ -1273,6 +1298,7 @@
         let jobPanelManuallyToggled = false;  // Track if user manually toggled the panel
         let previousJobState = 'empty';  // Track previous state: 'empty' or 'non-empty'
         let trackedJobs = new Set();  // Track running jobs for completion detection
+        let pendingDragDrop = null;  // Store pending drag-drop operation for confirmation
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1362,6 +1388,7 @@
                 const renameModal = document.getElementById('rename-modal');
                 const deleteModal = document.getElementById('delete-confirm-modal');
                 const createFolderModal = document.getElementById('create-folder-modal');
+                const dragDropModal = document.getElementById('drag-drop-confirm-modal');
 
                 // Handle Escape key
                 if (e.key === 'Escape') {
@@ -1376,6 +1403,10 @@
                     }
                     if (createFolderModal.style.display === 'flex') {
                         closeCreateFolderModal();
+                        return;
+                    }
+                    if (dragDropModal.style.display === 'flex') {
+                        closeDragDropConfirmModal();
                         return;
                     }
                     // Close menus
@@ -1399,6 +1430,11 @@
                     if (createFolderModal.style.display === 'flex') {
                         e.preventDefault();
                         confirmCreateFolder();
+                        return;
+                    }
+                    if (dragDropModal.style.display === 'flex') {
+                        e.preventDefault();
+                        confirmDragDrop();
                         return;
                     }
                 }
@@ -2307,19 +2343,71 @@
         async function handleDrop(event, targetPane) {
             event.preventDefault();
             document.getElementById(`${targetPane}-files`).classList.remove('drag-over');
-            
+
             const data = JSON.parse(event.dataTransfer.getData('text/plain'));
             const sourcePane = data.pane;
-            
+
             if (sourcePane === targetPane) {
                 return; // Can't drop on same pane
             }
-            
+
             const sourceState = sourcePane === 'left' ? leftPaneState : rightPaneState;
             const targetState = targetPane === 'left' ? leftPaneState : rightPaneState;
-            
+
+            // Build file list and paths for confirmation dialog
+            const files = data.indexes.map(index => sourceState.files[index]);
+            const fileNames = files.map(f => f.Name);
+
+            // Build source and destination paths
+            const sourcePath = sourceState.remote ?
+                `${sourceState.remote}:${sourceState.path}` :
+                sourceState.path;
+            const destPath = targetState.remote ?
+                `${targetState.remote}:${targetState.path}` :
+                targetState.path;
+
+            // Store the pending operation
+            pendingDragDrop = {
+                sourcePane,
+                targetPane,
+                sourceState,
+                targetState,
+                indexes: data.indexes,
+                files
+            };
+
+            // Show confirmation dialog
+            showDragDropConfirmModal(fileNames, sourcePath, destPath);
+        }
+
+        function showDragDropConfirmModal(fileNames, sourcePath, destPath) {
+            // Populate file list
+            const fileListHtml = fileNames.map(name => `• ${name}`).join('<br>');
+            document.getElementById('drag-drop-file-list').innerHTML = fileListHtml;
+
+            // Show source and destination
+            document.getElementById('drag-drop-source').textContent = sourcePath;
+            document.getElementById('drag-drop-destination').textContent = destPath;
+
+            // Show modal
+            document.getElementById('drag-drop-confirm-modal').style.display = 'flex';
+        }
+
+        function closeDragDropConfirmModal() {
+            document.getElementById('drag-drop-confirm-modal').style.display = 'none';
+            pendingDragDrop = null;
+        }
+
+        async function confirmDragDrop() {
+            if (!pendingDragDrop) return;
+
+            const { sourceState, targetState, targetPane, indexes } = pendingDragDrop;
+
+            // Close modal
+            closeDragDropConfirmModal();
+
             // Start copy jobs for each selected file
-            for (const index of data.indexes) {
+            for (const index of indexes) {
                 const file = sourceState.files[index];
                 const srcPath = sourceState.remote ?
                     `${sourceState.remote}:${buildPath(sourceState.path, file.Name)}` :
@@ -2340,7 +2428,7 @@
                     alert(`Failed to copy ${file.Name}: ${error.message}`);
                 }
             }
-            
+
             // Refresh target pane and update jobs
             refreshPane(targetPane);
             updateJobs();
