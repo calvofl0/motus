@@ -8,12 +8,16 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from typing import Dict, List, Optional
 
 from .exceptions import RcloneException, RcloneNotFoundError
 from .job_queue import JobQueue
+
+# Cross-platform null device
+DEVNULL = 'NUL' if sys.platform == 'win32' else '/dev/null'
 
 
 class RcloneWrapper:
@@ -214,14 +218,14 @@ class RcloneWrapper:
             # Legacy: use provided credentials
             credentials = self._format_credentials(remote_config, 'current')
             remote_path = f"current:{path}"
-            config_arg = '/dev/null'  # Don't use config file with env vars
+            config_arg = DEVNULL  # Don't use config file with env vars
         else:
             # Local path (use expanded path with tilde resolved)
             remote_path = clean_path
 
         command = [
             self.rclone_path,
-            '--config', config_arg if config_arg else '/dev/null',
+            '--config', config_arg if config_arg else DEVNULL,
             'lsjson',
             remote_path,
         ]
@@ -267,7 +271,7 @@ class RcloneWrapper:
         # Use rclone touch to create a .keep file (creates dir implicitly)
         command = [
             self.rclone_path,
-            '--config', config_arg if config_arg else '/dev/null',
+            '--config', config_arg if config_arg else DEVNULL,
             'touch',
             f"{remote_path}/.motuz_keep",
         ]
@@ -378,10 +382,10 @@ class RcloneWrapper:
 
         if is_dir:
             # It's a directory - use purge
-            command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'purge', remote_path]
+            command = [self.rclone_path, '--config', config_arg if config_arg else DEVNULL, 'purge', remote_path]
         else:
             # It's a file - use deletefile
-            command = [self.rclone_path, '--config', config_arg if config_arg else '/dev/null', 'deletefile', remote_path]
+            command = [self.rclone_path, '--config', config_arg if config_arg else DEVNULL, 'deletefile', remote_path]
 
         self._log_command(command, credentials)
 
@@ -448,7 +452,7 @@ class RcloneWrapper:
         # Build command - use rclone check with hash comparison (like Motuz)
         command = [
             self.rclone_path,
-            '--config', config_arg if config_arg else '/dev/null',
+            '--config', config_arg if config_arg else DEVNULL,
             'check',
             src,
             dst,
@@ -758,7 +762,7 @@ class RcloneWrapper:
         # Build command (like Motuz: use --progress with --stats)
         command = [
             self.rclone_path,
-            '--config', config_arg if config_arg else '/dev/null',
+            '--config', config_arg if config_arg else DEVNULL,
             rclone_cmd,
             actual_src,
             actual_dst,
@@ -822,7 +826,7 @@ class RcloneWrapper:
                         # Remote path - use rclone rmdir (safer than purge)
                         cleanup_cmd = [
                             self.rclone_path,
-                            '--config', config_arg if config_arg else '/dev/null',
+                            '--config', config_arg if config_arg else DEVNULL,
                             'rmdir',
                             actual_src
                         ]
