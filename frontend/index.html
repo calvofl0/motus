@@ -1270,7 +1270,6 @@
                     <p style="color: #666; text-align: center;">Loading templates...</p>
                 </div>
                 <div class="modal-buttons">
-                    <button onclick="showRemotesList()">Back</button>
                     <button id="template-next-btn" onclick="showRemoteForm()" style="background: #007bff;" disabled>Next</button>
                 </div>
             </div>
@@ -2776,6 +2775,11 @@ type = s3
                     closeManageRemotesDialog();
                 }
             } else if (event.key === 'Enter') {
+                // Don't trigger on ENTER in custom remote textarea (it's multi-line)
+                // Only trigger on Shift+ENTER for custom remote
+                const customTextarea = document.getElementById('custom-remote-config');
+                const isInCustomTextarea = customTextarea && document.activeElement === customTextarea;
+
                 if (step2.style.display !== 'none') {
                     // In template selection step - trigger Next button
                     const nextBtn = document.getElementById('template-next-btn');
@@ -2785,10 +2789,24 @@ type = s3
                     }
                 } else if (step3.style.display !== 'none') {
                     // In remote form step - trigger Create Remote button
-                    const createBtn = document.getElementById('create-remote-btn');
-                    if (createBtn && !createBtn.disabled) {
-                        event.preventDefault();
-                        createRemote();
+                    // For custom remote textarea, require Shift+Enter
+                    if (isInCustomTextarea) {
+                        if (event.shiftKey) {
+                            // Shift+Enter in custom textarea - trigger creation
+                            const createBtn = document.getElementById('create-remote-btn');
+                            if (createBtn && !createBtn.disabled) {
+                                event.preventDefault();
+                                createRemote();
+                            }
+                        }
+                        // Otherwise allow normal Enter (new line)
+                    } else {
+                        // Regular input fields - trigger on Enter
+                        const createBtn = document.getElementById('create-remote-btn');
+                        if (createBtn && !createBtn.disabled) {
+                            event.preventDefault();
+                            createRemote();
+                        }
                     }
                 }
             }
@@ -2801,10 +2819,15 @@ type = s3
         }
 
         function showTemplateSelection() {
+            // Clear previous selection when opening template selection
+            manageRemotesState.selectedTemplate = null;
+            manageRemotesState.formValues = {};
+
             document.getElementById('manage-remotes-step1').style.display = 'none';
             document.getElementById('manage-remotes-step2').style.display = 'flex';
             document.getElementById('manage-remotes-step3').style.display = 'none';
-            document.getElementById('template-next-btn').disabled = !manageRemotesState.selectedTemplate;
+            renderTemplatesList(); // Re-render to show no selection
+            document.getElementById('template-next-btn').disabled = true; // Disable until selection made
         }
 
         function showRemoteForm() {
@@ -3055,11 +3078,11 @@ type = s3
                 html += '</div>';
             });
 
-            // Add "Custom remote" option at the bottom
+            // Add "Custom Remote" option at the bottom
             const isCustomSelected = manageRemotesState.selectedTemplate?.name === '__custom__';
             const customSelectedStyle = isCustomSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
             html += `<div onclick="selectTemplate('__custom__')" style="padding: 12px; ${customSelectedStyle} border-radius: 6px; cursor: pointer;">`;
-            html += `<strong style="display: block; margin-bottom: 4px;">Custom remote</strong>`;
+            html += `<strong style="display: block; margin-bottom: 4px;">Custom Remote</strong>`;
             html += `<small style="color: #666;">Manually enter remote configuration</small>`;
             html += '</div>';
 
@@ -3175,7 +3198,8 @@ type = s3
             if (template.name === '__custom__') {
                 const configText = document.getElementById('custom-remote-config')?.value.trim();
                 // Check if config has content and contains a [remote_name] section header
-                const hasSection = configText && /^\[.+\]/m.test(configText);
+                // Allows comments before the [name] line with the 'm' (multiline) flag
+                const hasSection = configText && /^\[.+?\]/m.test(configText);
                 createBtn.disabled = !hasSection;
                 return;
             }
@@ -3234,7 +3258,7 @@ type = s3
                 try {
                     const createBtn = document.getElementById('create-remote-btn');
                     createBtn.disabled = true;
-                    createBtn.textContent = 'Creating...';
+                    createBtn.textContent = 'Create';
 
                     // Use the raw config API to create the remote
                     await apiCall('/api/remotes/raw', 'POST', {
@@ -3287,7 +3311,7 @@ type = s3
             try {
                 const createBtn = document.getElementById('create-remote-btn');
                 createBtn.disabled = true;
-                createBtn.textContent = 'Creating...';
+                createBtn.textContent = 'Create';
 
                 await apiCall('/api/remotes', 'POST', {
                     name: remoteName,
