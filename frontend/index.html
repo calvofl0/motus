@@ -3130,8 +3130,22 @@ type = s3
 
                 html += '<div>';
                 html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">${field.label}</label>`;
-                html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
-                html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+
+                if (isSecret) {
+                    // Password field with visibility toggle
+                    html += '<div style="position: relative;">';
+                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
+                    html += 'style="width: 100%; padding: 8px; padding-right: 40px; border: 1px solid #ddd; border-radius: 4px;" required />';
+                    html += `<button type="button" onclick="togglePasswordVisibility('field-${field.key}')" `;
+                    html += 'style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 4px;" ';
+                    html += 'title="Toggle password visibility">👁️</button>';
+                    html += '</div>';
+                } else {
+                    // Regular text field
+                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
+                    html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+                }
+
                 html += '</div>';
             });
 
@@ -3296,6 +3310,21 @@ type = s3
                 const createBtn = document.getElementById('create-remote-btn');
                 createBtn.disabled = false;
                 createBtn.textContent = 'Create Remote';
+            }
+        }
+
+        function togglePasswordVisibility(fieldId) {
+            const input = document.getElementById(fieldId);
+            const button = event.target;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '👁️‍🗨️'; // Eye with lines (hidden state)
+                button.title = 'Hide password';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️'; // Regular eye
+                button.title = 'Show password';
             }
         }
 
