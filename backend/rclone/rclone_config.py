@@ -4,7 +4,7 @@ Rclone configuration file parsing and manipulation
 import os
 import re
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from configparser import ConfigParser, DEFAULTSECT
 
 
@@ -63,6 +63,179 @@ class RcloneConfig:
 
         return dict(self.parser.items(name))
 
+    def get_remote_raw(self, name: str) -> Optional[str]:
+        """
+        Get raw configuration text for a specific remote, including comments
+
+        Args:
+            name: Remote name
+
+        Returns:
+            Raw config text including comments and the [name] line, or None if not found
+        """
+        if not os.path.exists(self.config_file):
+            return None
+
+        with open(self.config_file, 'r') as f:
+            lines = f.readlines()
+
+        # Find the section
+        section_pattern = re.compile(r'^\[([^\]]+)\]')
+        in_section = False
+        section_start = -1
+        section_lines = []
+        comment_lines = []
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            # Check for section header
+            match = section_pattern.match(stripped)
+            if match:
+                if in_section:
+                    # End of our section
+                    break
+                elif match.group(1) == name:
+                    # Start of our section
+                    in_section = True
+                    section_start = i
+                    # Include preceding comment lines
+                    section_lines = comment_lines + [line]
+                    comment_lines = []
+                    continue
+                else:
+                    # Different section, reset comment buffer
+                    comment_lines = []
+                    continue
+
+            if in_section:
+                # We're in the target section
+                if stripped == '' or stripped.startswith('#'):
+                    # Empty line or comment within section
+                    section_lines.append(line)
+                elif '=' in line:
+                    # Config line
+                    section_lines.append(line)
+                else:
+                    # Probably end of section (or malformed line)
+                    break
+            elif stripped.startswith('#'):
+                # Comment before any section - might belong to next section
+                comment_lines.append(line)
+            else:
+                # Not in section and not a comment - reset comment buffer
+                if stripped != '':
+                    comment_lines = []
+
+        if not section_lines:
+            return None
+
+        # Join and remove trailing newline
+        return ''.join(section_lines).rstrip('\n')
+
+    def update_remote_raw(self, old_name: str, new_config_text: str) -> Tuple[bool, Optional[str]]:
+        """
+        Update a remote's configuration in-place, preserving position and structure
+
+        Args:
+            old_name: Current remote name
+            new_config_text: New configuration text (including [name] line and comments)
+
+        Returns:
+            Tuple of (success: bool, new_name: Optional[str])
+            new_name will be the new remote name if it was renamed, or None if there was an error
+        """
+        if not os.path.exists(self.config_file):
+            return False, None
+
+        # Parse the new config to extract the new name
+        new_name = None
+        section_pattern = re.compile(r'^\[([^\]]+)\]')
+        for line in new_config_text.split('\n'):
+            match = section_pattern.match(line.strip())
+            if match:
+                new_name = match.group(1)
+                break
+
+        if not new_name:
+            logging.error("Could not find [name] in new config text")
+            return False, None
+
+        # Read the entire file
+        with open(self.config_file, 'r') as f:
+            lines = f.readlines()
+
+        # Find and replace the section
+        in_section = False
+        section_start = -1
+        section_end = -1
+        comment_start = -1
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            # Check for section header
+            match = section_pattern.match(stripped)
+            if match:
+                if in_section:
+                    # End of our section (start of next section)
+                    section_end = i
+                    break
+                elif match.group(1) == old_name:
+                    # Start of our section
+                    in_section = True
+                    section_start = i
+                    # Check for preceding comments
+                    if comment_start == -1:
+                        comment_start = i
+                    continue
+
+            if in_section:
+                # We're in the target section, looking for the end
+                if stripped == '' or stripped.startswith('#') or '=' in line:
+                    # Still in section
+                    continue
+                else:
+                    # End of section
+                    section_end = i
+                    break
+            elif not in_section and section_start == -1 and stripped.startswith('#'):
+                # Potential comment before our section
+                if comment_start == -1:
+                    comment_start = i
+            elif not in_section and stripped != '' and not stripped.startswith('#'):
+                # Non-comment, non-empty line - reset comment tracking
+                comment_start = -1
+
+        if section_start == -1:
+            # Section not found
+            return False, None
+
+        # If section_end not set, it goes to end of file
+        if section_end == -1:
+            section_end = len(lines)
+
+        # Replace the section (from comment_start or section_start to section_end)
+        new_lines = new_config_text.split('\n')
+        # Ensure each line ends with \n
+        new_lines = [line + '\n' if not line.endswith('\n') else line for line in new_lines]
+        # Add blank line after section if there isn't one already
+        if new_lines and not new_lines[-1].strip() == '':
+            new_lines.append('\n')
+
+        # Reconstruct the file
+        result_lines = lines[:comment_start] + new_lines + lines[section_end:]
+
+        # Write back
+        with open(self.config_file, 'w') as f:
+            f.writelines(result_lines)
+
+        # Reload parser
+        self.reload()
+
+        logging.info(f"Updated remote {old_name} -> {new_name} in-place")
+        return True, new_name
+
     def add_remote(self, name: str, config: Dict[str, str]):
         """
         Add or update a remote configuration
@@ -105,6 +278,7 @@ class RcloneConfig:
         with open(self.config_file, 'w') as f:
             self.parser.write(f)
         logging.info(f"Saved rclone config to {self.config_file}")
+
 
 
 class RemoteTemplate:
