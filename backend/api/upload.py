@@ -96,7 +96,8 @@ def upload_files():
         # Direct upload to local filesystem (no cache)
         if direct_upload:
             uploaded_files = []
-            dest_path = Path(destination)
+            dest_path = Path(destination).expanduser()  # Expand ~ to home directory
+            logging.info(f"Direct upload destination: {destination} -> {dest_path}")
 
             # Ensure destination directory exists
             dest_path.mkdir(parents=True, exist_ok=True)
@@ -110,7 +111,7 @@ def upload_files():
                     # Save the file directly to destination
                     file.save(str(file_path))
                     uploaded_files.append(filename)
-                    logging.info(f"Uploaded file directly to local filesystem: {filename}")
+                    logging.info(f"Uploaded file directly to local filesystem: {file_path}")
 
             return jsonify({
                 'message': 'Files uploaded successfully',
