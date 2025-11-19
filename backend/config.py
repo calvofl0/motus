@@ -194,12 +194,18 @@ class Config:
         ).lower()
 
         # Remote templates file path
-        # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > default
+        # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > data_dir/remote_templates.conf (if exists) > None
         self.remote_templates_file = self._get_config(
             'remote_templates_file',
             env_var='MOTUS_REMOTE_TEMPLATES',
             default=None
         )
+
+        # If not specified, check for default file in data directory
+        if not self.remote_templates_file:
+            default_templates_path = os.path.join(self.data_dir, 'remote_templates.conf')
+            if os.path.exists(default_templates_path):
+                self.remote_templates_file = default_templates_path
 
         # Max idle time (in seconds) before auto-quit
         # 0 or None means disabled
