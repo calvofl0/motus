@@ -24,6 +24,7 @@ from .api.files import files_bp, init_rclone as init_files_rclone
 from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
 from .api.remotes import remotes_bp, init_remote_management
+from .api.upload import upload_bp, init_upload, cleanup_cache
 
 
 # Global variables for idle timer
@@ -298,6 +299,22 @@ def create_app(config: Config = None):
     # Cleanup orphaned log files from previous runs
     cleanup_orphaned_logs(logs_dir, db, rclone)
 
+    # Initialize API modules with dependencies
+    init_files_rclone(rclone)
+    init_jobs(rclone, db)
+    init_stream(rclone, db)
+    # Use rclone's discovered config file path (not the config's, which may be None)
+    init_remote_management(rclone.rclone_config_file, config.remote_templates_file)
+    init_upload(rclone, config.data_dir)
+
+    # Cleanup upload cache from previous runs (exclude active jobs)
+    running_job_ids = rclone.get_running_jobs()
+    interrupted_job_ids = [job['job_id'] for job in db.list_aborted_jobs()]
+    active_job_ids = running_job_ids + interrupted_job_ids
+    cleanup_cache(exclude_job_ids=active_job_ids)
+    if active_job_ids:
+        logging.info(f"Preserved upload cache for {len(active_job_ids)} active/interrupted jobs")
+
     # Auto-cleanup database if configured and no failed/interrupted jobs
     if config.auto_cleanup_db:
         failed_jobs = db.list_jobs(status='failed', limit=1)
@@ -314,18 +331,12 @@ def create_app(config: Config = None):
         else:
             logging.info("Auto-cleanup enabled but failed/interrupted jobs exist - skipping cleanup")
 
-    # Initialize API modules with dependencies
-    init_files_rclone(rclone)
-    init_jobs(rclone, db)
-    init_stream(rclone, db)
-    # Use rclone's discovered config file path (not the config's, which may be None)
-    init_remote_management(rclone.rclone_config_file, config.remote_templates_file)
-
     # Register blueprints
     app.register_blueprint(files_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(stream_bp)
     app.register_blueprint(remotes_bp)
+    app.register_blueprint(upload_bp)
 
     # Store instances in app context
     app.rclone = rclone

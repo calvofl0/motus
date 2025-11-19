@@ -2435,7 +2435,18 @@ type = s3
             event.preventDefault();
             document.getElementById(`${targetPane}-files`).classList.remove('drag-over');
 
-            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+            // Check if this is external file drop (from desktop)
+            const dragDataText = event.dataTransfer.getData('text/plain');
+            const externalFiles = event.dataTransfer.files;
+
+            if (externalFiles && externalFiles.length > 0 && !dragDataText) {
+                // External file drop from desktop
+                await handleExternalFileDrop(externalFiles, targetPane);
+                return;
+            }
+
+            // Internal drag-drop between panes
+            const data = JSON.parse(dragDataText);
             const sourcePane = data.pane;
 
             if (sourcePane === targetPane) {
@@ -2471,6 +2482,29 @@ type = s3
             showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
 
+        async function handleExternalFileDrop(files, targetPane) {
+            const targetState = targetPane === 'left' ? leftPaneState : rightPaneState;
+
+            // Build destination path
+            const destPath = targetState.remote ?
+                `${targetState.remote}:${targetState.path}` :
+                targetState.path;
+
+            // Get file names for confirmation
+            const fileNames = Array.from(files).map(f => f.name);
+
+            // Show confirmation modal
+            showDragDropConfirmModal(fileNames, 'Your Computer', destPath);
+
+            // Store external file drop info
+            pendingDragDrop = {
+                isExternal: true,
+                externalFiles: files,
+                targetPane,
+                targetState
+            };
+        }
+
         function showDragDropConfirmModal(fileNames, sourcePath, destPath) {
             // Populate file list
             const fileListHtml = fileNames.map(name => `• ${name}`).join('<br>');
@@ -2492,10 +2526,17 @@ type = s3
         async function confirmDragDrop() {
             if (!pendingDragDrop) return;
 
-            const { sourceState, targetState, targetPane, indexes } = pendingDragDrop;
-
             // Close modal
             closeDragDropConfirmModal();
+
+            // Handle external file drop
+            if (pendingDragDrop.isExternal) {
+                await handleExternalFileUploadAndCopy();
+                return;
+            }
+
+            // Handle internal drag-drop
+            const { sourceState, targetState, targetPane, indexes } = pendingDragDrop;
 
             // Start copy jobs for each selected file
             for (const index of indexes) {
@@ -2523,6 +2564,108 @@ type = s3
             // Refresh target pane and update jobs
             refreshPane(targetPane);
             updateJobs();
+        }
+
+        async function handleExternalFileUploadAndCopy() {
+            const { externalFiles, targetState, targetPane } = pendingDragDrop;
+
+            // Generate unique job ID
+            const jobId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+            try {
+                // Step 1: Upload files to cache
+                const formData = new FormData();
+                for (const file of externalFiles) {
+                    formData.append('files[]', file);
+                }
+                formData.append('job_id', jobId);
+
+                // Destination path
+                const destPath = targetState.remote ?
+                    `${targetState.remote}:${targetState.path}` :
+                    targetState.path;
+                formData.append('destination', destPath);
+
+                // Upload files
+                const uploadResult = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+
+                if (!uploadResult.ok) {
+                    throw new Error('Upload failed: ' + uploadResult.statusText);
+                }
+
+                const uploadData = await uploadResult.json();
+                console.log('Files uploaded to cache:', uploadData);
+
+                // Step 2: Copy from cache to destination
+                const cachePath = uploadData.cache_path;
+                const dstPath = targetState.remote ?
+                    `${targetState.remote}:${targetState.path}/` :
+                    `${targetState.path}/`;
+
+                const copyResult = await apiCall('/api/jobs/copy', 'POST', {
+                    src_path: cachePath + '/',  // Copy all files from cache directory
+                    dst_path: dstPath,
+                    copy_links: false
+                });
+
+                console.log('Copy job started:', copyResult);
+
+                // Step 3: Schedule cache cleanup after job completes
+                // This will be monitored by watching the job status
+                monitorUploadJobForCleanup(copyResult.job_id, jobId);
+
+                // Refresh target pane and update jobs
+                refreshPane(targetPane);
+                updateJobs();
+
+            } catch (error) {
+                console.error('External file upload/copy failed:', error);
+                alert(`Failed to upload files: ${error.message}`);
+
+                // Clean up cache on error
+                try {
+                    await fetch(`/api/upload/cleanup/${jobId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                } catch (cleanupError) {
+                    console.error('Cache cleanup failed:', cleanupError);
+                }
+            }
+        }
+
+        async function monitorUploadJobForCleanup(copyJobId, uploadJobId) {
+            // Poll job status until completion
+            const checkInterval = setInterval(async () => {
+                try {
+                    const job = await apiCall(`/api/jobs/${copyJobId}`);
+
+                    if (job.status === 'completed' || job.status === 'failed') {
+                        clearInterval(checkInterval);
+
+                        // Clean up cache
+                        await fetch(`/api/upload/cleanup/${uploadJobId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            }
+                        });
+
+                        console.log(`Cleaned up cache for upload job ${uploadJobId}`);
+                    }
+                } catch (error) {
+                    console.error('Error monitoring upload job:', error);
+                    clearInterval(checkInterval);
+                }
+            }, 5000);  // Check every 5 seconds
         }
 
         // Context menu
