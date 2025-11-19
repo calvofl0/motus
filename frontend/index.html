@@ -922,7 +922,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="left-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'left')" />
-                        <button onclick="refreshPane('left', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">🔄</button>
+                        <button onclick="refreshPane('left', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #28a745; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">⟳</button>
                     </div>
                 </div>
                 <div class="file-grid" id="left-files"
@@ -984,7 +984,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="right-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'right')" />
-                        <button onclick="refreshPane('right', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">🔄</button>
+                        <button onclick="refreshPane('right', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #28a745; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">⟳</button>
                     </div>
                 </div>
                 <div class="file-grid" id="right-files"
@@ -2813,21 +2813,36 @@ type = s3
         }
 
         function showRemotesList() {
+            // Clear wizard state when returning to remotes list
+            manageRemotesState.selectedTemplate = null;
+            manageRemotesState.formValues = {};
+
             document.getElementById('manage-remotes-step1').style.display = 'flex';
             document.getElementById('manage-remotes-step2').style.display = 'none';
             document.getElementById('manage-remotes-step3').style.display = 'none';
         }
 
         function showTemplateSelection() {
-            // Clear previous selection when opening template selection
-            manageRemotesState.selectedTemplate = null;
-            manageRemotesState.formValues = {};
+            // Only clear if coming from step 1 (Add Remote button)
+            // Don't clear if coming from step 3 (Back button)
+            const step3 = document.getElementById('manage-remotes-step3');
+            const isComingFromStep3 = step3.style.display !== 'none';
+
+            if (!isComingFromStep3) {
+                // Fresh start from "Add Remote" - clear everything
+                manageRemotesState.selectedTemplate = null;
+                manageRemotesState.formValues = {};
+            } else {
+                // Coming from step 3 via Back button - save form values before going back
+                saveCurrentFormValues();
+            }
 
             document.getElementById('manage-remotes-step1').style.display = 'none';
             document.getElementById('manage-remotes-step2').style.display = 'flex';
             document.getElementById('manage-remotes-step3').style.display = 'none';
-            renderTemplatesList(); // Re-render to show no selection
-            document.getElementById('template-next-btn').disabled = true; // Disable until selection made
+            renderTemplatesList(); // Re-render with current selection
+            // Enable Next button if there's a selection
+            document.getElementById('template-next-btn').disabled = !manageRemotesState.selectedTemplate;
         }
 
         function showRemoteForm() {
@@ -2901,7 +2916,7 @@ type = s3
                     html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
                 }
                 // Delete icon (red X)
-                html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
+                html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
                 html += '</td></tr>';
             });
 
@@ -3091,6 +3106,10 @@ type = s3
         }
 
         function selectTemplate(templateName) {
+            // Check if we're changing templates
+            const previousTemplate = manageRemotesState.selectedTemplate?.name;
+            const isChangingTemplate = previousTemplate && previousTemplate !== templateName;
+
             if (templateName === '__custom__') {
                 // Special handling for custom remote
                 manageRemotesState.selectedTemplate = {
@@ -3101,6 +3120,12 @@ type = s3
                 const template = manageRemotesState.templates.find(t => t.name === templateName);
                 manageRemotesState.selectedTemplate = template;
             }
+
+            // Clear form values when changing templates
+            if (isChangingTemplate) {
+                manageRemotesState.formValues = {};
+            }
+
             renderTemplatesList();
             document.getElementById('template-next-btn').disabled = false;
         }
@@ -3123,10 +3148,14 @@ type = s3
                 html += '</div>';
                 container.innerHTML = html;
 
-                // Add event listener for validation
+                // Restore saved custom config value
                 setTimeout(() => {
+                    const textarea = document.getElementById('custom-remote-config');
+                    if (manageRemotesState.formValues['custom-config']) {
+                        textarea.value = manageRemotesState.formValues['custom-config'];
+                    }
                     validateRemoteForm(); // Initial validation
-                    document.getElementById('custom-remote-config').addEventListener('input', validateRemoteForm);
+                    textarea.addEventListener('input', validateRemoteForm);
                 }, 0);
                 return;
             }
@@ -3175,16 +3204,62 @@ type = s3
             html += '</div>';
             container.innerHTML = html;
 
-            // Add event listeners for validation
+            // Restore saved form values and add event listeners
             setTimeout(() => {
-                validateRemoteForm(); // Initial validation - button should be disabled
+                // Restore remote name
+                const nameInput = document.getElementById('remote-name-input');
+                if (manageRemotesState.formValues['remote-name']) {
+                    nameInput.value = manageRemotesState.formValues['remote-name'];
+                }
+
+                // Restore field values
+                template.fields.forEach(field => {
+                    const input = document.getElementById(`field-${field.key}`);
+                    if (manageRemotesState.formValues[field.key]) {
+                        input.value = manageRemotesState.formValues[field.key];
+                    }
+                });
+
+                validateRemoteForm(); // Initial validation
 
                 // Add input listeners to all fields
-                document.getElementById('remote-name-input').addEventListener('input', validateRemoteForm);
+                nameInput.addEventListener('input', validateRemoteForm);
                 template.fields.forEach(field => {
                     document.getElementById(`field-${field.key}`).addEventListener('input', validateRemoteForm);
                 });
             }, 0);
+        }
+
+        function saveCurrentFormValues() {
+            // Save form values for the current template
+            const template = manageRemotesState.selectedTemplate;
+            if (!template) return;
+
+            if (template.name === '__custom__') {
+                // Save custom config textarea
+                const textarea = document.getElementById('custom-remote-config');
+                if (textarea) {
+                    manageRemotesState.formValues = {
+                        'custom-config': textarea.value
+                    };
+                }
+            } else {
+                // Save regular form fields
+                const values = {};
+                const nameInput = document.getElementById('remote-name-input');
+                if (nameInput) {
+                    values['remote-name'] = nameInput.value;
+                }
+
+                template.fields.forEach(field => {
+                    const input = document.getElementById(`field-${field.key}`);
+                    if (input) {
+                        values[field.key] = input.value;
+                    }
+                });
+
+                manageRemotesState.formValues = values;
+            }
         }
 
         function validateRemoteForm() {
@@ -3273,8 +3348,6 @@ type = s3
                     showRemotesList();
                     manageRemotesState.selectedTemplate = null;
                     manageRemotesState.formValues = {};
-
-                    alert(`Remote "${remoteName}" created successfully`);
                 } catch (error) {
                     alert(`Failed to create remote: ${error.message}`);
                     const createBtn = document.getElementById('create-remote-btn');
