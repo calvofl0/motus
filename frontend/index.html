@@ -1398,6 +1398,7 @@ type = s3
         let pendingDragDrop = null;  // Store pending drag-drop operation for confirmation
         let uploadAbortController = null;  // AbortController for canceling uploads
         let uploadStartTime = null;  // Track upload start time for speed calculation
+        let maxUploadSize = 0;  // Maximum upload size in bytes (0 = unlimited)
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1422,10 +1423,12 @@ type = s3
                 }
             }
 
-            // Load config to get default mode
+            // Load config to get default mode and upload size limit
             try {
                 const config = await apiCall('/api/config');
                 currentMode = config.default_mode || 'easy';
+                maxUploadSize = config.max_upload_size || 0;
+                console.log('Max upload size:', maxUploadSize === 0 ? 'unlimited' : config.max_upload_size_formatted);
                 setMode(currentMode);
             } catch (e) {
                 console.error('Failed to load config:', e);
@@ -2546,6 +2549,13 @@ type = s3
 
                 console.log(`Found ${filesWithPaths.length} files (including in folders)`);
 
+                // Check size limit
+                const sizeCheck = checkUploadSizeLimit(filesWithPaths);
+                if (!sizeCheck.valid) {
+                    alert(sizeCheck.error);
+                    return;
+                }
+
                 // Build destination path
                 const destPath = targetState.remote ?
                     `${targetState.remote}:${targetState.path}` :
@@ -2622,6 +2632,13 @@ type = s3
 
             // Convert FileList to Array immediately (FileList becomes invalid after event)
             const filesArray = Array.from(files);
+
+            // Check size limit
+            const sizeCheck = checkUploadSizeLimit(filesArray);
+            if (!sizeCheck.valid) {
+                alert(sizeCheck.error);
+                return;
+            }
 
             // Build destination path
             const destPath = targetState.remote ?
@@ -2702,6 +2719,44 @@ type = s3
                 document.getElementById('upload-cancel-btn').disabled = true;
                 document.getElementById('upload-progress-message').textContent = 'Canceling upload...';
             }
+        }
+
+        function formatSize(bytes) {
+            if (bytes === 0) return 'unlimited';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let size = bytes;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+            return `${size.toFixed(1)} ${units[unitIndex]}`;
+        }
+
+        function checkUploadSizeLimit(files) {
+            // Skip check if no limit configured (0 = unlimited)
+            if (maxUploadSize === 0) {
+                return { valid: true, totalSize: 0 };
+            }
+
+            // Calculate total size
+            let totalSize = 0;
+            for (const item of files) {
+                // Handle both File objects and {file, path} objects
+                const file = item.file || item;
+                totalSize += file.size;
+            }
+
+            // Check if exceeds limit
+            if (totalSize > maxUploadSize) {
+                return {
+                    valid: false,
+                    totalSize,
+                    error: `Total upload size (${formatSize(totalSize)}) exceeds maximum allowed (${formatSize(maxUploadSize)})`
+                };
+            }
+
+            return { valid: true, totalSize };
         }
 
         async function confirmDragDrop() {

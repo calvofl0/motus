@@ -305,7 +305,7 @@ def create_app(config: Config = None):
     init_stream(rclone, db)
     # Use rclone's discovered config file path (not the config's, which may be None)
     init_remote_management(rclone.rclone_config_file, config.remote_templates_file)
-    init_upload(rclone, config.data_dir)
+    init_upload(rclone, config.data_dir, config.max_upload_size)
 
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()
@@ -394,10 +394,13 @@ def register_routes(app: Flask, config: Config):
     @app.route('/api/config')
     def get_config():
         """Get public configuration"""
+        from .config import format_size
         return jsonify({
             'base_url': config.base_url,
             'version': '1.0.0',
             'default_mode': config.default_mode,
+            'max_upload_size': config.max_upload_size,
+            'max_upload_size_formatted': format_size(config.max_upload_size),
         })
 
     @app.route('/api/preferences', methods=['GET'])

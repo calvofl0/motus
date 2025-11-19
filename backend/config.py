@@ -3,10 +3,78 @@ Configuration management for Motus
 Handles environment variables, config files, and defaults
 """
 import os
+import re
 import secrets
 import yaml
 from pathlib import Path
 from typing import Optional
+
+
+def parse_size(size_str: str) -> int:
+    """
+    Parse size string to bytes
+
+    Supports formats:
+    - Plain number: "1024" = 1024 bytes
+    - With unit: "50M", "50MB", "1G", "1GB", "100K", "100KB"
+    - Zero/unlimited: "0", "unlimited" = 0 (no limit)
+
+    Returns:
+        int: Size in bytes, or 0 for unlimited
+    """
+    if not size_str:
+        return 0
+
+    size_str = str(size_str).strip().upper()
+
+    # Check for unlimited
+    if size_str in ('0', 'UNLIMITED', 'NONE', ''):
+        return 0
+
+    # Parse size with unit
+    match = re.match(r'^(\d+(?:\.\d+)?)\s*([KMGT]?B?)$', size_str)
+    if not match:
+        raise ValueError(f"Invalid size format: {size_str}. Use formats like: 50M, 1G, 1024")
+
+    value = float(match.group(1))
+    unit = match.group(2)
+
+    # Convert to bytes
+    multipliers = {
+        '': 1,
+        'B': 1,
+        'K': 1024,
+        'KB': 1024,
+        'M': 1024 ** 2,
+        'MB': 1024 ** 2,
+        'G': 1024 ** 3,
+        'GB': 1024 ** 3,
+        'T': 1024 ** 4,
+        'TB': 1024 ** 4,
+    }
+
+    return int(value * multipliers.get(unit, 1))
+
+
+def format_size(size_bytes: int) -> str:
+    """
+    Format bytes to human-readable size
+
+    Args:
+        size_bytes: Size in bytes
+
+    Returns:
+        str: Human-readable size (e.g., "50 MB", "1.5 GB")
+    """
+    if size_bytes == 0:
+        return "unlimited"
+
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}" if size_bytes % 1 else f"{int(size_bytes)} {unit}"
+        size_bytes /= 1024.0
+
+    return f"{size_bytes:.1f} PB"
 
 
 class Config:
@@ -147,6 +215,19 @@ class Config:
             env_var='MOTUS_AUTO_CLEANUP_DB',
             default='false'
         ).lower() == 'true'
+
+        # Max upload size (total size of all files in one upload)
+        # Supports formats: 50M, 1G, 1024 (bytes), 0 or "unlimited" = no limit
+        # Default: 0 (unlimited)
+        max_upload_size_str = self._get_config(
+            'max_upload_size',
+            env_var='MOTUS_MAX_UPLOAD_SIZE',
+            default='0'
+        )
+        try:
+            self.max_upload_size = parse_size(max_upload_size_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid max_upload_size: {e}")
 
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""

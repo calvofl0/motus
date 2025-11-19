@@ -24,7 +24,7 @@ except ImportError:
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from backend.config import Config
+from backend.config import Config, parse_size
 from backend.app import create_app
 
 
@@ -258,6 +258,11 @@ def main():
         action='store_true',
         help='Auto-cleanup database at startup if no failed/interrupted jobs (default: false, or MOTUS_AUTO_CLEANUP_DB env var)'
     )
+    parser.add_argument(
+        '--max-upload-size',
+        type=str,
+        help='Maximum total upload size per operation (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_UPLOAD_SIZE env var)'
+    )
 
     args = parser.parse_args()
 
@@ -286,6 +291,12 @@ def main():
         config.max_idle_time = args.max_idle_time
     if args.auto_cleanup_db:
         config.auto_cleanup_db = True
+    if args.max_upload_size:
+        try:
+            config.max_upload_size = parse_size(args.max_upload_size)
+        except ValueError as e:
+            print(f"Error: Invalid --max-upload-size: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)

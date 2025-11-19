@@ -10,30 +10,38 @@ from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 
 from ..auth import token_required
+from ..config import format_size
 
 upload_bp = Blueprint('upload', __name__)
 
 # Global instances (initialized by app)
 rclone_wrapper = None
 cache_dir = None
+max_upload_size = 0  # 0 = unlimited
 
 
-def init_upload(rclone, data_dir: str):
+def init_upload(rclone, data_dir: str, max_size: int = 0):
     """
     Initialize upload management
 
     Args:
         rclone: RcloneWrapper instance
         data_dir: Path to data directory
+        max_size: Maximum upload size in bytes (0 = unlimited)
     """
-    global rclone_wrapper, cache_dir
+    global rclone_wrapper, cache_dir, max_upload_size
 
     rclone_wrapper = rclone
     cache_dir = Path(data_dir) / '.upload-cache'
+    max_upload_size = max_size
 
     # Create cache directory if it doesn't exist
     cache_dir.mkdir(parents=True, exist_ok=True)
     logging.info(f"Upload cache directory: {cache_dir}")
+    if max_upload_size > 0:
+        logging.info(f"Maximum upload size: {format_size(max_upload_size)}")
+    else:
+        logging.info("Maximum upload size: unlimited")
 
 
 def cleanup_cache(exclude_job_ids=None):
@@ -97,6 +105,14 @@ def upload_files():
 
         if not files:
             return jsonify({'error': 'No files provided'}), 400
+
+        # Validate total upload size if limit is configured
+        if max_upload_size > 0:
+            total_size = sum(file.content_length or 0 for file in files)
+            if total_size > max_upload_size:
+                return jsonify({
+                    'error': f'Total upload size ({format_size(total_size)}) exceeds maximum allowed ({format_size(max_upload_size)})'
+                }), 413  # 413 Payload Too Large
 
         # Direct upload to local filesystem (no cache)
         if direct_upload:
