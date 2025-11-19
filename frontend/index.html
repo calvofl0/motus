@@ -2807,7 +2807,10 @@ type = s3
             html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">';
             html += '<table style="width: 100%; border-collapse: collapse;">';
 
-            for (const [key, value] of Object.entries(remote.config)) {
+            const configEntries = Object.entries(remote.config);
+            const lastIndex = configEntries.length - 1;
+
+            configEntries.forEach(([key, value], index) => {
                 // Mask sensitive values
                 const isSensitive = key.toLowerCase().includes('password') ||
                                    key.toLowerCase().includes('secret') ||
@@ -2815,11 +2818,13 @@ type = s3
                                    key.toLowerCase().includes('token');
                 const displayValue = isSensitive ? '••••••••' : value;
 
-                html += '<tr style="border-bottom: 1px solid #e0e0e0;">';
+                // Only add border-bottom if not the last item
+                const borderStyle = index !== lastIndex ? 'border-bottom: 1px solid #e0e0e0;' : '';
+                html += `<tr style="${borderStyle}">`;
                 html += `<td style="padding: 8px; font-weight: 500; color: #495057; width: 40%;">${key}</td>`;
                 html += `<td style="padding: 8px; color: #212529; font-family: monospace; word-break: break-all;">${displayValue}</td>`;
                 html += '</tr>';
-            }
+            });
 
             html += '</table></div>';
             container.innerHTML = html;
