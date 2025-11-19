@@ -922,7 +922,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="left-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'left')" />
-                        <button class="toolbar-button secondary" onclick="refreshPane('left', true)" title="Refresh">🔄</button>
+                        <button onclick="refreshPane('left', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="left-files"
@@ -984,7 +984,7 @@
                     <div class="toolbar-row">
                         <input type="text" id="right-path" value="/" placeholder="Path..."
                                onkeypress="handlePathKeypress(event, 'right')" />
-                        <button class="toolbar-button secondary" onclick="refreshPane('right', true)" title="Refresh">🔄</button>
+                        <button onclick="refreshPane('right', true)" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #333; padding: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Refresh">🔄</button>
                     </div>
                 </div>
                 <div class="file-grid" id="right-files"
