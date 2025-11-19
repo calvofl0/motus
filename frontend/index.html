@@ -3471,8 +3471,12 @@ type = s3
                 } else {
                     html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
                 }
-                // Delete icon (red X)
-                html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
+                // Delete icon (red X) - disabled if remote is active
+                if (isActive) {
+                    html += `<button disabled style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: not-allowed; color: #ccc; padding: 4px 8px;" title="Cannot delete remote while in use">×</button>`;
+                } else {
+                    html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
+                }
                 html += '</td></tr>';
             });
 
@@ -3856,6 +3860,16 @@ type = s3
         }
 
         async function deleteRemote(remoteName) {
+            // Check if remote is currently in use
+            const activeRemotes = new Set();
+            if (leftPaneState.remote) activeRemotes.add(leftPaneState.remote);
+            if (rightPaneState.remote) activeRemotes.add(rightPaneState.remote);
+
+            if (activeRemotes.has(remoteName)) {
+                alert(`Cannot delete remote "${remoteName}" while it is in use. Please select a different remote first.`);
+                return;
+            }
+
             if (!confirm(`Are you sure you want to delete the remote "${remoteName}"?`)) {
                 return;
             }
