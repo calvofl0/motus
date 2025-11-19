@@ -867,6 +867,12 @@
         .hidden {
             display: none !important;
         }
+
+        /* Arrow buttons - hover effect only when enabled */
+        #copy-right-btn:not([style*="cursor: not-allowed"]):hover,
+        #copy-left-btn:not([style*="cursor: not-allowed"]):hover {
+            filter: brightness(1.2);
+        }
     </style>
 </head>
 <body>
@@ -926,10 +932,38 @@
                 </div>
             </div>
 
-            <!-- Arrow Buttons -->
-            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; padding: 0 10px;">
-                <button id="copy-right-btn" onclick="copySelectedToRight()" style="background: #007bff; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; transition: opacity 0.3s;" title="Copy selected files to right pane" disabled>→</button>
-                <button id="copy-left-btn" onclick="copySelectedToLeft()" style="background: #007bff; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; transition: opacity 0.3s;" title="Copy selected files to left pane" disabled>←</button>
+            <!-- Arrow Buttons - Multiple style options (uncomment your favorite) -->
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 0 15px;">
+
+                <!-- OPTION 1: Blue arrows (default) -->
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #007bff; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">➜</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #007bff; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none; transform: rotate(180deg);" title="Copy selected files to left pane">➜</div>
+
+                <!-- OPTION 2: Green arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⟹</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #28a745; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⟸</div>
+                -->
+
+                <!-- OPTION 3: Orange arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #fd7e14; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⇨</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #fd7e14; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⇦</div>
+                -->
+
+                <!-- OPTION 4: Purple arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #6f42c1; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⇒</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #6f42c1; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⇐</div>
+                -->
+
+                <!-- OPTION 5: Teal arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #17a2b8; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">⮕</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #17a2b8; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">⬅</div>
+                -->
+
+                <!-- OPTION 6: Red/pink arrows
+                <div id="copy-right-btn" onclick="copySelectedToRight()" style="color: #dc3545; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to right pane">▶</div>
+                <div id="copy-left-btn" onclick="copySelectedToLeft()" style="color: #dc3545; font-size: 36px; cursor: not-allowed; transition: all 0.3s; opacity: 0.3; user-select: none;" title="Copy selected files to left pane">◀</div>
+                -->
+
             </div>
 
             <!-- Right Pane -->
@@ -3980,24 +4014,28 @@ ${data.text || '(no output yet)'}
 
             // Enable right arrow if left pane has selections
             if (leftPaneState.selectedIndexes.length > 0) {
-                rightBtn.disabled = false;
                 rightBtn.style.opacity = '1';
                 rightBtn.style.cursor = 'pointer';
+                rightBtn.style.transform = rightBtn.style.transform ? rightBtn.style.transform.replace('scale(1)', 'scale(1.1)') : 'scale(1.1)';
             } else {
-                rightBtn.disabled = true;
                 rightBtn.style.opacity = '0.3';
                 rightBtn.style.cursor = 'not-allowed';
+                rightBtn.style.transform = rightBtn.style.transform ? rightBtn.style.transform.replace('scale(1.1)', 'scale(1)') : 'scale(1)';
             }
 
             // Enable left arrow if right pane has selections
             if (rightPaneState.selectedIndexes.length > 0) {
-                leftBtn.disabled = false;
                 leftBtn.style.opacity = '1';
                 leftBtn.style.cursor = 'pointer';
+                // Keep rotation but add scale
+                const rotation = leftBtn.style.transform.includes('rotate') ? 'rotate(180deg) ' : '';
+                leftBtn.style.transform = rotation + 'scale(1.1)';
             } else {
-                leftBtn.disabled = true;
                 leftBtn.style.opacity = '0.3';
                 leftBtn.style.cursor = 'not-allowed';
+                // Keep rotation but reset scale
+                const rotation = leftBtn.style.transform.includes('rotate') ? 'rotate(180deg) ' : '';
+                leftBtn.style.transform = rotation + 'scale(1)';
             }
         }
 
