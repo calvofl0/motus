@@ -73,6 +73,7 @@ class OAuthRefreshManager:
             remote_name,
             'config_refresh_token',
             'true',
+            '--config-auto-confirm',  # Auto-confirm to avoid interactive prompts
         ]
 
         if self.rclone_config_file:
@@ -82,6 +83,13 @@ class OAuthRefreshManager:
         logging.debug(f"Command: {' '.join(command)}")
 
         try:
+            # Prepare environment to prevent rclone from auto-opening browser
+            import os
+            env = os.environ.copy()
+            env['RCLONE_CONFIG_AUTO_CONFIRM'] = 'true'
+            # Tell rclone not to auto-open browser (it should just print the URL)
+            env['BROWSER'] = '/bin/false'  # Set browser to a no-op command
+
             # Start the process
             process = subprocess.Popen(
                 command,
@@ -89,6 +97,7 @@ class OAuthRefreshManager:
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
+                env=env,
             )
 
             # Wait and read output to get the OAuth URL
@@ -241,8 +250,9 @@ class OAuthRefreshManager:
             logging.info(f"Proxying OAuth callback to: {local_url}")
 
             # Retry with exponential backoff if rclone server isn't ready yet
-            max_retries = 5
-            retry_delays = [0.5, 1.0, 2.0, 3.0, 5.0]  # Total: 11.5 seconds max
+            # For the initial request, rclone needs time to start the HTTP server
+            max_retries = 10
+            retry_delays = [0.5, 0.5, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 5.0]  # Total: ~22 seconds max
 
             response = None
             last_error = None
@@ -285,6 +295,13 @@ class OAuthRefreshManager:
                     # e.g., http://127.0.0.1:53682/auth -> /auth
                     original_parsed = urlparse(original_redirect)
                     callback_endpoint_path = original_parsed.path
+
+                    # Ensure we have a path - fallback to /auth if empty
+                    if not callback_endpoint_path or callback_endpoint_path == '/':
+                        callback_endpoint_path = '/auth'
+                        logging.warning(f"Original redirect_uri had no path, using /auth")
+
+                    logging.debug(f"Extracted callback path: {callback_endpoint_path}")
 
                     # Construct new redirect_uri pointing to our Motus callback endpoint
                     # e.g., http://motus:8889/api/oauth/callback/onedrive/auth
