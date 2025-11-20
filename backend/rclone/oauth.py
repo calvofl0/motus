@@ -197,44 +197,11 @@ class OAuthRefreshManager:
                 process.wait(timeout=5)
                 return False, "Failed to extract OAuth URL from rclone output", None
 
-            # Wait for rclone's HTTP server to be ready before returning the URL
-            # This prevents "Connection refused" errors when user immediately clicks the URL
-            logging.info(f"Waiting for rclone HTTP server on port {local_port} to be ready...")
-            server_ready = False
-            max_wait_attempts = 15
-            wait_delay = 1.0  # 1 second between attempts
-
-            import requests
-            from requests.exceptions import ConnectionError, Timeout
-
-            for attempt in range(max_wait_attempts):
-                try:
-                    # Try to connect to rclone's server
-                    test_url = f"http://127.0.0.1:{local_port}/"
-                    response = requests.get(test_url, timeout=2, allow_redirects=False)
-                    # If we get ANY response (even 404), the server is ready
-                    logging.info(f"rclone server is ready (attempt {attempt+1}/{max_wait_attempts})")
-                    server_ready = True
-                    break
-                except (ConnectionError, Timeout):
-                    if attempt < max_wait_attempts - 1:
-                        logging.debug(f"Waiting for rclone server (attempt {attempt+1}/{max_wait_attempts})...")
-                        time.sleep(wait_delay)
-                    else:
-                        logging.warning(f"rclone server not responding after {max_wait_attempts} attempts, proceeding anyway")
-                except Exception as e:
-                    # Any other error (like redirect) means server is up
-                    logging.info(f"rclone server responded (attempt {attempt+1}): {e}")
-                    server_ready = True
-                    break
-
-            if not server_ready:
-                logging.warning("rclone server readiness check timed out, but continuing anyway")
-
-            # Give rclone a bit more time to fully initialize all endpoints
-            # The server might respond to / but /auth endpoint needs a moment
-            logging.info("Server is ready, waiting 2 more seconds for full initialization...")
-            time.sleep(2.0)
+            # Give rclone time to fully start its HTTP server
+            # Don't test the server (might interfere with OAuth state)
+            # Just wait and let the retry logic in proxy_callback handle any delays
+            logging.info(f"Waiting 3 seconds for rclone HTTP server to fully initialize on port {local_port}...")
+            time.sleep(3.0)
 
             # Store session info
             with self._lock:
