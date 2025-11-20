@@ -318,24 +318,30 @@ class OAuthRefreshManager:
                     logging.info(f"Original redirect_uri: {original_redirect}")
 
                     # Extract components from the original redirect_uri
-                    # e.g., http://localhost:53682/ -> we want to keep 'localhost'
+                    # e.g., http://localhost:53682/ -> we want to keep 'localhost' and '/'
                     original_parsed = urlparse(original_redirect)
                     original_hostname = original_parsed.hostname  # 'localhost' or '127.0.0.1'
-                    callback_endpoint_path = original_parsed.path or '/'
+                    original_path = original_parsed.path or '/'  # Usually just '/'
 
-                    logging.debug(f"Original hostname: {original_hostname}, path: {callback_endpoint_path}")
+                    logging.debug(f"Original hostname: {original_hostname}, path: {original_path}")
 
                     # Parse our callback_base_url to get the port
                     # e.g., http://127.0.0.1:8889/api/oauth/callback
                     callback_parsed = urlparse(callback_base_url)
                     callback_port = callback_parsed.port
 
-                    # Construct new redirect_uri using:
-                    # - scheme from callback_base_url (http/https)
-                    # - hostname from ORIGINAL rclone redirect (localhost not 127.0.0.1!)
-                    # - port from callback_base_url (8889)
-                    # - path: /api/oauth/callback/{remote_name}{original_path}
-                    new_redirect_uri = f"{callback_parsed.scheme}://{original_hostname}:{callback_port}/api/oauth/callback/{remote_name}{callback_endpoint_path}"
+                    # Construct new redirect_uri preserving ONLY hostname and path from original
+                    # Change ONLY the port to Motus port
+                    # This keeps Azure happy (it expects http://localhost:*/)
+                    new_redirect_uri = f"{callback_parsed.scheme}://{original_hostname}:{callback_port}{original_path}"
+
+                    # Add the remote name as a query parameter so we can route it correctly
+                    # e.g., http://localhost:8889/?remote=onedrive&state=xxx
+                    if '?' in new_redirect_uri:
+                        new_redirect_uri += f"&_motus_remote={remote_name}"
+                    else:
+                        new_redirect_uri += f"?_motus_remote={remote_name}"
+
                     query_params['redirect_uri'] = [new_redirect_uri]
 
                     logging.info(f"Rewritten redirect_uri: {new_redirect_uri}")

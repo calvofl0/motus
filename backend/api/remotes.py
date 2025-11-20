@@ -416,8 +416,46 @@ def refresh_oauth_token(remote_name):
         return jsonify({'error': str(e)}), 500
 
 
+@remotes_bp.route('/', methods=['GET'])
+def oauth_root_callback():
+    """
+    Handle OAuth callback at root path (/) with remote name in query parameter
+
+    This is used when Azure requires redirect_uri to be http://localhost:PORT/
+    without any path component. The remote name is passed as _motus_remote parameter.
+    """
+    remote_name = request.args.get('_motus_remote')
+    if not remote_name:
+        return "Missing remote parameter", 400
+
+    # Remove _motus_remote from query string and pass to regular callback handler
+    args_dict = request.args.to_dict()
+    args_dict.pop('_motus_remote', None)
+
+    # Reconstruct query string without _motus_remote
+    from urllib.parse import urlencode
+    query_string = urlencode(args_dict)
+
+    callback_path = '/'
+    if query_string:
+        callback_path += f"?{query_string}"
+
+    return oauth_callback_handler(remote_name, callback_path)
+
+
 @remotes_bp.route('/api/oauth/callback/<remote_name>/<path:callback_path>', methods=['GET'])
 def oauth_callback(remote_name, callback_path):
+    """Handle OAuth callback with remote name in path"""
+    # Get query parameters
+    query_string = request.query_string.decode('utf-8')
+    full_callback_path = f"/{callback_path}"
+    if query_string:
+        full_callback_path += f"?{query_string}"
+
+    return oauth_callback_handler(remote_name, full_callback_path)
+
+
+def oauth_callback_handler(remote_name, callback_path):
     """
     Handle OAuth callback from provider (proxied to local rclone server)
 
