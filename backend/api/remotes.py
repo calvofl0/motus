@@ -4,7 +4,7 @@ Handles listing, adding, and deleting rclone remotes
 """
 import logging
 import os
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify
 
 from ..auth import token_required
 from ..rclone.rclone_config import RcloneConfig, RemoteTemplate
@@ -448,10 +448,48 @@ def oauth_callback(remote_name, callback_path):
 
         # Check if this is a redirect or a direct response
         if result.get('type') == 'redirect':
-            # Return a redirect to the OAuth provider (with rewritten redirect_uri)
+            # Return an HTML page with JavaScript redirect instead of server-side redirect
+            # This ensures the redirect happens in the tab we opened with window.open()
+            # keeping everything in the same browser
             redirect_url = result.get('url')
             logging.info(f"Redirecting browser to OAuth provider: {redirect_url}")
-            return redirect(redirect_url)
+
+            # Escape the URL for safe inclusion in JavaScript
+            import json
+            safe_redirect_url = json.dumps(redirect_url)
+
+            return f"""
+            <html>
+            <head>
+                <title>Redirecting to OAuth Provider</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .message {{ color: #666; font-size: 18px; margin: 20px; }}
+                    .spinner {{
+                        font-size: 48px;
+                        color: #28a745;
+                        margin: 20px;
+                        display: inline-block;
+                        animation: spin 2s linear infinite;
+                    }}
+                    @keyframes spin {{
+                        0% {{ transform: rotate(0deg); }}
+                        100% {{ transform: rotate(360deg); }}
+                    }}
+                </style>
+                <script>
+                    // Redirect to OAuth provider in the same tab/browser
+                    window.location.href = {safe_redirect_url};
+                </script>
+            </head>
+            <body>
+                <div class="spinner">↻</div>
+                <div class="message">Redirecting to authentication provider...</div>
+                <div class="message" style="font-size: 14px;">If you are not redirected automatically,
+                    <a href="{redirect_url}">click here</a>.</div>
+            </body>
+            </html>
+            """, 200
 
         # Otherwise it's a direct response
         status_code = result.get('status', 500)
