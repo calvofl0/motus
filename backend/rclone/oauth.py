@@ -222,13 +222,41 @@ class OAuthRefreshManager:
             if not local_port:
                 return 500, "OAuth session missing port information"
 
-        # Make request to local rclone server
+        # Make request to local rclone server with retries
+        # rclone may take a moment to start its HTTP server even after outputting the URL
         try:
             import requests
+            from requests.exceptions import ConnectionError, Timeout
+
             local_url = f"http://127.0.0.1:{local_port}{callback_path}"
             logging.info(f"Proxying OAuth callback to: {local_url}")
 
-            response = requests.get(local_url, timeout=10, allow_redirects=False)
+            # Retry with exponential backoff if rclone server isn't ready yet
+            max_retries = 5
+            retry_delays = [0.5, 1.0, 2.0, 3.0, 5.0]  # Total: 11.5 seconds max
+
+            response = None
+            last_error = None
+
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(local_url, timeout=10, allow_redirects=False)
+                    # Success! Break out of retry loop
+                    break
+                except (ConnectionError, Timeout) as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        delay = retry_delays[attempt]
+                        logging.debug(f"rclone server not ready yet (attempt {attempt+1}/{max_retries}), retrying in {delay}s...")
+                        time.sleep(delay)
+                    else:
+                        # Last attempt failed
+                        logging.error(f"Failed to connect to rclone server after {max_retries} attempts: {e}")
+                        raise
+
+            if response is None:
+                # Should not happen, but just in case
+                raise last_error or Exception("Failed to get response from rclone server")
 
             # Wait a bit for rclone to finish processing
             time.sleep(1.0)

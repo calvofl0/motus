@@ -1,17 +1,12 @@
-# Core web framework
+# Install from pyproject.toml
+# For runtime dependencies:
+#   pip install .
+# For development dependencies:
+#   pip install .[dev]
+
+# Direct dependencies (kept in sync with pyproject.toml)
 Flask>=2.3.0,<3.0.0
 flask-cors>=4.0.0
-
-# YAML configuration support
 PyYAML>=6.0
-
-# Process management
 psutil>=5.9.0
-
-# Testing (optional)
-pytest>=7.4.0
-pytest-flask>=1.2.0
-
-# Development tools (optional)
-black>=23.0.0
-flake8>=6.0.0
+requests>=2.31.0
