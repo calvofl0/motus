@@ -3893,44 +3893,6 @@ type = s3
         }
 
         let currentOAuthRemote = null;
-        let oauthStatusPollInterval = null;
-
-        async function pollOAuthStatus(remoteName) {
-            try {
-                const response = await apiCall(`/api/oauth/status/${remoteName}`, 'GET');
-
-                if (response.status === 'completed') {
-                    // Success - close modal and cleanup
-                    clearInterval(oauthStatusPollInterval);
-                    oauthStatusPollInterval = null;
-                    document.getElementById('oauth-progress-modal').style.display = 'none';
-                    currentOAuthRemote = null;
-
-                    // Reload remotes list to show updated status
-                    await loadRemotesList();
-
-                    alert(`OAuth token successfully refreshed for "${remoteName}"`);
-                } else if (response.status === 'failed') {
-                    // Failed - close modal and show error
-                    clearInterval(oauthStatusPollInterval);
-                    oauthStatusPollInterval = null;
-                    document.getElementById('oauth-progress-modal').style.display = 'none';
-                    currentOAuthRemote = null;
-
-                    const errorMsg = response.error || 'Unknown error';
-                    alert(`OAuth token refresh failed for "${remoteName}": ${errorMsg}`);
-                } else if (response.status === 'not_found') {
-                    // Session not found - stop polling
-                    clearInterval(oauthStatusPollInterval);
-                    oauthStatusPollInterval = null;
-                    document.getElementById('oauth-progress-modal').style.display = 'none';
-                    currentOAuthRemote = null;
-                }
-                // If status is 'pending', keep polling
-            } catch (error) {
-                console.error('Error polling OAuth status:', error);
-            }
-        }
 
         async function refreshOAuthToken(remoteName) {
             try {
@@ -3966,27 +3928,6 @@ type = s3
             }
         }
 
-        async function cancelOAuthRefresh() {
-            // Stop polling (kept for backward compatibility but not used in new flow)
-            if (oauthStatusPollInterval) {
-                clearInterval(oauthStatusPollInterval);
-                oauthStatusPollInterval = null;
-            }
-
-            if (!currentOAuthRemote) {
-                return;
-            }
-
-            try {
-                // Call API to cancel OAuth session (if old flow API still exists)
-                await apiCall(`/api/oauth/cancel/${currentOAuthRemote}`, 'POST');
-            } catch (error) {
-                console.error('Failed to cancel OAuth refresh:', error);
-            }
-
-            currentOAuthRemote = null;
-        }
-
         async function submitOAuthToken() {
             if (!currentOAuthRemote) {
                 alert('No OAuth session active');
@@ -4018,11 +3959,14 @@ type = s3
                     // Success!
                     showOAuthStatus('✓ Token successfully submitted! OAuth refresh complete.', 'success');
 
+                    // Save remote name before closing modal
+                    const remoteName = currentOAuthRemote;
+
                     // Wait a moment before closing
                     setTimeout(async () => {
                         closeOAuthModal();
                         await loadRemotesList();
-                        alert(`OAuth token successfully refreshed for "${currentOAuthRemote}"`);
+                        alert(`OAuth token successfully refreshed for "${remoteName}"`);
                     }, 1500);
                 } else if (response.status === 'error') {
                     // Error
@@ -4064,40 +4008,43 @@ type = s3
             }
         }
 
-        function copyAuthorizeCommand() {
+        async function copyAuthorizeCommand() {
             const commandText = document.getElementById('oauth-authorize-command').textContent;
 
-            // Use modern clipboard API
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(commandText).then(() => {
-                    // Show success feedback briefly
-                    const btn = event.target;
-                    const originalText = btn.textContent;
-                    btn.textContent = 'Copied!';
-                    btn.style.background = '#28a745';
-                    setTimeout(() => {
-                        btn.textContent = originalText;
-                        btn.style.background = '#007bff';
-                    }, 2000);
-                }).catch(err => {
-                    alert('Failed to copy to clipboard. Please copy manually.');
-                    console.error('Clipboard error:', err);
-                });
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = commandText;
-                textArea.style.position = 'fixed';
-                textArea.style.left = '-999999px';
-                document.body.appendChild(textArea);
-                textArea.select();
+            try {
+                await navigator.clipboard.writeText(commandText);
+
+                // Show tooltip
+                const tooltip = document.getElementById('oauth-copy-tooltip');
+                tooltip.style.display = 'inline';
+
+                // Hide after 1 second
+                setTimeout(() => {
+                    tooltip.style.display = 'none';
+                }, 1000);
+            } catch (error) {
+                console.error('Failed to copy to clipboard:', error);
+
+                // Fallback for older browsers or when clipboard API fails
                 try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = commandText;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.select();
                     document.execCommand('copy');
-                    alert('Command copied to clipboard!');
+                    document.body.removeChild(textArea);
+
+                    // Show tooltip even with fallback
+                    const tooltip = document.getElementById('oauth-copy-tooltip');
+                    tooltip.style.display = 'inline';
+                    setTimeout(() => {
+                        tooltip.style.display = 'none';
+                    }, 1000);
                 } catch (err) {
-                    alert('Failed to copy. Please copy manually.');
+                    alert('Failed to copy to clipboard. Please copy manually.');
                 }
-                document.body.removeChild(textArea);
             }
         }
 
@@ -5155,12 +5102,13 @@ ${data.text || '(no output yet)'}
                 <!-- Step 2: Run authorize command -->
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
                     <strong style="color: #333;">Step 2: Run this command</strong>
-                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 13px; word-break: break-all; position: relative;">
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 13px; word-break: break-all;">
                         <div id="oauth-authorize-command" style="white-space: pre-wrap;">Loading...</div>
-                        <button onclick="copyAuthorizeCommand()" style="position: absolute; top: 8px; right: 8px; background: #007bff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-family: sans-serif;">
-                            Copy
-                        </button>
                     </div>
+                    <button onclick="copyAuthorizeCommand()" style="background: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-size: 14px; position: relative;">
+                        📋 Copy to Clipboard
+                        <span id="oauth-copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
+                    </button>
                 </div>
 
                 <!-- Step 3: Paste token -->
@@ -5180,11 +5128,11 @@ ${data.text || '(no output yet)'}
                 <div id="oauth-status-message" style="display: none; padding: 12px; border-radius: 4px; margin-bottom: 15px;"></div>
             </div>
             <div class="modal-buttons">
-                <button id="oauth-submit-btn" onclick="submitOAuthToken()" style="background: #28a745;">
-                    Submit Token
-                </button>
                 <button onclick="closeOAuthModal()" style="background: #6c757d;">
                     Cancel
+                </button>
+                <button id="oauth-submit-btn" onclick="submitOAuthToken()" style="background: #28a745;">
+                    Submit Token
                 </button>
             </div>
         </div>
