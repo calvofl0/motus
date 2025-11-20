@@ -457,11 +457,16 @@ def oauth_root_callback():
 
     This is used when Azure requires redirect_uri to be http://localhost:PORT/
     without any path component. The remote name is passed as _motus_remote parameter.
+
+    If _motus_remote is not present, this serves the main index.html (normal page load).
     """
     remote_name = request.args.get('_motus_remote')
     if not remote_name:
-        return "Missing remote parameter", 400
+        # Not an OAuth callback - serve the main page
+        from flask import current_app, send_from_directory
+        return send_from_directory(current_app.static_folder, 'index.html')
 
+    # This is an OAuth callback - handle it
     # Remove _motus_remote from query string and pass to regular callback handler
     args_dict = request.args.to_dict()
     args_dict.pop('_motus_remote', None)
