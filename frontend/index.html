@@ -3456,7 +3456,7 @@ type = s3
             html += '<thead><tr style="border-bottom: 2px solid #ddd;">';
             html += '<th style="text-align: left; padding: 8px;">Name</th>';
             html += '<th style="text-align: left; padding: 8px;">Type</th>';
-            html += '<th style="text-align: center; padding: 8px; width: 100px;">Actions</th>';
+            html += '<th style="text-align: center; padding: 8px; width: 140px;">Actions</th>';
             html += '</tr></thead><tbody>';
 
             manageRemotesState.remotes.forEach(remote => {
@@ -3465,11 +3465,15 @@ type = s3
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
-                // Edit icon (gear) - disabled if remote is active
+                // Refresh token icon (for OAuth remotes only)
+                if (remote.is_oauth) {
+                    html += `<button onclick="refreshOAuthToken('${remote.name}')" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">🔄</button>`;
+                }
+                // Edit icon (pencil) - disabled if remote is active
                 if (isActive) {
-                    html += `<button disabled style="background: none; border: none; font-size: 18px; cursor: not-allowed; color: #ccc; padding: 4px 8px; margin-right: 4px;" title="Cannot edit remote while in use">⚙️</button>`;
+                    html += `<button disabled style="background: none; border: none; font-size: 14px; cursor: not-allowed; color: #ccc; padding: 4px 8px; margin-right: 4px;" title="Cannot edit remote while in use">✏️</button>`;
                 } else {
-                    html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">⚙️</button>`;
+                    html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 14px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
                 }
                 // Delete icon (red X) - disabled if remote is active
                 if (isActive) {
@@ -3882,6 +3886,32 @@ type = s3
                 await loadRemotes();
             } catch (error) {
                 alert(`Failed to delete remote: ${error.message}`);
+            }
+        }
+
+        async function refreshOAuthToken(remoteName) {
+            try {
+                // Call API to start OAuth refresh
+                const response = await apiCall(`/api/remotes/${remoteName}/oauth/refresh`, 'POST');
+                
+                if (response.auth_url) {
+                    // Open OAuth URL in new window
+                    const width = 600;
+                    const height = 700;
+                    const left = (screen.width / 2) - (width / 2);
+                    const top = (screen.height / 2) - (height / 2);
+                    window.open(
+                        response.auth_url,
+                        'OAuthWindow',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                    );
+                    
+                    alert(`OAuth token refresh started for "${remoteName}".\n\nA new window will open for you to authenticate.\nAfter completing authentication, the token will be refreshed automatically.`);
+                } else {
+                    alert(`OAuth refresh initiated for "${remoteName}"`);
+                }
+            } catch (error) {
+                alert(`Failed to refresh OAuth token: ${error.message}`);
             }
         }
 

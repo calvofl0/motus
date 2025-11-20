@@ -1,0 +1,301 @@
+"""
+OAuth token refresh functionality for rclone remotes
+"""
+import logging
+import re
+import subprocess
+import threading
+import time
+from typing import Dict, Optional, Tuple
+
+
+def is_oauth_remote(remote_config: Dict[str, str]) -> bool:
+    """
+    Check if a remote uses OAuth authentication by checking for token field
+
+    This is more maintainable than hardcoding provider types, as it works
+    with any rclone version and only shows refresh button when there's
+    actually a token to refresh.
+
+    Args:
+        remote_config: The remote's configuration dict
+
+    Returns:
+        True if the remote has a token field (OAuth-based), False otherwise
+    """
+    return 'token' in remote_config
+
+
+class OAuthRefreshManager:
+    """
+    Manages OAuth token refresh operations for rclone remotes
+    """
+
+    def __init__(self, rclone_path: str, rclone_config_file: str):
+        """
+        Initialize OAuth refresh manager
+
+        Args:
+            rclone_path: Path to rclone executable
+            rclone_config_file: Path to rclone config file
+        """
+        self.rclone_path = rclone_path
+        self.rclone_config_file = rclone_config_file
+        self._active_sessions: Dict[str, Dict] = {}
+        self._lock = threading.Lock()
+
+    def start_oauth_refresh(self, remote_name: str, callback_url: str) -> Tuple[bool, str, Optional[str]]:
+        """
+        Start an OAuth token refresh for a remote
+
+        Args:
+            remote_name: Name of the remote to refresh
+            callback_url: The callback URL that should be used (e.g., https://motus-server/api/oauth/callback)
+
+        Returns:
+            Tuple of (success, message, auth_url)
+            - success: True if started successfully
+            - message: Status or error message
+            - auth_url: The OAuth URL to redirect the user to (None on error)
+        """
+        with self._lock:
+            # Check if there's already an active session for this remote
+            if remote_name in self._active_sessions:
+                session = self._active_sessions[remote_name]
+                if session.get('status') == 'pending':
+                    return True, 'OAuth refresh already in progress', session.get('auth_url')
+
+        # Build rclone command
+        command = [
+            self.rclone_path,
+            'config',
+            'update',
+            remote_name,
+            'config_refresh_token',
+            'true',
+        ]
+
+        if self.rclone_config_file:
+            command.extend(['--config', self.rclone_config_file])
+
+        logging.info(f"Starting OAuth refresh for remote: {remote_name}")
+        logging.debug(f"Command: {' '.join(command)}")
+
+        try:
+            # Start the process
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+
+            # Wait briefly and read initial output to get the OAuth URL
+            time.sleep(1.0)
+
+            # Read stdout to find the OAuth URL
+            auth_url = None
+            local_port = None
+            output_lines = []
+
+            # Try to read output (non-blocking)
+            try:
+                import select
+                import sys
+
+                # Read available output
+                if sys.platform != 'win32':
+                    # Unix-like systems
+                    while True:
+                        readable, _, _ = select.select([process.stdout], [], [], 0.1)
+                        if not readable:
+                            break
+                        line = process.stdout.readline()
+                        if not line:
+                            break
+                        output_lines.append(line)
+                        logging.debug(f"rclone output: {line.strip()}")
+                else:
+                    # Windows - just try to read what's available
+                    for _ in range(10):  # Try to read up to 10 lines
+                        line = process.stdout.readline()
+                        if line:
+                            output_lines.append(line)
+                            logging.debug(f"rclone output: {line.strip()}")
+                        else:
+                            break
+            except Exception as e:
+                logging.warning(f"Error reading rclone output: {e}")
+
+            # Parse output to extract OAuth URL and local port
+            for line in output_lines:
+                # Look for the OAuth URL in the format:
+                # "If your browser doesn't open automatically go to the following link: http://127.0.0.1:PORT/auth?state=..."
+                if 'http://127.0.0.1:' in line or 'http://localhost:' in line:
+                    # Extract the URL
+                    match = re.search(r'(http://(?:127\.0\.0\.1|localhost):(\d+)/[^\s]+)', line)
+                    if match:
+                        local_url = match.group(1)
+                        local_port = int(match.group(2))
+
+                        # Extract the path and query from the local URL
+                        # e.g., http://127.0.0.1:53682/auth?state=xxx -> /auth?state=xxx
+                        path_match = re.search(r'http://[^/]+(/.+)', local_url)
+                        if path_match:
+                            local_path = path_match.group(1)
+                            # Construct the proxied auth URL using the callback_url base
+                            # Remove any trailing path from callback_url and add the session path
+                            base_callback = callback_url.rsplit('/', 1)[0] if '/' in callback_url else callback_url
+                            auth_url = f"{base_callback}/{remote_name}{local_path}"
+                        break
+
+            if not auth_url or not local_port:
+                # Kill the process
+                process.kill()
+                process.wait(timeout=5)
+                return False, "Failed to extract OAuth URL from rclone output", None
+
+            # Store session info
+            with self._lock:
+                self._active_sessions[remote_name] = {
+                    'process': process,
+                    'auth_url': auth_url,
+                    'local_port': local_port,
+                    'status': 'pending',
+                    'start_time': time.time(),
+                }
+
+            logging.info(f"OAuth refresh started for {remote_name}, local port: {local_port}")
+            logging.info(f"Auth URL: {auth_url}")
+
+            return True, 'OAuth refresh started', auth_url
+
+        except Exception as e:
+            logging.error(f"Failed to start OAuth refresh: {e}")
+            return False, f"Failed to start OAuth refresh: {str(e)}", None
+
+    def proxy_callback(self, remote_name: str, callback_path: str) -> Tuple[int, str]:
+        """
+        Proxy an OAuth callback to the local rclone server
+
+        Args:
+            remote_name: Name of the remote
+            callback_path: The callback path with query parameters (e.g., /auth?state=xxx&code=yyy)
+
+        Returns:
+            Tuple of (status_code, message)
+        """
+        with self._lock:
+            if remote_name not in self._active_sessions:
+                return 404, "No active OAuth session for this remote"
+
+            session = self._active_sessions[remote_name]
+            local_port = session.get('local_port')
+
+            if not local_port:
+                return 500, "OAuth session missing port information"
+
+        # Make request to local rclone server
+        try:
+            import requests
+            local_url = f"http://127.0.0.1:{local_port}{callback_path}"
+            logging.info(f"Proxying OAuth callback to: {local_url}")
+
+            response = requests.get(local_url, timeout=10, allow_redirects=False)
+
+            # Wait a bit for rclone to finish processing
+            time.sleep(1.0)
+
+            # Check if process has finished
+            with self._lock:
+                if remote_name in self._active_sessions:
+                    process = self._active_sessions[remote_name]['process']
+                    return_code = process.poll()
+
+                    if return_code is not None:
+                        # Process finished
+                        stdout, stderr = process.communicate(timeout=5)
+                        self._active_sessions[remote_name]['status'] = 'completed' if return_code == 0 else 'failed'
+                        self._active_sessions[remote_name]['return_code'] = return_code
+                        self._active_sessions[remote_name]['stdout'] = stdout
+                        self._active_sessions[remote_name]['stderr'] = stderr
+
+                        logging.info(f"OAuth refresh completed with code {return_code}")
+
+                        if return_code == 0:
+                            return 200, "OAuth token refresh successful"
+                        else:
+                            return 500, f"OAuth token refresh failed: {stderr}"
+                    else:
+                        # Still running, might need more time
+                        return 200, "OAuth callback received, waiting for completion"
+
+            return 200, "OAuth callback processed"
+
+        except Exception as e:
+            logging.error(f"Failed to proxy OAuth callback: {e}")
+            return 500, f"Failed to proxy OAuth callback: {str(e)}"
+
+    def get_session_status(self, remote_name: str) -> Optional[Dict]:
+        """
+        Get the status of an OAuth session
+
+        Args:
+            remote_name: Name of the remote
+
+        Returns:
+            Session status dict or None if no session exists
+        """
+        with self._lock:
+            if remote_name not in self._active_sessions:
+                return None
+
+            session = self._active_sessions[remote_name].copy()
+            # Remove process object from returned dict
+            session.pop('process', None)
+            return session
+
+    def cleanup_session(self, remote_name: str):
+        """
+        Clean up an OAuth session
+
+        Args:
+            remote_name: Name of the remote
+        """
+        with self._lock:
+            if remote_name in self._active_sessions:
+                session = self._active_sessions[remote_name]
+                process = session.get('process')
+
+                if process and process.poll() is None:
+                    # Process still running, kill it
+                    try:
+                        process.kill()
+                        process.wait(timeout=5)
+                    except Exception as e:
+                        logging.warning(f"Failed to kill OAuth process: {e}")
+
+                del self._active_sessions[remote_name]
+                logging.info(f"Cleaned up OAuth session for {remote_name}")
+
+    def cleanup_old_sessions(self, max_age_seconds: int = 600):
+        """
+        Clean up OAuth sessions older than max_age_seconds
+
+        Args:
+            max_age_seconds: Maximum age of sessions to keep (default: 10 minutes)
+        """
+        current_time = time.time()
+
+        with self._lock:
+            remotes_to_cleanup = []
+
+            for remote_name, session in self._active_sessions.items():
+                age = current_time - session.get('start_time', 0)
+                if age > max_age_seconds:
+                    remotes_to_cleanup.append(remote_name)
+
+            for remote_name in remotes_to_cleanup:
+                logging.info(f"Cleaning up old OAuth session for {remote_name}")
+                self.cleanup_session(remote_name)

@@ -9,23 +9,26 @@ from flask import Blueprint, request, jsonify
 from ..auth import token_required
 from ..rclone.rclone_config import RcloneConfig, RemoteTemplate
 from ..rclone.exceptions import RcloneException
+from ..rclone.oauth import OAuthRefreshManager, is_oauth_remote
 
 remotes_bp = Blueprint('remotes', __name__)
 
 # Global instances (initialized by app)
 rclone_config = None
 remote_template = None
+oauth_manager = None
 
 
-def init_remote_management(config_file: str, template_file: str = None):
+def init_remote_management(config_file: str, template_file: str = None, rclone_path: str = None):
     """
     Initialize remote management
 
     Args:
         config_file: Path to rclone config file
         template_file: Optional path to remote templates file
+        rclone_path: Path to rclone executable (for OAuth operations)
     """
-    global rclone_config, remote_template
+    global rclone_config, remote_template, oauth_manager
 
     rclone_config = RcloneConfig(config_file)
 
@@ -36,6 +39,11 @@ def init_remote_management(config_file: str, template_file: str = None):
         remote_template = None
         if template_file:
             logging.warning(f"Remote templates file not found: {template_file}")
+
+    # Initialize OAuth manager
+    if rclone_path:
+        oauth_manager = OAuthRefreshManager(rclone_path, config_file)
+        logging.info("OAuth refresh manager initialized")
 
 
 @remotes_bp.route('/api/remotes', methods=['GET'])
@@ -72,6 +80,7 @@ def list_remotes():
                 'name': name,
                 'type': config.get('type', 'unknown'),
                 'config': config,
+                'is_oauth': is_oauth_remote(config),
             })
 
         return jsonify({
@@ -357,4 +366,117 @@ def list_templates():
 
     except Exception as e:
         logging.error(f"List templates error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/<remote_name>/oauth/refresh', methods=['POST'])
+@token_required
+def refresh_oauth_token(remote_name):
+    """
+    Start OAuth token refresh for a remote
+
+    Response:
+    {
+        "message": "OAuth refresh started",
+        "auth_url": "https://motus-server/api/oauth/callback/my_remote/auth?state=..."
+    }
+    """
+    try:
+        if not oauth_manager:
+            return jsonify({'error': 'OAuth manager not initialized'}), 500
+
+        # Check if remote exists and is OAuth-based
+        rclone_config.reload()
+        config = rclone_config.get_remote(remote_name)
+
+        if not config:
+            return jsonify({'error': f'Remote not found: {remote_name}'}), 404
+
+        if not is_oauth_remote(config):
+            return jsonify({'error': f'Remote {remote_name} is not OAuth-based (no token found)'}), 400
+
+        # Get the base URL for callback
+        # Use the request's host and scheme to construct the callback URL
+        base_url = f"{request.scheme}://{request.host}"
+        callback_url = f"{base_url}/api/oauth/callback"
+
+        # Start OAuth refresh
+        success, message, auth_url = oauth_manager.start_oauth_refresh(remote_name, callback_url)
+
+        if not success:
+            return jsonify({'error': message}), 500
+
+        return jsonify({
+            'message': message,
+            'auth_url': auth_url,
+        })
+
+    except Exception as e:
+        logging.error(f"OAuth refresh error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/oauth/callback/<remote_name>/<path:callback_path>', methods=['GET'])
+def oauth_callback(remote_name, callback_path):
+    """
+    Handle OAuth callback from provider (proxied to local rclone server)
+
+    This endpoint receives the OAuth callback and forwards it to the local
+    rclone server that's waiting for the token.
+    """
+    try:
+        if not oauth_manager:
+            return jsonify({'error': 'OAuth manager not initialized'}), 500
+
+        # Get query parameters
+        query_string = request.query_string.decode('utf-8')
+        full_callback_path = f"/{callback_path}"
+        if query_string:
+            full_callback_path += f"?{query_string}"
+
+        logging.info(f"OAuth callback for {remote_name}: {full_callback_path}")
+
+        # Proxy the callback to local rclone server
+        status_code, message = oauth_manager.proxy_callback(remote_name, full_callback_path)
+
+        if status_code == 200:
+            # Success - show success message
+            return f"""
+            <html>
+            <head>
+                <title>OAuth Success</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .success {{ color: green; font-size: 24px; margin: 20px; }}
+                    .message {{ color: #666; margin: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="success">✓ OAuth Token Refreshed Successfully</div>
+                <div class="message">{message}</div>
+                <div class="message">You can close this window and return to Motus.</div>
+            </body>
+            </html>
+            """, 200
+        else:
+            return f"""
+            <html>
+            <head>
+                <title>OAuth Error</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .error {{ color: red; font-size: 24px; margin: 20px; }}
+                    .message {{ color: #666; margin: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="error">✗ OAuth Token Refresh Failed</div>
+                <div class="message">{message}</div>
+                <div class="message">Please try again or check the server logs.</div>
+            </body>
+            </html>
+            """, status_code
+
+    except Exception as e:
+        logging.error(f"OAuth callback error: {e}")
         return jsonify({'error': str(e)}), 500

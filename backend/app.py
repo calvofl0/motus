@@ -304,7 +304,7 @@ def create_app(config: Config = None):
     init_jobs(rclone, db)
     init_stream(rclone, db)
     # Use rclone's discovered config file path (not the config's, which may be None)
-    init_remote_management(rclone.rclone_config_file, config.remote_templates_file)
+    init_remote_management(rclone.rclone_config_file, config.remote_templates_file, rclone.rclone_path)
     init_upload(rclone, config.data_dir, config.max_upload_size)
 
     # Cleanup upload cache from previous runs (exclude active jobs)
