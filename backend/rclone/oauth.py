@@ -303,21 +303,25 @@ class OAuthRefreshManager:
                     original_redirect = query_params['redirect_uri'][0]
                     logging.info(f"Original redirect_uri: {original_redirect}")
 
-                    # Extract the path from the original redirect_uri
-                    # e.g., http://127.0.0.1:53682/auth -> /auth
+                    # Extract components from the original redirect_uri
+                    # e.g., http://localhost:53682/ -> we want to keep 'localhost'
                     original_parsed = urlparse(original_redirect)
-                    callback_endpoint_path = original_parsed.path
+                    original_hostname = original_parsed.hostname  # 'localhost' or '127.0.0.1'
+                    callback_endpoint_path = original_parsed.path or '/'
 
-                    # Ensure we have a path - fallback to /auth if empty
-                    if not callback_endpoint_path or callback_endpoint_path == '/':
-                        callback_endpoint_path = '/auth'
-                        logging.warning(f"Original redirect_uri had no path, using /auth")
+                    logging.debug(f"Original hostname: {original_hostname}, path: {callback_endpoint_path}")
 
-                    logging.debug(f"Extracted callback path: {callback_endpoint_path}")
+                    # Parse our callback_base_url to get the port
+                    # e.g., http://127.0.0.1:8889/api/oauth/callback
+                    callback_parsed = urlparse(callback_base_url)
+                    callback_port = callback_parsed.port
 
-                    # Construct new redirect_uri pointing to our Motus callback endpoint
-                    # e.g., http://motus:8889/api/oauth/callback/onedrive/auth
-                    new_redirect_uri = f"{callback_base_url}/{remote_name}{callback_endpoint_path}"
+                    # Construct new redirect_uri using:
+                    # - scheme from callback_base_url (http/https)
+                    # - hostname from ORIGINAL rclone redirect (localhost not 127.0.0.1!)
+                    # - port from callback_base_url (8889)
+                    # - path: /api/oauth/callback/{remote_name}{original_path}
+                    new_redirect_uri = f"{callback_parsed.scheme}://{original_hostname}:{callback_port}/api/oauth/callback/{remote_name}{callback_endpoint_path}"
                     query_params['redirect_uri'] = [new_redirect_uri]
 
                     logging.info(f"Rewritten redirect_uri: {new_redirect_uri}")
