@@ -231,6 +231,11 @@ class OAuthRefreshManager:
             if not server_ready:
                 logging.warning("rclone server readiness check timed out, but continuing anyway")
 
+            # Give rclone a bit more time to fully initialize all endpoints
+            # The server might respond to / but /auth endpoint needs a moment
+            logging.info("Server is ready, waiting 2 more seconds for full initialization...")
+            time.sleep(2.0)
+
             # Store session info
             with self._lock:
                 self._active_sessions[remote_name] = {
