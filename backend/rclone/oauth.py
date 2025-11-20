@@ -171,10 +171,9 @@ class OAuthRefreshManager:
                         path_match = re.search(r'http://[^/]+(/.+)', local_url)
                         if path_match:
                             local_path = path_match.group(1)
-                            # Construct the proxied auth URL using the callback_url base
-                            # Remove any trailing path from callback_url and add the session path
-                            base_callback = callback_url.rsplit('/', 1)[0] if '/' in callback_url else callback_url
-                            auth_url = f"{base_callback}/{remote_name}{local_path}"
+                            # Construct the proxied auth URL using the callback_url
+                            # callback_url should be something like http://host:port/api/oauth/callback
+                            auth_url = f"{callback_url}/{remote_name}{local_path}"
                         break
 
             if not auth_url or not local_port:

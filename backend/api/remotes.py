@@ -507,3 +507,47 @@ def cancel_oauth_refresh(remote_name):
     except Exception as e:
         logging.error(f"OAuth cancel error: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/oauth/status/<remote_name>', methods=['GET'])
+@token_required
+def get_oauth_status(remote_name):
+    """
+    Get the status of an OAuth refresh session
+
+    Response:
+    {
+        "status": "pending" | "completed" | "failed" | "not_found",
+        "message": "...",
+        "return_code": 0  // only if completed or failed
+    }
+    """
+    try:
+        if not oauth_manager:
+            return jsonify({'error': 'OAuth manager not initialized'}), 500
+
+        session = oauth_manager.get_session_status(remote_name)
+
+        if not session:
+            return jsonify({
+                'status': 'not_found',
+                'message': 'No active OAuth session for this remote',
+            })
+
+        status = session.get('status', 'pending')
+        response = {
+            'status': status,
+            'message': f'OAuth refresh {status}',
+        }
+
+        if 'return_code' in session:
+            response['return_code'] = session['return_code']
+
+        if status == 'failed' and 'stderr' in session:
+            response['error'] = session['stderr']
+
+        return jsonify(response)
+
+    except Exception as e:
+        logging.error(f"OAuth status error: {e}")
+        return jsonify({'error': str(e)}), 500
