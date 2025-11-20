@@ -3908,6 +3908,9 @@ type = s3
                     document.getElementById('oauth-status-message').style.display = 'none';
                     document.getElementById('oauth-submit-btn').disabled = false;
                     document.getElementById('oauth-interactive-modal').style.display = 'flex';
+
+                    // Set up ESC key handler for this modal
+                    setupOAuthModalKeyHandler();
                 } else if (response.status === 'complete') {
                     // Token refresh completed immediately (shouldn't normally happen, but handle it)
                     alert(`OAuth token successfully refreshed for "${remoteName}"`);
@@ -3926,6 +3929,31 @@ type = s3
                 currentOAuthRemote = null;
                 alert(`Failed to refresh OAuth token: ${error.message}`);
             }
+        }
+
+        // Global variable to store the OAuth modal key handler
+        let oauthModalKeyHandler = null;
+
+        function setupOAuthModalKeyHandler() {
+            // Remove any existing handler first
+            if (oauthModalKeyHandler) {
+                document.removeEventListener('keydown', oauthModalKeyHandler);
+            }
+
+            // Create new handler
+            oauthModalKeyHandler = function(event) {
+                if (event.key === 'Escape') {
+                    const modal = document.getElementById('oauth-interactive-modal');
+                    if (modal && modal.style.display === 'flex') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeOAuthModal();
+                    }
+                }
+            };
+
+            // Add the handler
+            document.addEventListener('keydown', oauthModalKeyHandler);
         }
 
         async function submitOAuthToken() {
@@ -4055,6 +4083,12 @@ type = s3
             document.getElementById('oauth-submit-btn').disabled = false;
             document.getElementById('oauth-submit-btn').textContent = 'Submit Token';
             currentOAuthRemote = null;
+
+            // Remove the ESC key handler
+            if (oauthModalKeyHandler) {
+                document.removeEventListener('keydown', oauthModalKeyHandler);
+                oauthModalKeyHandler = null;
+            }
         }
 
         async function createRemote() {
@@ -4090,6 +4124,9 @@ type = s3
                     showRemotesList();
                     manageRemotesState.selectedTemplate = null;
                     manageRemotesState.formValues = {};
+
+                    // Check if the newly created remote needs OAuth and auto-trigger
+                    await checkAndTriggerOAuthForNewRemote(remoteName);
                 } catch (error) {
                     alert(`Failed to create remote: ${error.message}`);
                     const createBtn = document.getElementById('create-remote-btn');
@@ -4144,11 +4181,31 @@ type = s3
                 createBtn.disabled = false;
                 createBtn.textContent = 'Create Remote';
 
+                // Check if the newly created remote needs OAuth and auto-trigger
+                await checkAndTriggerOAuthForNewRemote(remoteName);
+
             } catch (error) {
                 alert(`Failed to create remote: ${error.message}`);
                 const createBtn = document.getElementById('create-remote-btn');
                 createBtn.disabled = false;
                 createBtn.textContent = 'Create Remote';
+            }
+        }
+
+        async function checkAndTriggerOAuthForNewRemote(remoteName) {
+            // Find the newly created remote in the list
+            const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
+
+            if (!remote) {
+                return; // Remote not found, nothing to do
+            }
+
+            // Check if it's an OAuth remote with empty token
+            if (remote.is_oauth && remote.config && remote.config.token === '') {
+                // Wait a moment for the UI to settle, then trigger OAuth refresh
+                setTimeout(() => {
+                    refreshOAuthToken(remoteName);
+                }, 500);
             }
         }
 
