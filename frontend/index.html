@@ -1400,6 +1400,132 @@ type = s3
         let uploadStartTime = null;  // Track upload start time for speed calculation
         let maxUploadSize = 0;  // Maximum upload size in bytes (0 = unlimited)
 
+        // ===================================================================
+        // Modal Management System
+        // ===================================================================
+        // Centralized modal manager for handling modal stacking and keyboard shortcuts
+        const ModalManager = {
+            stack: [],      // Stack of open modal IDs (last = topmost)
+            handlers: {},   // Map of modalId -> {onEscape, onEnter, onClose}
+
+            /**
+             * Open a modal and register keyboard handlers
+             * @param {string} modalId - ID of the modal element
+             * @param {Object} options - Handler options
+             * @param {Function} options.onEscape - Handler for ESC key (if not provided, closes modal by default)
+             * @param {Function} options.onEnter - Handler for ENTER key (optional)
+             * @param {Function} options.onClose - Additional cleanup when modal closes (optional)
+             */
+            open(modalId, options = {}) {
+                // Add to stack if not already there
+                if (!this.stack.includes(modalId)) {
+                    this.stack.push(modalId);
+                }
+
+                // Store handlers
+                this.handlers[modalId] = {
+                    onEscape: options.onEscape || null,
+                    onEnter: options.onEnter || null,
+                    onClose: options.onClose || null,
+                };
+
+                // Show the modal
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+            },
+
+            /**
+             * Close a modal and clean up handlers
+             * @param {string} modalId - ID of the modal to close
+             */
+            close(modalId) {
+                // Call onClose handler if registered
+                const handler = this.handlers[modalId];
+                if (handler && handler.onClose) {
+                    handler.onClose();
+                }
+
+                // Remove from stack
+                const index = this.stack.indexOf(modalId);
+                if (index > -1) {
+                    this.stack.splice(index, 1);
+                }
+
+                // Remove handlers
+                delete this.handlers[modalId];
+
+                // Hide the modal
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            },
+
+            /**
+             * Get the topmost (currently active) modal
+             * @returns {string|null} Modal ID or null if no modals open
+             */
+            getTopModal() {
+                return this.stack.length > 0 ? this.stack[this.stack.length - 1] : null;
+            },
+
+            /**
+             * Check if focus is currently in a form field (to avoid interfering with typing)
+             * @returns {boolean} True if focus is in input/textarea/select
+             */
+            isFocusInFormField() {
+                const activeElement = document.activeElement;
+                return activeElement && (
+                    activeElement.tagName === 'INPUT' ||
+                    activeElement.tagName === 'TEXTAREA' ||
+                    activeElement.tagName === 'SELECT'
+                );
+            },
+
+            /**
+             * Handle keydown events for the topmost modal
+             * @param {KeyboardEvent} event - The keyboard event
+             */
+            handleKeyDown(event) {
+                const topModalId = this.getTopModal();
+                if (!topModalId) return;
+
+                const handler = this.handlers[topModalId];
+                if (!handler) return;
+
+                const inFormField = this.isFocusInFormField();
+
+                // ESC key - close or custom handler
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (handler.onEscape) {
+                        handler.onEscape();
+                    } else {
+                        // Default: close the modal
+                        this.close(topModalId);
+                    }
+                }
+                // ENTER key - only if not in textarea (allow newlines in textarea)
+                else if (event.key === 'Enter' && handler.onEnter) {
+                    // In single-line input: trigger submit
+                    // In textarea: allow default (newline)
+                    // Not in form field: trigger submit
+                    if (!inFormField || (document.activeElement.tagName === 'INPUT')) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handler.onEnter();
+                    }
+                }
+            }
+        };
+
+        // Set up global keyboard handler for modal management
+        document.addEventListener('keydown', (e) => ModalManager.handleKeyDown(e), true);
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             // Try to load token from URL
@@ -3290,79 +3416,69 @@ type = s3
         };
 
         async function openManageRemotesDialog() {
-            document.getElementById('manage-remotes-modal').style.display = 'flex';
+            // Use ModalManager to handle the modal
+            ModalManager.open('manage-remotes-modal', {
+                onEscape: handleManageRemotesEscape,
+                onEnter: handleManageRemotesEnter,
+                onClose: () => {
+                    // Cleanup when modal closes
+                    manageRemotesState.selectedTemplate = null;
+                    manageRemotesState.formValues = {};
+                }
+            });
+
             showRemotesList();
             await loadRemotesList();
             await loadTemplatesList();
-
-            // Add Enter key handler for the template selection step
-            document.addEventListener('keydown', handleManageRemotesKeydown);
         }
 
         function closeManageRemotesDialog() {
-            document.getElementById('manage-remotes-modal').style.display = 'none';
-            manageRemotesState.selectedTemplate = null;
-            manageRemotesState.formValues = {};
-
-            // Remove Enter key handler
-            document.removeEventListener('keydown', handleManageRemotesKeydown);
+            ModalManager.close('manage-remotes-modal');
         }
 
-        function handleManageRemotesKeydown(event) {
-            // Don't handle keys if Edit or View remote modals are open (let global handler deal with them)
-            const editRemoteModal = document.getElementById('edit-remote-config-modal');
-            const viewRemoteModal = document.getElementById('view-remote-config-modal');
-            if (editRemoteModal.style.display === 'flex' || viewRemoteModal.style.display === 'flex') {
-                return; // Let the global handler close these modals
-            }
-
+        function handleManageRemotesEscape() {
             // Check which step is visible
             const step1 = document.getElementById('manage-remotes-step1');
             const step2 = document.getElementById('manage-remotes-step2');
             const step3 = document.getElementById('manage-remotes-step3');
 
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                // If on wizard steps 2 or 3, return to remotes list
-                if (step2.style.display !== 'none' || step3.style.display !== 'none') {
-                    showRemotesList();
-                } else {
-                    // Otherwise close the entire dialog
-                    closeManageRemotesDialog();
-                }
-            } else if (event.key === 'Enter') {
-                // Don't trigger on ENTER in custom remote textarea (it's multi-line)
-                // Only trigger on Shift+ENTER for custom remote
-                const customTextarea = document.getElementById('custom-remote-config');
-                const isInCustomTextarea = customTextarea && document.activeElement === customTextarea;
+            // If on wizard steps 2 or 3, return to remotes list
+            if (step2.style.display !== 'none' || step3.style.display !== 'none') {
+                showRemotesList();
+            } else {
+                // Otherwise close the entire dialog
+                closeManageRemotesDialog();
+            }
+        }
 
-                if (step2.style.display !== 'none') {
-                    // In template selection step - trigger Next button
-                    const nextBtn = document.getElementById('template-next-btn');
-                    if (!nextBtn.disabled) {
-                        event.preventDefault();
-                        showRemoteForm();
-                    }
-                } else if (step3.style.display !== 'none') {
-                    // In remote form step - trigger Create Remote button
-                    // For custom remote textarea, require Shift+Enter
-                    if (isInCustomTextarea) {
-                        if (event.shiftKey) {
-                            // Shift+Enter in custom textarea - trigger creation
-                            const createBtn = document.getElementById('create-remote-btn');
-                            if (createBtn && !createBtn.disabled) {
-                                event.preventDefault();
-                                createRemote();
-                            }
-                        }
-                        // Otherwise allow normal Enter (new line)
-                    } else {
-                        // Regular input fields - trigger on Enter
-                        const createBtn = document.getElementById('create-remote-btn');
-                        if (createBtn && !createBtn.disabled) {
-                            event.preventDefault();
-                            createRemote();
-                        }
+        function handleManageRemotesEnter() {
+            // Check which step is visible
+            const step2 = document.getElementById('manage-remotes-step2');
+            const step3 = document.getElementById('manage-remotes-step3');
+
+            // Don't trigger on ENTER in custom remote textarea (it's multi-line)
+            // Only trigger on Shift+ENTER for custom remote
+            const customTextarea = document.getElementById('custom-remote-config');
+            const isInCustomTextarea = customTextarea && document.activeElement === customTextarea;
+
+            if (step2.style.display !== 'none') {
+                // In template selection step - trigger Next button
+                const nextBtn = document.getElementById('template-next-btn');
+                if (!nextBtn.disabled) {
+                    showRemoteForm();
+                }
+            } else if (step3.style.display !== 'none') {
+                // In remote form step - trigger Create Remote button
+                // For custom remote textarea, require Shift+Enter
+                if (isInCustomTextarea) {
+                    // In textarea - Enter should create newline, not submit
+                    // (handled by ModalManager - will not call onEnter for textarea)
+                    return;
+                } else {
+                    // Regular input fields - trigger on Enter
+                    const createBtn = document.getElementById('create-remote-btn');
+                    if (createBtn && !createBtn.disabled) {
+                        createRemote();
                     }
                 }
             }
@@ -3526,17 +3642,21 @@ type = s3
             html += '</table></div>';
             container.innerHTML = html;
 
-            document.getElementById('view-remote-config-modal').style.display = 'flex';
+            // Open modal with ModalManager (ESC will close it)
+            ModalManager.open('view-remote-config-modal', {
+                onEscape: closeViewRemoteConfigModal
+            });
 
-            // Add Ctrl-C listener
+            // Add Ctrl-C listener for copying
             document.addEventListener('keydown', handleViewRemoteConfigKeydown);
         }
 
         function closeViewRemoteConfigModal() {
-            document.getElementById('view-remote-config-modal').style.display = 'none';
-
             // Remove Ctrl-C listener
             document.removeEventListener('keydown', handleViewRemoteConfigKeydown);
+
+            // Close via ModalManager
+            ModalManager.close('view-remote-config-modal');
         }
 
         function handleViewRemoteConfigKeydown(event) {
@@ -3594,8 +3714,11 @@ type = s3
                 // Populate the textarea (no trailing newline)
                 document.getElementById('edit-remote-config-text').value = data.raw_config;
 
-                // Show the modal
-                document.getElementById('edit-remote-config-modal').style.display = 'flex';
+                // Open modal with ModalManager
+                ModalManager.open('edit-remote-config-modal', {
+                    onEscape: closeEditRemoteConfigModal
+                    // Note: No onEnter - textarea needs Enter for newlines
+                });
             } catch (error) {
                 console.error('Error loading remote config:', error);
                 alert(`Failed to load remote config: ${error.message}`);
@@ -3603,8 +3726,8 @@ type = s3
         }
 
         function closeEditRemoteConfigModal() {
-            document.getElementById('edit-remote-config-modal').style.display = 'none';
             manageRemotesState.editingRemote = null;
+            ModalManager.close('edit-remote-config-modal');
         }
 
         async function saveRemoteConfig() {
@@ -3902,15 +4025,21 @@ type = s3
                 const response = await apiCall(`/api/remotes/${remoteName}/oauth/refresh`, 'POST');
 
                 if (response.status === 'needs_token') {
-                    // Show interactive modal with authorize command
+                    // Populate modal with authorize command
                     document.getElementById('oauth-authorize-command').textContent = response.authorize_command;
                     document.getElementById('oauth-token-input').value = '';
                     document.getElementById('oauth-status-message').style.display = 'none';
                     document.getElementById('oauth-submit-btn').disabled = false;
-                    document.getElementById('oauth-interactive-modal').style.display = 'flex';
 
-                    // Set up ESC key handler for this modal
-                    setupOAuthModalKeyHandler();
+                    // Open modal using ModalManager
+                    ModalManager.open('oauth-interactive-modal', {
+                        onEscape: closeOAuthModal,
+                        onEnter: submitOAuthToken,
+                        onClose: () => {
+                            // Cleanup when modal closes
+                            currentOAuthRemote = null;
+                        }
+                    });
                 } else if (response.status === 'complete') {
                     // Token refresh completed immediately (shouldn't normally happen, but handle it)
                     alert(`OAuth token successfully refreshed for "${remoteName}"`);
@@ -3929,38 +4058,6 @@ type = s3
                 currentOAuthRemote = null;
                 alert(`Failed to refresh OAuth token: ${error.message}`);
             }
-        }
-
-        // Global variable to store the OAuth modal key handler
-        let oauthModalKeyHandler = null;
-
-        function setupOAuthModalKeyHandler() {
-            // Remove any existing handler first
-            if (oauthModalKeyHandler) {
-                document.removeEventListener('keydown', oauthModalKeyHandler);
-            }
-
-            // Create new handler
-            oauthModalKeyHandler = function(event) {
-                if (event.key === 'Escape') {
-                    const oauthModal = document.getElementById('oauth-interactive-modal');
-                    const manageRemotesModal = document.getElementById('manage-remotes-modal');
-
-                    // Only close OAuth modal if:
-                    // 1. OAuth modal is visible
-                    // 2. Manage Remotes modal is also visible (OAuth shown on top of it)
-                    // This prevents closing everything when ESC is pressed
-                    if (oauthModal && oauthModal.style.display === 'flex' &&
-                        manageRemotesModal && manageRemotesModal.style.display === 'flex') {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        closeOAuthModal();
-                    }
-                }
-            };
-
-            // Add the handler
-            document.addEventListener('keydown', oauthModalKeyHandler);
         }
 
         async function submitOAuthToken() {
@@ -4081,18 +4178,14 @@ type = s3
         }
 
         function closeOAuthModal() {
-            document.getElementById('oauth-interactive-modal').style.display = 'none';
+            // Clean up modal UI
             document.getElementById('oauth-token-input').value = '';
             document.getElementById('oauth-status-message').style.display = 'none';
             document.getElementById('oauth-submit-btn').disabled = false;
             document.getElementById('oauth-submit-btn').textContent = 'Submit Token';
-            currentOAuthRemote = null;
 
-            // Remove the ESC key handler
-            if (oauthModalKeyHandler) {
-                document.removeEventListener('keydown', oauthModalKeyHandler);
-                oauthModalKeyHandler = null;
-            }
+            // Close via ModalManager (will trigger onClose handler which sets currentOAuthRemote = null)
+            ModalManager.close('oauth-interactive-modal');
         }
 
         async function createRemote() {
