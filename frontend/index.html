@@ -3943,8 +3943,15 @@ type = s3
             // Create new handler
             oauthModalKeyHandler = function(event) {
                 if (event.key === 'Escape') {
-                    const modal = document.getElementById('oauth-interactive-modal');
-                    if (modal && modal.style.display === 'flex') {
+                    const oauthModal = document.getElementById('oauth-interactive-modal');
+                    const manageRemotesModal = document.getElementById('manage-remotes-modal');
+
+                    // Only close OAuth modal if:
+                    // 1. OAuth modal is visible
+                    // 2. Manage Remotes modal is also visible (OAuth shown on top of it)
+                    // This prevents closing everything when ESC is pressed
+                    if (oauthModal && oauthModal.style.display === 'flex' &&
+                        manageRemotesModal && manageRemotesModal.style.display === 'flex') {
                         event.preventDefault();
                         event.stopPropagation();
                         closeOAuthModal();
@@ -3987,14 +3994,11 @@ type = s3
                     // Success!
                     showOAuthStatus('✓ Token successfully submitted! OAuth refresh complete.', 'success');
 
-                    // Save remote name before closing modal
-                    const remoteName = currentOAuthRemote;
-
                     // Wait a moment before closing
                     setTimeout(async () => {
                         closeOAuthModal();
                         await loadRemotesList();
-                        alert(`OAuth token successfully refreshed for "${remoteName}"`);
+                        // Success - no alert needed, just close and refresh
                     }, 1500);
                 } else if (response.status === 'error') {
                     // Error
