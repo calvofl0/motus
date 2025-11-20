@@ -201,32 +201,41 @@ class OAuthRefreshManager:
             logging.error(f"Failed to start OAuth refresh: {e}")
             return False, f"Failed to start OAuth refresh: {str(e)}", None
 
-    def proxy_callback(self, remote_name: str, callback_path: str) -> Tuple[int, str]:
+    def proxy_callback(self, remote_name: str, callback_path: str, callback_base_url: str) -> Dict:
         """
         Proxy an OAuth callback to the local rclone server
+
+        This method handles the OAuth flow by proxying requests to rclone's temporary server.
+        When rclone returns a redirect to the OAuth provider, we intercept it and rewrite
+        the redirect_uri parameter to point back to our Motus server instead of localhost.
 
         Args:
             remote_name: Name of the remote
             callback_path: The callback path with query parameters (e.g., /auth?state=xxx&code=yyy)
+            callback_base_url: The base URL for OAuth callbacks (e.g., http://motus:8889/api/oauth/callback)
 
         Returns:
-            Tuple of (status_code, message)
+            Dict with keys:
+            - type: 'redirect' | 'response'
+            - For 'redirect': 'url' with the redirect URL
+            - For 'response': 'status' and 'message'
         """
         with self._lock:
             if remote_name not in self._active_sessions:
-                return 404, "No active OAuth session for this remote"
+                return {'type': 'response', 'status': 404, 'message': "No active OAuth session for this remote"}
 
             session = self._active_sessions[remote_name]
             local_port = session.get('local_port')
 
             if not local_port:
-                return 500, "OAuth session missing port information"
+                return {'type': 'response', 'status': 500, 'message': "OAuth session missing port information"}
 
         # Make request to local rclone server with retries
         # rclone may take a moment to start its HTTP server even after outputting the URL
         try:
             import requests
             from requests.exceptions import ConnectionError, Timeout
+            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
             local_url = f"http://127.0.0.1:{local_port}{callback_path}"
             logging.info(f"Proxying OAuth callback to: {local_url}")
@@ -258,6 +267,60 @@ class OAuthRefreshManager:
                 # Should not happen, but just in case
                 raise last_error or Exception("Failed to get response from rclone server")
 
+            # Check if this is a redirect to the OAuth provider
+            if response.status_code in (301, 302, 303, 307, 308):
+                redirect_url = response.headers.get('Location', '')
+                logging.info(f"rclone returned redirect to: {redirect_url}")
+
+                # Parse the redirect URL to rewrite redirect_uri
+                parsed = urlparse(redirect_url)
+                query_params = parse_qs(parsed.query)
+
+                # Check if redirect_uri parameter exists
+                if 'redirect_uri' in query_params:
+                    original_redirect = query_params['redirect_uri'][0]
+                    logging.info(f"Original redirect_uri: {original_redirect}")
+
+                    # Extract the path from the original redirect_uri
+                    # e.g., http://127.0.0.1:53682/auth -> /auth
+                    original_parsed = urlparse(original_redirect)
+                    callback_endpoint_path = original_parsed.path
+
+                    # Construct new redirect_uri pointing to our Motus callback endpoint
+                    # e.g., http://motus:8889/api/oauth/callback/onedrive/auth
+                    new_redirect_uri = f"{callback_base_url}/{remote_name}{callback_endpoint_path}"
+                    query_params['redirect_uri'] = [new_redirect_uri]
+
+                    logging.info(f"Rewritten redirect_uri: {new_redirect_uri}")
+
+                    # Rebuild the query string
+                    new_query = urlencode(query_params, doseq=True)
+
+                    # Rebuild the full URL
+                    rewritten_url = urlunparse((
+                        parsed.scheme,
+                        parsed.netloc,
+                        parsed.path,
+                        parsed.params,
+                        new_query,
+                        parsed.fragment
+                    ))
+
+                    logging.info(f"Rewritten redirect URL: {rewritten_url}")
+
+                    return {
+                        'type': 'redirect',
+                        'url': rewritten_url,
+                    }
+                else:
+                    # No redirect_uri to rewrite, just pass through the redirect
+                    logging.warning(f"Redirect has no redirect_uri parameter: {redirect_url}")
+                    return {
+                        'type': 'redirect',
+                        'url': redirect_url,
+                    }
+
+            # Not a redirect - this is the final callback with the authorization code
             # Wait a bit for rclone to finish processing
             time.sleep(1.0)
 
@@ -278,18 +341,18 @@ class OAuthRefreshManager:
                         logging.info(f"OAuth refresh completed with code {return_code}")
 
                         if return_code == 0:
-                            return 200, "OAuth token refresh successful"
+                            return {'type': 'response', 'status': 200, 'message': "OAuth token refresh successful"}
                         else:
-                            return 500, f"OAuth token refresh failed: {stderr}"
+                            return {'type': 'response', 'status': 500, 'message': f"OAuth token refresh failed: {stderr}"}
                     else:
                         # Still running, might need more time
-                        return 200, "OAuth callback received, waiting for completion"
+                        return {'type': 'response', 'status': 200, 'message': "OAuth callback received, waiting for completion"}
 
-            return 200, "OAuth callback processed"
+            return {'type': 'response', 'status': 200, 'message': "OAuth callback processed"}
 
         except Exception as e:
             logging.error(f"Failed to proxy OAuth callback: {e}")
-            return 500, f"Failed to proxy OAuth callback: {str(e)}"
+            return {'type': 'response', 'status': 500, 'message': f"Failed to proxy OAuth callback: {str(e)}"}
 
     def get_session_status(self, remote_name: str) -> Optional[Dict]:
         """

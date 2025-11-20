@@ -4,7 +4,7 @@ Handles listing, adding, and deleting rclone remotes
 """
 import logging
 import os
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect
 
 from ..auth import token_required
 from ..rclone.rclone_config import RcloneConfig, RemoteTemplate
@@ -422,7 +422,9 @@ def oauth_callback(remote_name, callback_path):
     Handle OAuth callback from provider (proxied to local rclone server)
 
     This endpoint receives the OAuth callback and forwards it to the local
-    rclone server that's waiting for the token.
+    rclone server that's waiting for the token. It also rewrites redirect_uri
+    parameters in OAuth redirects to ensure the provider redirects back to
+    this server instead of localhost.
     """
     try:
         if not oauth_manager:
@@ -436,8 +438,24 @@ def oauth_callback(remote_name, callback_path):
 
         logging.info(f"OAuth callback for {remote_name}: {full_callback_path}")
 
+        # Construct the callback base URL
+        # This is the URL that OAuth providers should redirect back to
+        # e.g., http://motus-server:8889/api/oauth/callback
+        callback_base_url = f"{request.scheme}://{request.host}/api/oauth/callback"
+
         # Proxy the callback to local rclone server
-        status_code, message = oauth_manager.proxy_callback(remote_name, full_callback_path)
+        result = oauth_manager.proxy_callback(remote_name, full_callback_path, callback_base_url)
+
+        # Check if this is a redirect or a direct response
+        if result.get('type') == 'redirect':
+            # Return a redirect to the OAuth provider (with rewritten redirect_uri)
+            redirect_url = result.get('url')
+            logging.info(f"Redirecting browser to OAuth provider: {redirect_url}")
+            return redirect(redirect_url)
+
+        # Otherwise it's a direct response
+        status_code = result.get('status', 500)
+        message = result.get('message', 'Unknown error')
 
         if status_code == 200:
             # Success - show success message
