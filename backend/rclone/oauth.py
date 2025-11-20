@@ -87,6 +87,14 @@ class OAuthRefreshManager:
             env = os.environ.copy()
             # Tell rclone not to auto-open browser (it should just print the URL)
             env['BROWSER'] = '/bin/false'  # Set browser to a no-op command
+            # Unset DISPLAY to make rclone think it's running headless
+            # This prevents auto-opening browser even on systems with GUI
+            if 'DISPLAY' in env:
+                del env['DISPLAY']
+            # Also unset other display-related variables
+            for var in ['WAYLAND_DISPLAY', 'MIR_SOCKET', 'XDG_SESSION_TYPE']:
+                if var in env:
+                    del env[var]
 
             # Start the process
             process = subprocess.Popen(
