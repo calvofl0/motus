@@ -58,12 +58,26 @@ class OAuthRefreshManager:
             - message: Status or error message
             - auth_url: The OAuth URL to redirect the user to (None on error)
         """
+        # Clean up any existing session for this remote first
+        # This prevents "address already in use" errors from leftover processes
         with self._lock:
-            # Check if there's already an active session for this remote
             if remote_name in self._active_sessions:
                 session = self._active_sessions[remote_name]
                 if session.get('status') == 'pending':
+                    # Already in progress, return existing URL
                     return True, 'OAuth refresh already in progress', session.get('auth_url')
+                else:
+                    # Old session exists, clean it up first (inline to avoid deadlock)
+                    logging.info(f"Cleaning up old OAuth session for {remote_name}")
+                    process = session.get('process')
+                    if process and process.poll() is None:
+                        # Process still running, kill it
+                        try:
+                            process.kill()
+                            process.wait(timeout=5)
+                        except Exception as e:
+                            logging.warning(f"Failed to kill old OAuth process: {e}")
+                    del self._active_sessions[remote_name]
 
         # Build rclone command
         command = [
