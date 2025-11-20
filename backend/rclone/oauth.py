@@ -197,11 +197,11 @@ class OAuthRefreshManager:
                 process.wait(timeout=5)
                 return False, "Failed to extract OAuth URL from rclone output", None
 
-            # Give rclone time to fully start its HTTP server
+            # Give rclone a brief moment to fully start its HTTP server
             # Don't test the server (might interfere with OAuth state)
-            # Just wait and let the retry logic in proxy_callback handle any delays
-            logging.info(f"Waiting 3 seconds for rclone HTTP server to fully initialize on port {local_port}...")
-            time.sleep(3.0)
+            # The retry logic in proxy_callback will handle any remaining delays
+            logging.info(f"Waiting 0.5 seconds for rclone HTTP server to initialize on port {local_port}...")
+            time.sleep(0.5)
 
             # Store session info
             with self._lock:
