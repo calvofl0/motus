@@ -3936,59 +3936,177 @@ type = s3
             try {
                 currentOAuthRemote = remoteName;
 
-                // Show progress modal
-                document.getElementById('oauth-progress-modal').style.display = 'flex';
-                document.getElementById('oauth-progress-message').textContent = 'Starting OAuth authentication...';
-
                 // Call API to start OAuth refresh
                 const response = await apiCall(`/api/remotes/${remoteName}/oauth/refresh`, 'POST');
 
-                if (response.auth_url) {
-                    // Update modal message
-                    document.getElementById('oauth-progress-message').textContent =
-                        `Please complete authentication in the new tab for "${remoteName}"`;
-
-                    // Open OAuth URL in new tab (current browser, not default browser)
-                    window.open(response.auth_url, '_blank');
-
-                    // Start polling for status updates every 2 seconds
-                    oauthStatusPollInterval = setInterval(() => pollOAuthStatus(remoteName), 2000);
+                if (response.status === 'needs_token') {
+                    // Show interactive modal with authorize command
+                    document.getElementById('oauth-authorize-command').textContent = response.authorize_command;
+                    document.getElementById('oauth-token-input').value = '';
+                    document.getElementById('oauth-status-message').style.display = 'none';
+                    document.getElementById('oauth-submit-btn').disabled = false;
+                    document.getElementById('oauth-interactive-modal').style.display = 'flex';
+                } else if (response.status === 'complete') {
+                    // Token refresh completed immediately (shouldn't normally happen, but handle it)
+                    alert(`OAuth token successfully refreshed for "${remoteName}"`);
+                    await loadRemotesList();
+                    currentOAuthRemote = null;
+                } else if (response.status === 'error') {
+                    // Error occurred
+                    alert(`Failed to refresh OAuth token: ${response.message || 'Unknown error'}`);
+                    currentOAuthRemote = null;
                 } else {
-                    document.getElementById('oauth-progress-message').textContent =
-                        `OAuth refresh initiated for "${remoteName}"`;
-                    // Close modal after 2 seconds
-                    setTimeout(() => {
-                        document.getElementById('oauth-progress-modal').style.display = 'none';
-                        currentOAuthRemote = null;
-                    }, 2000);
+                    // Unexpected response
+                    alert(`Unexpected response from server: ${response.status}`);
+                    currentOAuthRemote = null;
                 }
             } catch (error) {
-                document.getElementById('oauth-progress-modal').style.display = 'none';
                 currentOAuthRemote = null;
                 alert(`Failed to refresh OAuth token: ${error.message}`);
             }
         }
 
         async function cancelOAuthRefresh() {
-            // Stop polling
+            // Stop polling (kept for backward compatibility but not used in new flow)
             if (oauthStatusPollInterval) {
                 clearInterval(oauthStatusPollInterval);
                 oauthStatusPollInterval = null;
             }
 
             if (!currentOAuthRemote) {
-                document.getElementById('oauth-progress-modal').style.display = 'none';
                 return;
             }
 
             try {
-                // Call API to cancel OAuth session
+                // Call API to cancel OAuth session (if old flow API still exists)
                 await apiCall(`/api/oauth/cancel/${currentOAuthRemote}`, 'POST');
             } catch (error) {
                 console.error('Failed to cancel OAuth refresh:', error);
             }
 
-            document.getElementById('oauth-progress-modal').style.display = 'none';
+            currentOAuthRemote = null;
+        }
+
+        async function submitOAuthToken() {
+            if (!currentOAuthRemote) {
+                alert('No OAuth session active');
+                return;
+            }
+
+            const token = document.getElementById('oauth-token-input').value.trim();
+            if (!token) {
+                showOAuthStatus('Please paste the token before submitting', 'error');
+                return;
+            }
+
+            // Disable submit button during submission
+            const submitBtn = document.getElementById('oauth-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                showOAuthStatus('Submitting token...', 'info');
+
+                // Submit token to API
+                const response = await apiCall(
+                    `/api/remotes/${currentOAuthRemote}/oauth/submit-token`,
+                    'POST',
+                    { token: token }
+                );
+
+                if (response.status === 'complete') {
+                    // Success!
+                    showOAuthStatus('✓ Token successfully submitted! OAuth refresh complete.', 'success');
+
+                    // Wait a moment before closing
+                    setTimeout(async () => {
+                        closeOAuthModal();
+                        await loadRemotesList();
+                        alert(`OAuth token successfully refreshed for "${currentOAuthRemote}"`);
+                    }, 1500);
+                } else if (response.status === 'error') {
+                    // Error
+                    showOAuthStatus(`Error: ${response.message || 'Unknown error'}`, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Token';
+                } else {
+                    // Unexpected status
+                    showOAuthStatus(`Unexpected response: ${response.status}`, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Token';
+                }
+            } catch (error) {
+                showOAuthStatus(`Failed to submit token: ${error.message}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Token';
+            }
+        }
+
+        function showOAuthStatus(message, type) {
+            const statusDiv = document.getElementById('oauth-status-message');
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+
+            // Set background color based on type
+            if (type === 'success') {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.style.border = '1px solid #c3e6cb';
+            } else if (type === 'error') {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '1px solid #f5c6cb';
+            } else {
+                // info
+                statusDiv.style.background = '#d1ecf1';
+                statusDiv.style.color = '#0c5460';
+                statusDiv.style.border = '1px solid #bee5eb';
+            }
+        }
+
+        function copyAuthorizeCommand() {
+            const commandText = document.getElementById('oauth-authorize-command').textContent;
+
+            // Use modern clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(commandText).then(() => {
+                    // Show success feedback briefly
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    btn.style.background = '#28a745';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#007bff';
+                    }, 2000);
+                }).catch(err => {
+                    alert('Failed to copy to clipboard. Please copy manually.');
+                    console.error('Clipboard error:', err);
+                });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = commandText;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Command copied to clipboard!');
+                } catch (err) {
+                    alert('Failed to copy. Please copy manually.');
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function closeOAuthModal() {
+            document.getElementById('oauth-interactive-modal').style.display = 'none';
+            document.getElementById('oauth-token-input').value = '';
+            document.getElementById('oauth-status-message').style.display = 'none';
+            document.getElementById('oauth-submit-btn').disabled = false;
+            document.getElementById('oauth-submit-btn').textContent = 'Submit Token';
             currentOAuthRemote = null;
         }
 
@@ -5014,6 +5132,92 @@ ${data.text || '(no output yet)'}
             showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
     </script>
-    <!-- OAuth Refresh Progress Modal -->    <div class="modal" id="oauth-progress-modal">        <div class="modal-content" style="max-width: 500px;">            <div class="modal-header" style="position: relative;">                🔐 OAuth Token Refresh in Progress            </div>            <div style="padding: 20px 0;">                <p id="oauth-progress-message" style="text-align: center; color: #666; margin-bottom: 20px;">                    Starting OAuth authentication...                </p>                <div style="text-align: center; margin: 20px 0;">                    <div class="spinner-border" role="status">                        <span class="sr-only"></span>                    </div>                </div>                <p style="text-align: center; color: #666; font-size: 14px;">                    A new tab will open for you to authenticate with your cloud provider.                    <br/>Please complete the authentication process.                </p>            </div>            <div class="modal-buttons">                <button onclick="cancelOAuthRefresh()" style="background: #dc3545;">                    Cancel                </button>            </div>        </div>    </div>    <style>        /* Bootstrap-style spinner */        .spinner-border {            display: inline-block;            width: 3rem;            height: 3rem;            vertical-align: text-bottom;            border: 0.35em solid currentColor;            border-right-color: transparent;            border-radius: 50%;            animation: spinner-border-animation 0.75s linear infinite;            color: #28a745;        }        .sr-only {            position: absolute;            width: 1px;            height: 1px;            padding: 0;            margin: -1px;            overflow: hidden;            clip: rect(0, 0, 0, 0);            white-space: nowrap;            border: 0;        }        @keyframes spinner-border-animation {            0% { transform: rotate(0deg); }            100% { transform: rotate(360deg); }        }    </style>
+    <!-- OAuth Refresh Interactive Modal -->
+    <div class="modal" id="oauth-interactive-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header" style="position: relative;">
+                🔐 OAuth Token Refresh
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #666; margin-bottom: 20px;">
+                    To refresh your OAuth token, please run the following command on your local machine where you have a browser:
+                </p>
+
+                <!-- Step 1: Install rclone -->
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                    <strong style="color: #333;">Step 1: Install rclone (if not already installed)</strong>
+                    <p style="margin: 10px 0; color: #666; font-size: 14px;">
+                        Download rclone from:
+                        <a href="https://rclone.org/downloads/" target="_blank" style="color: #007bff; text-decoration: underline;">https://rclone.org/downloads/</a>
+                    </p>
+                </div>
+
+                <!-- Step 2: Run authorize command -->
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                    <strong style="color: #333;">Step 2: Run this command</strong>
+                    <div style="background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 13px; word-break: break-all; position: relative;">
+                        <div id="oauth-authorize-command" style="white-space: pre-wrap;">Loading...</div>
+                        <button onclick="copyAuthorizeCommand()" style="position: absolute; top: 8px; right: 8px; background: #007bff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-family: sans-serif;">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Paste token -->
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
+                    <strong style="color: #333;">Step 3: Paste the token here</strong>
+                    <p style="margin: 10px 0; color: #666; font-size: 14px;">
+                        After running the command, you will see a long token string. Copy and paste it below:
+                    </p>
+                    <textarea
+                        id="oauth-token-input"
+                        placeholder="Paste the token string here..."
+                        style="width: 100%; min-height: 120px; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical;"
+                    ></textarea>
+                </div>
+
+                <!-- Status message -->
+                <div id="oauth-status-message" style="display: none; padding: 12px; border-radius: 4px; margin-bottom: 15px;"></div>
+            </div>
+            <div class="modal-buttons">
+                <button id="oauth-submit-btn" onclick="submitOAuthToken()" style="background: #28a745;">
+                    Submit Token
+                </button>
+                <button onclick="closeOAuthModal()" style="background: #6c757d;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Bootstrap-style spinner (kept for potential future use) */
+        .spinner-border {
+            display: inline-block;
+            width: 3rem;
+            height: 3rem;
+            vertical-align: text-bottom;
+            border: 0.35em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border-animation 0.75s linear infinite;
+            color: #28a745;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        @keyframes spinner-border-animation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>

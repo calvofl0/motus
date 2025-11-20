@@ -373,12 +373,17 @@ def list_templates():
 @token_required
 def refresh_oauth_token(remote_name):
     """
-    Start OAuth token refresh for a remote
+    Start OAuth token refresh for a remote using interactive flow
+
+    This uses rclone's --non-interactive state machine. The user will need to
+    run `rclone authorize` on their laptop and paste the resulting token.
 
     Response:
     {
-        "message": "OAuth refresh started",
-        "auth_url": "https://motus-server/api/oauth/callback/my_remote/auth?state=..."
+        "status": "needs_token" | "error" | "complete",
+        "authorize_command": "rclone authorize ...",  // if needs_token
+        "session_id": "remote_name",  // if needs_token
+        "message": "Status or error message"
     }
     """
     try:
@@ -395,24 +400,53 @@ def refresh_oauth_token(remote_name):
         if not is_oauth_remote(config):
             return jsonify({'error': f'Remote {remote_name} is not OAuth-based (no token found)'}), 400
 
-        # Get the base URL for callback
-        # Use the request's host and scheme to construct the callback URL
-        base_url = f"{request.scheme}://{request.host}"
-        callback_url = f"{base_url}/api/oauth/callback"
+        # Get remote type
+        remote_type = config.get('type', 'unknown')
 
-        # Start OAuth refresh
-        success, message, auth_url = oauth_manager.start_oauth_refresh(remote_name, callback_url)
+        # Start interactive OAuth refresh
+        result = oauth_manager.start_oauth_refresh_interactive(remote_name, remote_type)
 
-        if not success:
-            return jsonify({'error': message}), 500
-
-        return jsonify({
-            'message': message,
-            'auth_url': auth_url,
-        })
+        return jsonify(result)
 
     except Exception as e:
         logging.error(f"OAuth refresh error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/<remote_name>/oauth/submit-token', methods=['POST'])
+@token_required
+def submit_oauth_token(remote_name):
+    """
+    Submit the OAuth token from rclone authorize to continue the refresh flow
+
+    Request JSON:
+    {
+        "token": "LONG_STRING_FROM_RCLONE_AUTHORIZE"
+    }
+
+    Response:
+    {
+        "status": "complete" | "needs_token" | "error",
+        "message": "Status or error message"
+    }
+    """
+    try:
+        if not oauth_manager:
+            return jsonify({'error': 'OAuth manager not initialized'}), 500
+
+        data = request.get_json()
+        if not data or 'token' not in data:
+            return jsonify({'error': 'Missing required field: token'}), 400
+
+        token = data['token']
+
+        # Continue OAuth refresh with token
+        result = oauth_manager.continue_oauth_refresh(remote_name, token)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logging.error(f"OAuth token submission error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
