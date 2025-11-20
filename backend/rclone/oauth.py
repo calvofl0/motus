@@ -73,7 +73,6 @@ class OAuthRefreshManager:
             remote_name,
             'config_refresh_token',
             'true',
-            '--config-auto-confirm',  # Auto-confirm to avoid interactive prompts
         ]
 
         if self.rclone_config_file:
@@ -86,7 +85,6 @@ class OAuthRefreshManager:
             # Prepare environment to prevent rclone from auto-opening browser
             import os
             env = os.environ.copy()
-            env['RCLONE_CONFIG_AUTO_CONFIRM'] = 'true'
             # Tell rclone not to auto-open browser (it should just print the URL)
             env['BROWSER'] = '/bin/false'  # Set browser to a no-op command
 
@@ -190,6 +188,40 @@ class OAuthRefreshManager:
                 process.kill()
                 process.wait(timeout=5)
                 return False, "Failed to extract OAuth URL from rclone output", None
+
+            # Wait for rclone's HTTP server to be ready before returning the URL
+            # This prevents "Connection refused" errors when user immediately clicks the URL
+            logging.info(f"Waiting for rclone HTTP server on port {local_port} to be ready...")
+            server_ready = False
+            max_wait_attempts = 15
+            wait_delay = 1.0  # 1 second between attempts
+
+            import requests
+            from requests.exceptions import ConnectionError, Timeout
+
+            for attempt in range(max_wait_attempts):
+                try:
+                    # Try to connect to rclone's server
+                    test_url = f"http://127.0.0.1:{local_port}/"
+                    response = requests.get(test_url, timeout=2, allow_redirects=False)
+                    # If we get ANY response (even 404), the server is ready
+                    logging.info(f"rclone server is ready (attempt {attempt+1}/{max_wait_attempts})")
+                    server_ready = True
+                    break
+                except (ConnectionError, Timeout):
+                    if attempt < max_wait_attempts - 1:
+                        logging.debug(f"Waiting for rclone server (attempt {attempt+1}/{max_wait_attempts})...")
+                        time.sleep(wait_delay)
+                    else:
+                        logging.warning(f"rclone server not responding after {max_wait_attempts} attempts, proceeding anyway")
+                except Exception as e:
+                    # Any other error (like redirect) means server is up
+                    logging.info(f"rclone server responded (attempt {attempt+1}): {e}")
+                    server_ready = True
+                    break
+
+            if not server_ready:
+                logging.warning("rclone server readiness check timed out, but continuing anyway")
 
             # Store session info
             with self._lock:
