@@ -3465,9 +3465,12 @@ type = s3
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
                 html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
-                // Refresh token icon (for OAuth remotes only)
+                // Refresh token icon (for OAuth remotes only) - or empty space for alignment
                 if (remote.is_oauth) {
-                    html += `<button onclick="refreshOAuthToken('${remote.name}')" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">🔄</button>`;
+                    html += `<button onclick="refreshOAuthToken('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">↻</button>`;
+                } else {
+                    // Empty space for alignment
+                    html += `<span style="display: inline-block; width: 32px; margin-right: 4px;"></span>`;
                 }
                 // Edit icon (pencil) - disabled if remote is active
                 if (isActive) {
@@ -3475,11 +3478,11 @@ type = s3
                 } else {
                     html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 14px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
                 }
-                // Delete icon (red X) - disabled if remote is active
+                // Delete icon (recycle bin) - disabled if remote is active
                 if (isActive) {
-                    html += `<button disabled style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: not-allowed; color: #ccc; padding: 4px 8px;" title="Cannot delete remote while in use">×</button>`;
+                    html += `<button disabled style="background: none; border: none; font-size: 18px; cursor: not-allowed; color: #ccc; padding: 4px 8px;" title="Cannot delete remote while in use">🗑️</button>`;
                 } else {
-                    html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 22px; font-weight: bold; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">×</button>`;
+                    html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">🗑️</button>`;
                 }
                 html += '</td></tr>';
             });
@@ -3889,30 +3892,59 @@ type = s3
             }
         }
 
+        let currentOAuthRemote = null;
+
         async function refreshOAuthToken(remoteName) {
             try {
+                currentOAuthRemote = remoteName;
+
+                // Show progress modal
+                document.getElementById('oauth-progress-modal').style.display = 'flex';
+                document.getElementById('oauth-progress-message').textContent = 'Starting OAuth authentication...';
+
                 // Call API to start OAuth refresh
                 const response = await apiCall(`/api/remotes/${remoteName}/oauth/refresh`, 'POST');
-                
+
                 if (response.auth_url) {
-                    // Open OAuth URL in new window
-                    const width = 600;
-                    const height = 700;
-                    const left = (screen.width / 2) - (width / 2);
-                    const top = (screen.height / 2) - (height / 2);
-                    window.open(
-                        response.auth_url,
-                        'OAuthWindow',
-                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-                    );
-                    
-                    alert(`OAuth token refresh started for "${remoteName}".\n\nA new window will open for you to authenticate.\nAfter completing authentication, the token will be refreshed automatically.`);
+                    // Update modal message
+                    document.getElementById('oauth-progress-message').textContent =
+                        `Please complete authentication in the new tab for "${remoteName}"`;
+
+                    // Open OAuth URL in new tab (current browser, not default browser)
+                    window.open(response.auth_url, '_blank');
+
+                    // Keep modal open - user can cancel or close after authentication
                 } else {
-                    alert(`OAuth refresh initiated for "${remoteName}"`);
+                    document.getElementById('oauth-progress-message').textContent =
+                        `OAuth refresh initiated for "${remoteName}"`;
+                    // Close modal after 2 seconds
+                    setTimeout(() => {
+                        document.getElementById('oauth-progress-modal').style.display = 'none';
+                        currentOAuthRemote = null;
+                    }, 2000);
                 }
             } catch (error) {
+                document.getElementById('oauth-progress-modal').style.display = 'none';
+                currentOAuthRemote = null;
                 alert(`Failed to refresh OAuth token: ${error.message}`);
             }
+        }
+
+        async function cancelOAuthRefresh() {
+            if (!currentOAuthRemote) {
+                document.getElementById('oauth-progress-modal').style.display = 'none';
+                return;
+            }
+
+            try {
+                // Call API to cancel OAuth session
+                await apiCall(`/api/oauth/cancel/${currentOAuthRemote}`, 'POST');
+            } catch (error) {
+                console.error('Failed to cancel OAuth refresh:', error);
+            }
+
+            document.getElementById('oauth-progress-modal').style.display = 'none';
+            currentOAuthRemote = null;
         }
 
         async function createRemote() {
@@ -4937,5 +4969,6 @@ ${data.text || '(no output yet)'}
             showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
     </script>
+    <!-- OAuth Refresh Progress Modal -->    <div class="modal" id="oauth-progress-modal">        <div class="modal-content" style="max-width: 500px;">            <div class="modal-header" style="position: relative;">                🔐 OAuth Token Refresh in Progress            </div>            <div style="padding: 20px 0;">                <p id="oauth-progress-message" style="text-align: center; color: #666; margin-bottom: 20px;">                    Starting OAuth authentication...                </p>                <div style="text-align: center; margin: 20px 0;">                    <div style="font-size: 48px; color: #28a745; animation: spin 2s linear infinite;">↻</div>                </div>                <p style="text-align: center; color: #666; font-size: 14px;">                    A new tab will open for you to authenticate with your cloud provider.                    <br/>Please complete the authentication process.                </p>            </div>            <div class="modal-buttons">                <button onclick="cancelOAuthRefresh()" style="background: #dc3545;">                    Cancel                </button>            </div>        </div>    </div>    <style>        @keyframes spin {            0% { transform: rotate(0deg); }            100% { transform: rotate(360deg); }        }    </style>
 </body>
 </html>

@@ -480,3 +480,30 @@ def oauth_callback(remote_name, callback_path):
     except Exception as e:
         logging.error(f"OAuth callback error: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/oauth/cancel/<remote_name>', methods=['POST'])
+@token_required
+def cancel_oauth_refresh(remote_name):
+    """
+    Cancel an ongoing OAuth refresh session
+
+    Response:
+    {
+        "message": "OAuth refresh cancelled"
+    }
+    """
+    try:
+        if not oauth_manager:
+            return jsonify({'error': 'OAuth manager not initialized'}), 500
+
+        # Cleanup the OAuth session (kills the process)
+        oauth_manager.cleanup_session(remote_name)
+
+        return jsonify({
+            'message': 'OAuth refresh cancelled',
+        })
+
+    except Exception as e:
+        logging.error(f"OAuth cancel error: {e}")
+        return jsonify({'error': str(e)}), 500

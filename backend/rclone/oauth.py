@@ -91,42 +91,69 @@ class OAuthRefreshManager:
                 bufsize=1,
             )
 
-            # Wait briefly and read initial output to get the OAuth URL
-            time.sleep(1.0)
-
-            # Read stdout to find the OAuth URL
+            # Wait and read output to get the OAuth URL
+            # rclone might take a few seconds to start the OAuth server
             auth_url = None
             local_port = None
             output_lines = []
 
-            # Try to read output (non-blocking)
-            try:
-                import select
-                import sys
+            # Try to read output multiple times with increasing wait
+            for attempt in range(5):  # Try for up to 5 seconds
+                time.sleep(1.0)
 
-                # Read available output
-                if sys.platform != 'win32':
-                    # Unix-like systems
-                    while True:
-                        readable, _, _ = select.select([process.stdout], [], [], 0.1)
-                        if not readable:
+                try:
+                    import select
+                    import sys
+
+                    # Read available output from both stdout and stderr
+                    if sys.platform != 'win32':
+                        # Unix-like systems - use select to check for available data
+                        for stream in [process.stdout, process.stderr]:
+                            while True:
+                                readable, _, _ = select.select([stream], [], [], 0.1)
+                                if not readable:
+                                    break
+                                line = stream.readline()
+                                if not line:
+                                    break
+                                output_lines.append(line)
+                                logging.debug(f"rclone output: {line.strip()}")
+                                # Check if we found the OAuth URL
+                                if 'http://127.0.0.1:' in line or 'http://localhost:' in line:
+                                    break
+                    else:
+                        # Windows - try to read what's available
+                        for stream in [process.stdout, process.stderr]:
+                            for _ in range(20):  # Try to read up to 20 lines
+                                line = stream.readline()
+                                if line:
+                                    output_lines.append(line)
+                                    logging.debug(f"rclone output: {line.strip()}")
+                                    if 'http://127.0.0.1:' in line or 'http://localhost:' in line:
+                                        break
+                                else:
+                                    break
+
+                    # Check if we found the OAuth URL
+                    for line in output_lines:
+                        if 'http://127.0.0.1:' in line or 'http://localhost:' in line:
+                            # Found it! Break out of retry loop
                             break
-                        line = process.stdout.readline()
-                        if not line:
-                            break
-                        output_lines.append(line)
-                        logging.debug(f"rclone output: {line.strip()}")
-                else:
-                    # Windows - just try to read what's available
-                    for _ in range(10):  # Try to read up to 10 lines
-                        line = process.stdout.readline()
-                        if line:
-                            output_lines.append(line)
-                            logging.debug(f"rclone output: {line.strip()}")
-                        else:
-                            break
-            except Exception as e:
-                logging.warning(f"Error reading rclone output: {e}")
+                    else:
+                        # Not found yet, continue to next attempt
+                        continue
+
+                    # If we get here, we found the URL
+                    break
+
+                except Exception as e:
+                    logging.warning(f"Error reading rclone output (attempt {attempt+1}): {e}")
+                    continue
+
+            # Log all output for debugging
+            logging.info(f"rclone output ({len(output_lines)} lines):")
+            for line in output_lines:
+                logging.info(f"  {line.strip()}")
 
             # Parse output to extract OAuth URL and local port
             for line in output_lines:
