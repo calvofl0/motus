@@ -321,33 +321,69 @@ export class RemoteManager {
             textarea.addEventListener('input', () => this.validateRemoteForm());
             this.validateRemoteForm();
         } else {
-            let html = `<p style="margin-bottom: 15px;"><strong>${template.name}</strong></p>`;
+            let html = `<p style="margin-bottom: 15px;"><strong>Template:</strong> ${template.name}</p>`;
+            html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
 
-            html += '<div style="margin-bottom: 15px;">';
-            html += '<label style="display: block; margin-bottom: 5px; font-weight: 500;">Remote Name</label>';
-            html += '<input type="text" id="remote-name-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter remote name">';
+            // Remote Name field
+            html += '<div>';
+            html += '<label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>';
+            html += '<input type="text" id="remote-name-input" placeholder="Enter remote name" ';
+            html += 'pattern="[a-zA-Z0-9_-]+" title="Use only letters, numbers, underscores, and hyphens" ';
+            html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+            html += '<small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>';
             html += '</div>';
 
+            // Template fields
             template.fields.forEach(field => {
-                html += '<div style="margin-bottom: 15px;">';
-                html += `<label style="display: block; margin-bottom: 5px; font-weight: 500;">${field.label}</label>`;
+                const isSecret = field.label.toLowerCase().includes('password') ||
+                                field.label.toLowerCase().includes('secret') ||
+                                field.label.toLowerCase().includes('key');
+                const inputType = isSecret ? 'password' : 'text';
 
-                if (field.type === 'password') {
-                    html += `<input type="password" id="field-${field.key}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="${field.label}">`;
-                } else if (field.type === 'select' && field.options) {
-                    html += `<select id="field-${field.key}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">`;
-                    field.options.forEach(opt => {
-                        html += `<option value="${opt.value}">${opt.label}</option>`;
-                    });
-                    html += '</select>';
-                } else {
-                    html += `<input type="text" id="field-${field.key}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="${field.label}">`;
+                html += '<div>';
+
+                // Label with optional help icon
+                html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">`;
+                html += field.label;
+                if (field.help) {
+                    // Add help icon with tooltip
+                    html += ` <span class="help-icon" style="display: inline-block; cursor: help; position: relative;">`;
+                    // Use SVG info icon with transparent background
+                    html += `<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align: middle; margin-left: 4px;">`;
+                    html += `<circle cx="8" cy="8" r="7" fill="none" stroke="#007bff" stroke-width="1.5"/>`;
+                    html += `<text x="8" y="11" text-anchor="middle" fill="#007bff" font-size="11" font-weight="bold" font-family="serif">i</text>`;
+                    html += `</svg>`;
+                    html += `<span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">`;
+                    html += field.help; // HTML with links already converted
+                    // Add small arrow pointing to icon
+                    html += `<span style="position: absolute; left: -6px; top: 8px; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 6px solid #2c3e50;"></span>`;
+                    html += `</span>`;
+                    html += `</span>`;
                 }
+                html += `</label>`;
+
+                if (isSecret) {
+                    // Password field with visibility toggle
+                    html += '<div style="position: relative;">';
+                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
+                    html += 'style="width: 100%; padding: 8px; padding-right: 40px; border: 1px solid #ddd; border-radius: 4px;" required />';
+                    html += `<button type="button" class="password-toggle-btn" data-field-id="field-${field.key}" `;
+                    html += 'style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 4px;" ';
+                    html += 'title="Toggle password visibility">👁️</button>';
+                    html += '</div>';
+                } else {
+                    // Regular text field
+                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
+                    html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
+                }
+
                 html += '</div>';
             });
 
+            html += '</div>';
             container.innerHTML = html;
 
+            // Restore form values and add event listeners
             const nameInput = document.getElementById('remote-name-input');
             if (this.state.formValues['remote-name']) {
                 nameInput.value = this.state.formValues['remote-name'];
@@ -362,6 +398,43 @@ export class RemoteManager {
             });
 
             nameInput.addEventListener('input', () => this.validateRemoteForm());
+
+            // Add password toggle event listeners
+            container.querySelectorAll('.password-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => this.togglePasswordVisibility(e));
+            });
+
+            // Add tooltip hover event listeners
+            container.querySelectorAll('.help-icon').forEach(icon => {
+                const tooltip = icon.querySelector('.help-tooltip');
+                if (tooltip) {
+                    // Show tooltip on hover of icon or tooltip itself
+                    icon.addEventListener('mouseenter', () => {
+                        tooltip.style.display = 'block';
+                    });
+
+                    // Hide tooltip when mouse leaves both icon and tooltip
+                    let hideTimeout;
+                    icon.addEventListener('mouseleave', () => {
+                        hideTimeout = setTimeout(() => {
+                            // Check if mouse is over tooltip
+                            if (!tooltip.matches(':hover')) {
+                                tooltip.style.display = 'none';
+                            }
+                        }, 100);
+                    });
+
+                    tooltip.addEventListener('mouseenter', () => {
+                        clearTimeout(hideTimeout);
+                        tooltip.style.display = 'block';
+                    });
+
+                    tooltip.addEventListener('mouseleave', () => {
+                        tooltip.style.display = 'none';
+                    });
+                }
+            });
+
             this.validateRemoteForm();
         }
     }
@@ -430,6 +503,28 @@ export class RemoteManager {
         }
 
         createBtn.disabled = false;
+    }
+
+    /**
+     * Toggle password visibility
+     * @param {Event} event - Click event from toggle button
+     */
+    togglePasswordVisibility(event) {
+        const button = event.target;
+        const fieldId = button.dataset.fieldId;
+        const input = document.getElementById(fieldId);
+
+        if (!input) return;
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            button.textContent = '👁️‍🗨️'; // Eye with lines (hidden state)
+            button.title = 'Hide password';
+        } else {
+            input.type = 'password';
+            button.textContent = '👁️'; // Regular eye
+            button.title = 'Show password';
+        }
     }
 
     /**
