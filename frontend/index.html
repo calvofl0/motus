@@ -445,9 +445,9 @@ type = s3
     <script type="module">
         // Import modules
         import { ModalManager, initModalManager } from '/js/lib/modal-manager.js';
-        import { state, getPaneState, setPanePath, setPaneRemote, setPaneFiles, clearPaneSelection, togglePaneSort } from '/js/config.js';
-        import { apiCall, setAuthToken, getAuthToken } from '/js/lib/api.js';
-        import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath } from '/js/utils/helpers.js';
+        import { state, getPaneState, setPanePath, setPaneRemote, setPaneFiles, clearPaneSelection, togglePaneSort, getSelectedFiles, getPaneFullPath, setViewMode, toggleShowHiddenFiles, setLastFocusedPane } from '/js/config.js';
+        import { apiCall, setAuthToken, getAuthToken, clearAuthToken, isAuthenticated } from '/js/lib/api.js';
+        import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath, buildFullPath, parseRemotePath } from '/js/utils/helpers.js';
         import { savePreferences as savePrefs, loadPreferences as loadPrefs } from '/js/utils/preferences.js';
         import { JobProgressWatcher } from '/js/lib/sse.js';
 

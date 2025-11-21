@@ -23,20 +23,23 @@ export async function savePreferences(apiCall, preferences) {
 /**
  * Load user preferences from backend
  * @param {Function} apiCall - API call function
+ * @param {Object} defaults - Default preferences (optional)
  * @returns {Promise<Object>} Preferences object
  */
-export async function loadPreferences(apiCall) {
+export async function loadPreferences(apiCall, defaults = {}) {
+    const defaultPrefs = {
+        view_mode: defaults.view_mode || 'list',
+        show_hidden_files: defaults.show_hidden_files !== undefined ? defaults.show_hidden_files : false
+    };
+
     try {
         const prefs = await apiCall('/api/preferences');
         return {
-            view_mode: prefs.view_mode || 'list',
-            show_hidden_files: prefs.show_hidden_files !== undefined ? prefs.show_hidden_files : false
+            view_mode: prefs.view_mode || defaultPrefs.view_mode,
+            show_hidden_files: prefs.show_hidden_files !== undefined ? prefs.show_hidden_files : defaultPrefs.show_hidden_files
         };
     } catch (error) {
         console.error('Failed to load preferences:', error);
-        return {
-            view_mode: 'list',
-            show_hidden_files: false
-        };
+        return defaultPrefs;
     }
 }

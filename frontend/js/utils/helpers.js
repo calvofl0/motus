@@ -74,6 +74,8 @@ export function formatFileSize(bytes) {
 export function formatFileDate(dateStr) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
+    // Check for invalid date
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 }
 
@@ -102,4 +104,27 @@ export function resolveRelativePath(basePath, relativePath) {
     // Otherwise, join with base path
     const base = basePath.endsWith('/') ? basePath : basePath + '/';
     return base + relativePath;
+}
+
+/**
+ * Build full path with remote prefix if applicable
+ * @param {string} remote - Remote name (empty for local)
+ * @param {string} path - File path
+ * @returns {string} Full path (e.g., "remote:path" or "/local/path")
+ */
+export function buildFullPath(remote, path) {
+    return remote ? `${remote}:${path}` : path;
+}
+
+/**
+ * Parse remote path into components
+ * @param {string} fullPath - Full path (e.g., "remote:path" or "/local/path")
+ * @returns {{remote: string, path: string}} Parsed components
+ */
+export function parseRemotePath(fullPath) {
+    if (fullPath.includes(':')) {
+        const [remote, ...pathParts] = fullPath.split(':');
+        return { remote, path: pathParts.join(':') };
+    }
+    return { remote: '', path: fullPath };
 }

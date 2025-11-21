@@ -23,6 +23,21 @@ export function getAuthToken() {
 }
 
 /**
+ * Clear the authentication token
+ */
+export function clearAuthToken() {
+    authToken = '';
+}
+
+/**
+ * Check if authentication token is set
+ * @returns {boolean} True if token is set
+ */
+export function isAuthenticated() {
+    return authToken !== '';
+}
+
+/**
  * Make an authenticated API call
  * @param {string} endpoint - API endpoint path
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
@@ -49,7 +64,11 @@ export async function apiCall(endpoint, method = 'GET', body = null) {
     const response = await fetch(endpoint, options);
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(error.error || 'Request failed');
+        const errorMsg = error.error || `Request failed with status ${response.status}`;
+        const err = new Error(errorMsg);
+        err.status = response.status;
+        err.response = error;
+        throw err;
     }
     return response.json();
 }
