@@ -456,6 +456,7 @@ type = s3
         // Use state from config.js instead of local variables
         // Aliases for convenience (will be refactored away gradually)
         let currentMode = state.currentMode;
+        let authToken = '';  // Keep local for compatibility, sync with api.js
         let leftPaneState = state.panes.left;
         let rightPaneState = state.panes.right;
         let viewMode = state.ui.viewMode;
@@ -690,6 +691,7 @@ type = s3
             const tokenFromUrl = urlParams.get('token');
             if (tokenFromUrl) {
                 authToken = tokenFromUrl;
+                setAuthToken(tokenFromUrl);  // Sync with api.js
                 document.getElementById('token').value = tokenFromUrl;
                 // Set cookie
                 document.cookie = `motus_token=${tokenFromUrl}; path=/; max-age=31536000`;
@@ -700,6 +702,7 @@ type = s3
                     const [name, value] = cookie.trim().split('=');
                     if (name === 'motus_token') {
                         authToken = value;
+                        setAuthToken(value);  // Sync with api.js
                         document.getElementById('token').value = value;
                         break;
                     }
@@ -3995,6 +3998,7 @@ type = s3
         // Expert mode functions (existing)
         async function authenticate() {
             authToken = document.getElementById('token').value;
+            setAuthToken(authToken);  // Sync with api.js
             document.cookie = `motus_token=${authToken}; path=/; max-age=31536000`;
             try {
                 await apiCall('/api/health');
