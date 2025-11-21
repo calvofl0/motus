@@ -450,6 +450,7 @@ type = s3
         import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath, buildFullPath, parseRemotePath } from '/js/utils/helpers.js';
         import { savePreferences as savePrefs, loadPreferences as loadPrefs } from '/js/utils/preferences.js';
         import { JobProgressWatcher } from '/js/lib/sse.js';
+        import { RemoteManager } from '/js/modules/remote-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -479,11 +480,25 @@ type = s3
         let uploadStartTime = state.upload.startTime;
         let maxUploadSize = state.upload.maxSize;
 
+        // Initialize modules
+        const remoteManager = new RemoteManager(apiCall, ModalManager, {
+            onRemotesChanged: async () => {
+                await loadRemotes();
+                await refreshPane('left');
+                await refreshPane('right');
+            },
+            getActivePanes: () => ({
+                left: leftPaneState.remote,
+                right: rightPaneState.remote
+            }),
+            onOAuthRefresh: (remoteName) => refreshOAuthToken(remoteName)
+        });
+
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
         function setupEventListeners() {
             // Header buttons
-            document.getElementById('manage-remotes-btn').addEventListener('click', openManageRemotesDialog);
+            document.getElementById('manage-remotes-btn').addEventListener('click', () => remoteManager.open());
             document.getElementById('view-menu-btn').addEventListener('click', toggleViewMenu);
             document.getElementById('view-mode-option').addEventListener('click', switchViewMode);
             document.getElementById('hidden-files-option').addEventListener('click', toggleHiddenFilesOption);
@@ -563,20 +578,20 @@ type = s3
             document.getElementById('upload-cancel-btn').addEventListener('click', cancelUpload);
 
             // Modal buttons - Manage Remotes Modal
-            document.getElementById('manage-remotes-close-btn').addEventListener('click', closeManageRemotesDialog);
-            document.getElementById('add-remote-btn').addEventListener('click', showTemplateSelection);
-            document.getElementById('template-close-btn').addEventListener('click', showRemotesList);
-            document.getElementById('template-next-btn').addEventListener('click', showRemoteForm);
-            document.getElementById('configure-close-btn').addEventListener('click', showRemotesList);
-            document.getElementById('configure-back-btn').addEventListener('click', showTemplateSelection);
-            document.getElementById('create-remote-btn').addEventListener('click', createRemote);
+            document.getElementById('manage-remotes-close-btn').addEventListener('click', () => remoteManager.close());
+            document.getElementById('add-remote-btn').addEventListener('click', () => remoteManager.showTemplateSelection());
+            document.getElementById('template-close-btn').addEventListener('click', () => remoteManager.showRemotesList());
+            document.getElementById('template-next-btn').addEventListener('click', () => remoteManager.showRemoteForm());
+            document.getElementById('configure-close-btn').addEventListener('click', () => remoteManager.showRemotesList());
+            document.getElementById('configure-back-btn').addEventListener('click', () => remoteManager.showTemplateSelection());
+            document.getElementById('create-remote-btn').addEventListener('click', () => remoteManager.createRemote());
 
             // Event delegation - Template selection
             document.getElementById('templates-list-container').addEventListener('click', (e) => {
                 const templateItem = e.target.closest('.template-item');
                 if (templateItem) {
                     const templateName = templateItem.dataset.templateName;
-                    selectTemplate(templateName);
+                    remoteManager.selectTemplate(templateName);
                 }
             });
 
@@ -592,9 +607,9 @@ type = s3
                     if (action === 'refresh-oauth') {
                         refreshOAuthToken(remoteName);
                     } else if (action === 'edit') {
-                        editRemoteConfig(remoteName);
+                        remoteManager.editRemoteConfig(remoteName);
                     } else if (action === 'delete') {
-                        deleteRemote(remoteName);
+                        remoteManager.deleteRemote(remoteName);
                     }
                     return;
                 }
@@ -603,7 +618,7 @@ type = s3
                 const remoteRow = e.target.closest('.remote-row');
                 if (remoteRow) {
                     const remoteName = remoteRow.dataset.remoteName;
-                    viewRemoteConfig(remoteName);
+                    remoteManager.viewRemoteConfig(remoteName);
                 }
             });
 
@@ -622,12 +637,12 @@ type = s3
             });
 
             // Modal buttons - View Remote Config Modal
-            document.getElementById('view-remote-close-btn').addEventListener('click', closeViewRemoteConfigModal);
-            document.getElementById('copy-remote-config-btn').addEventListener('click', copyRemoteConfigToClipboard);
+            document.getElementById('view-remote-close-btn').addEventListener('click', () => remoteManager.closeViewRemoteConfigModal());
+            document.getElementById('copy-remote-config-btn').addEventListener('click', () => remoteManager.copyRemoteConfigToClipboard());
 
             // Modal buttons - Edit Remote Config Modal
-            document.getElementById('edit-remote-cancel-btn').addEventListener('click', closeEditRemoteConfigModal);
-            document.getElementById('edit-remote-save-btn').addEventListener('click', saveRemoteConfig);
+            document.getElementById('edit-remote-cancel-btn').addEventListener('click', () => remoteManager.closeEditRemoteConfigModal());
+            document.getElementById('edit-remote-save-btn').addEventListener('click', () => remoteManager.saveRemoteConfig());
 
             // Expert Mode buttons
             document.getElementById('expert-auth-btn').addEventListener('click', authenticate);
@@ -2527,667 +2542,9 @@ type = s3
             }
         }
 
-        // Manage Remotes Dialog
-        let manageRemotesState = {
-            remotes: [],
-            templates: [],
-            selectedTemplate: null,
-            formValues: {}
-        };
+        // Remote Manager functions are now handled by the RemoteManager module
 
-        async function openManageRemotesDialog() {
-            // Use ModalManager to handle the modal
-            ModalManager.open('manage-remotes-modal', {
-                onEscape: handleManageRemotesEscape,
-                onEnter: handleManageRemotesEnter,
-                onClose: () => {
-                    // Cleanup when modal closes
-                    manageRemotesState.selectedTemplate = null;
-                    manageRemotesState.formValues = {};
-                }
-            });
-
-            showRemotesList();
-            await loadRemotesList();
-            await loadTemplatesList();
-        }
-
-        function closeManageRemotesDialog() {
-            ModalManager.close('manage-remotes-modal');
-        }
-
-        function handleManageRemotesEscape() {
-            // Check which step is visible
-            const step1 = document.getElementById('manage-remotes-step1');
-            const step2 = document.getElementById('manage-remotes-step2');
-            const step3 = document.getElementById('manage-remotes-step3');
-
-            // If on wizard steps 2 or 3, return to remotes list
-            if (step2.style.display !== 'none' || step3.style.display !== 'none') {
-                showRemotesList();
-            } else {
-                // Otherwise close the entire dialog
-                closeManageRemotesDialog();
-            }
-        }
-
-        function handleManageRemotesEnter() {
-            // Check which step is visible
-            const step2 = document.getElementById('manage-remotes-step2');
-            const step3 = document.getElementById('manage-remotes-step3');
-
-            // Don't trigger on ENTER in custom remote textarea (it's multi-line)
-            // Only trigger on Shift+ENTER for custom remote
-            const customTextarea = document.getElementById('custom-remote-config');
-            const isInCustomTextarea = customTextarea && document.activeElement === customTextarea;
-
-            if (step2.style.display !== 'none') {
-                // In template selection step - trigger Next button
-                const nextBtn = document.getElementById('template-next-btn');
-                if (!nextBtn.disabled) {
-                    showRemoteForm();
-                }
-            } else if (step3.style.display !== 'none') {
-                // In remote form step - trigger Create Remote button
-                // For custom remote textarea, require Shift+Enter
-                if (isInCustomTextarea) {
-                    // In textarea - Enter should create newline, not submit
-                    // (handled by ModalManager - will not call onEnter for textarea)
-                    return;
-                } else {
-                    // Regular input fields - trigger on Enter
-                    const createBtn = document.getElementById('create-remote-btn');
-                    if (createBtn && !createBtn.disabled) {
-                        createRemote();
-                    }
-                }
-            }
-        }
-
-        function showRemotesList() {
-            // Clear wizard state when returning to remotes list
-            manageRemotesState.selectedTemplate = null;
-            manageRemotesState.formValues = {};
-
-            document.getElementById('manage-remotes-step1').style.display = 'flex';
-            document.getElementById('manage-remotes-step2').style.display = 'none';
-            document.getElementById('manage-remotes-step3').style.display = 'none';
-        }
-
-        function showTemplateSelection() {
-            // Only clear if coming from step 1 (Add Remote button)
-            // Don't clear if coming from step 3 (Back button)
-            const step3 = document.getElementById('manage-remotes-step3');
-            const isComingFromStep3 = step3.style.display !== 'none';
-
-            if (!isComingFromStep3) {
-                // Fresh start from "Add Remote" - clear everything
-                manageRemotesState.selectedTemplate = null;
-                manageRemotesState.formValues = {};
-            } else {
-                // Coming from step 3 via Back button - save form values before going back
-                saveCurrentFormValues();
-            }
-
-            document.getElementById('manage-remotes-step1').style.display = 'none';
-            document.getElementById('manage-remotes-step2').style.display = 'flex';
-            document.getElementById('manage-remotes-step3').style.display = 'none';
-            renderTemplatesList(); // Re-render with current selection
-            // Enable Next button if there's a selection
-            document.getElementById('template-next-btn').disabled = !manageRemotesState.selectedTemplate;
-        }
-
-        function showRemoteForm() {
-            document.getElementById('manage-remotes-step1').style.display = 'none';
-            document.getElementById('manage-remotes-step2').style.display = 'none';
-            document.getElementById('manage-remotes-step3').style.display = 'flex';
-            generateRemoteForm();
-        }
-
-        async function loadRemotesList() {
-            try {
-                const data = await apiCall('/api/remotes');
-                manageRemotesState.remotes = data.remotes || [];
-                renderRemotesList();
-            } catch (error) {
-                document.getElementById('remotes-list-container').innerHTML =
-                    `<p style="color: #dc3545;">Error loading remotes: ${error.message}</p>`;
-            }
-        }
-
-        async function loadTemplatesList() {
-            try {
-                const data = await apiCall('/api/templates');
-                manageRemotesState.templates = data.templates || [];
-
-                // Show/hide Add Remote button based on template availability
-                const addBtn = document.getElementById('add-remote-btn');
-                if (data.available && data.templates.length > 0) {
-                    addBtn.style.display = 'inline-block';
-                } else {
-                    addBtn.style.display = 'none';
-                }
-
-                renderTemplatesList();
-            } catch (error) {
-                console.error('Error loading templates:', error);
-                document.getElementById('add-remote-btn').style.display = 'none';
-            }
-        }
-
-        function renderRemotesList() {
-            const container = document.getElementById('remotes-list-container');
-
-            if (manageRemotesState.remotes.length === 0) {
-                container.innerHTML = '<p style="color: #666; text-align: center;">No remotes configured</p>';
-                return;
-            }
-
-            // Get currently active remotes
-            const activeRemotes = new Set();
-            if (leftPaneState.remote) activeRemotes.add(leftPaneState.remote);
-            if (rightPaneState.remote) activeRemotes.add(rightPaneState.remote);
-
-            let html = '<table style="width: 100%; border-collapse: collapse;">';
-            html += '<thead><tr style="border-bottom: 2px solid #ddd;">';
-            html += '<th style="text-align: left; padding: 8px;">Name</th>';
-            html += '<th style="text-align: left; padding: 8px;">Type</th>';
-            html += '<th style="text-align: center; padding: 8px; width: 140px;">Actions</th>';
-            html += '</tr></thead><tbody>';
-
-            manageRemotesState.remotes.forEach(remote => {
-                const isActive = activeRemotes.has(remote.name);
-                html += '<tr class="remote-row" data-remote-name="' + remote.name + '" style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;" title="Click to view configuration">';
-                html += `<td style="padding: 8px;">${remote.name}</td>`;
-                html += `<td style="padding: 8px;">${remote.type}</td>`;
-                html += `<td class="remote-actions" style="padding: 8px; text-align: center;">`;
-                // Refresh token icon (for OAuth remotes only) - or empty space for alignment
-                if (remote.is_oauth) {
-                    html += `<button class="remote-action-btn" data-action="refresh-oauth" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">↻</button>`;
-                } else {
-                    // Empty space for alignment
-                    html += `<span style="display: inline-block; width: 32px; margin-right: 4px;"></span>`;
-                }
-                // Edit icon (pencil) - disabled if remote is active
-                if (isActive) {
-                    html += `<button disabled style="background: none; border: none; font-size: 14px; cursor: not-allowed; color: #ccc; padding: 4px 8px; margin-right: 4px;" title="Cannot edit remote while in use">✏️</button>`;
-                } else {
-                    html += `<button class="remote-action-btn" data-action="edit" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 14px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
-                }
-                // Delete icon (recycle bin) - disabled if remote is active
-                if (isActive) {
-                    html += `<button disabled style="background: none; border: none; font-size: 18px; cursor: not-allowed; color: #ccc; padding: 4px 8px;" title="Cannot delete remote while in use">🗑️</button>`;
-                } else {
-                    html += `<button class="remote-action-btn" data-action="delete" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">🗑️</button>`;
-                }
-                html += '</td></tr>';
-            });
-
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        }
-
-        function viewRemoteConfig(remoteName) {
-            const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
-            if (!remote) return;
-
-            // Store remote config for copying
-            manageRemotesState.currentViewedRemote = remote;
-
-            const container = document.getElementById('remote-config-content');
-
-            let html = `<h4 style="margin-top: 0; margin-bottom: 15px; color: #333;">${remote.name}</h4>`;
-            html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6;">';
-            html += '<table style="width: 100%; border-collapse: collapse;">';
-
-            const configEntries = Object.entries(remote.config);
-            const lastIndex = configEntries.length - 1;
-
-            configEntries.forEach(([key, value], index) => {
-                // Mask sensitive values
-                const isSensitive = key.toLowerCase().includes('password') ||
-                                   key.toLowerCase().includes('secret') ||
-                                   key.toLowerCase().includes('key') ||
-                                   key.toLowerCase().includes('token');
-                const displayValue = isSensitive ? '••••••••' : value;
-
-                // Only add border-bottom if not the last item
-                const borderStyle = index !== lastIndex ? 'border-bottom: 1px solid #e0e0e0;' : '';
-                html += `<tr style="${borderStyle}">`;
-                html += `<td style="padding: 8px; font-weight: 500; color: #495057; width: 40%;">${key}</td>`;
-                html += `<td style="padding: 8px; color: #212529; font-family: monospace; word-break: break-all;">${displayValue}</td>`;
-                html += '</tr>';
-            });
-
-            html += '</table></div>';
-            container.innerHTML = html;
-
-            // Open modal with ModalManager (ESC will close it)
-            ModalManager.open('view-remote-config-modal', {
-                onEscape: closeViewRemoteConfigModal
-            });
-
-            // Add Ctrl-C listener for copying
-            document.addEventListener('keydown', handleViewRemoteConfigKeydown);
-        }
-
-        function closeViewRemoteConfigModal() {
-            // Remove Ctrl-C listener
-            document.removeEventListener('keydown', handleViewRemoteConfigKeydown);
-
-            // Close via ModalManager
-            ModalManager.close('view-remote-config-modal');
-        }
-
-        function handleViewRemoteConfigKeydown(event) {
-            // Check for Ctrl-C or Cmd-C (Mac)
-            if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
-                // Only trigger if the modal is actually visible
-                const modal = document.getElementById('view-remote-config-modal');
-                if (modal.style.display === 'flex') {
-                    // Don't prevent default if user is selecting text to copy normally
-                    const selection = window.getSelection();
-                    if (!selection || selection.toString().length === 0) {
-                        event.preventDefault();
-                        copyRemoteConfigToClipboard();
-                    }
-                }
-            }
-        }
-
-        async function copyRemoteConfigToClipboard() {
-            const remoteName = manageRemotesState.currentViewedRemote?.name;
-            if (!remoteName) return;
-
-            try {
-                // Get raw config from API
-                const data = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`);
-                const configText = data.raw_config;
-
-                await navigator.clipboard.writeText(configText);
-
-                // Show tooltip
-                const tooltip = document.getElementById('copy-tooltip');
-                tooltip.style.display = 'inline';
-
-                // Hide after 1 second
-                setTimeout(() => {
-                    tooltip.style.display = 'none';
-                }, 1000);
-            } catch (error) {
-                console.error('Failed to copy to clipboard:', error);
-                alert('Failed to copy to clipboard');
-            }
-        }
-
-        // Edit Remote Config
-        async function editRemoteConfig(remoteName) {
-            try {
-                // Get raw config from API (includes comments)
-                const data = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`);
-
-                // Store the original remote name
-                manageRemotesState.editingRemote = {
-                    originalName: remoteName
-                };
-
-                // Populate the textarea (no trailing newline)
-                document.getElementById('edit-remote-config-text').value = data.raw_config;
-
-                // Open modal with ModalManager
-                ModalManager.open('edit-remote-config-modal', {
-                    onEscape: closeEditRemoteConfigModal
-                    // Note: No onEnter - textarea needs Enter for newlines
-                });
-            } catch (error) {
-                console.error('Error loading remote config:', error);
-                alert(`Failed to load remote config: ${error.message}`);
-            }
-        }
-
-        function closeEditRemoteConfigModal() {
-            manageRemotesState.editingRemote = null;
-            ModalManager.close('edit-remote-config-modal');
-        }
-
-        async function saveRemoteConfig() {
-            if (!manageRemotesState.editingRemote) return;
-
-            const configText = document.getElementById('edit-remote-config-text').value;
-            const originalName = manageRemotesState.editingRemote.originalName;
-
-            try {
-                // Use the new raw API to update in-place
-                const data = await apiCall(`/api/remotes/${encodeURIComponent(originalName)}/raw`, 'PUT', {
-                    raw_config: configText
-                });
-
-                const newName = data.new_name;
-                const isRename = newName !== originalName;
-
-                // Close modal and refresh
-                closeEditRemoteConfigModal();
-                await loadRemotesList();
-                await loadRemotes();  // Refresh dropdowns in Server A/B
-                await refreshPane('left');
-                await refreshPane('right');
-
-                alert(isRename ?
-                    `Remote successfully renamed from "${originalName}" to "${newName}"` :
-                    `Remote "${newName}" updated successfully`);
-
-            } catch (error) {
-                console.error('Error saving remote:', error);
-                alert(`Failed to save remote: ${error.message}`);
-            }
-        }
-
-        function renderTemplatesList() {
-            const container = document.getElementById('templates-list-container');
-
-            if (manageRemotesState.templates.length === 0) {
-                container.innerHTML = '<p style="color: #666; text-align: center;">No templates available</p>';
-                return;
-            }
-
-            let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
-
-            // Render regular templates
-            manageRemotesState.templates.forEach(template => {
-                const isSelected = manageRemotesState.selectedTemplate?.name === template.name;
-                const selectedStyle = isSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
-
-                html += `<div class="template-item" data-template-name="${template.name}" style="padding: 12px; ${selectedStyle} border-radius: 6px; cursor: pointer;">`;
-                html += `<strong style="display: block; margin-bottom: 4px;">${template.name}</strong>`;
-                // Only show "Fields:" if there are fields
-                if (template.fields && template.fields.length > 0) {
-                    html += `<small style="color: #666;">Fields: ${template.fields.map(f => f.label).join(', ')}</small>`;
-                }
-                html += '</div>';
-            });
-
-            // Add "Custom Remote" option at the bottom
-            const isCustomSelected = manageRemotesState.selectedTemplate?.name === '__custom__';
-            const customSelectedStyle = isCustomSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
-            html += `<div class="template-item" data-template-name="__custom__" style="padding: 12px; ${customSelectedStyle} border-radius: 6px; cursor: pointer;">`;
-            html += `<strong style="display: block; margin-bottom: 4px;">Custom Remote</strong>`;
-            html += `<small style="color: #666;">Manually enter remote configuration</small>`;
-            html += '</div>';
-
-            html += '</div>';
-            container.innerHTML = html;
-        }
-
-        function selectTemplate(templateName) {
-            // Check if we're changing templates
-            const previousTemplate = manageRemotesState.selectedTemplate?.name;
-            const isChangingTemplate = previousTemplate && previousTemplate !== templateName;
-
-            if (templateName === '__custom__') {
-                // Special handling for custom remote
-                manageRemotesState.selectedTemplate = {
-                    name: '__custom__',
-                    fields: []
-                };
-            } else {
-                const template = manageRemotesState.templates.find(t => t.name === templateName);
-                manageRemotesState.selectedTemplate = template;
-            }
-
-            // Clear form values when changing templates
-            if (isChangingTemplate) {
-                manageRemotesState.formValues = {};
-            }
-
-            renderTemplatesList();
-            document.getElementById('template-next-btn').disabled = false;
-        }
-
-        function generateRemoteForm() {
-            const container = document.getElementById('remote-form-container');
-            const template = manageRemotesState.selectedTemplate;
-
-            if (!template) return;
-
-            // Check if this is the custom remote option
-            if (template.name === '__custom__') {
-                // Show free text field for manual config entry
-                let html = `<p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>`;
-                html += '<div style="margin-bottom: 15px;">';
-                html += '<p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>';
-                html += '<textarea id="custom-remote-config" ';
-                html += 'style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;" ';
-                html += 'placeholder="[myremote]\ntype = s3\naccess_key_id = YOUR_ACCESS_KEY\nsecret_access_key = YOUR_SECRET_KEY\nregion = us-east-1\n..."></textarea>';
-                html += '</div>';
-                container.innerHTML = html;
-
-                // Restore saved custom config value
-                setTimeout(() => {
-                    const textarea = document.getElementById('custom-remote-config');
-                    if (manageRemotesState.formValues['custom-config']) {
-                        textarea.value = manageRemotesState.formValues['custom-config'];
-                    }
-                    validateRemoteForm(); // Initial validation
-                    textarea.addEventListener('input', validateRemoteForm);
-                }, 0);
-                return;
-            }
-
-            // Regular template form
-            let html = `<p style="margin-bottom: 15px;"><strong>Template:</strong> ${template.name}</p>`;
-            html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
-
-            // Remote Name field
-            html += '<div>';
-            html += '<label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>';
-            html += '<input type="text" id="remote-name-input" placeholder="Enter remote name" ';
-            html += 'pattern="[a-zA-Z0-9_-]+" title="Use only letters, numbers, underscores, and hyphens" ';
-            html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
-            html += '<small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>';
-            html += '</div>';
-
-            // Template fields
-            template.fields.forEach(field => {
-                const isSecret = field.label.toLowerCase().includes('password') ||
-                                field.label.toLowerCase().includes('secret') ||
-                                field.label.toLowerCase().includes('key');
-                const inputType = isSecret ? 'password' : 'text';
-
-                html += '<div>';
-
-                // Label with optional help icon
-                html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">`;
-                html += field.label;
-                if (field.help) {
-                    // Add help icon with tooltip
-                    html += ` <span class="help-icon" style="display: inline-block; cursor: help; position: relative;">`;
-                    // Use SVG info icon with transparent background
-                    html += `<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align: middle; margin-left: 4px;">`;
-                    html += `<circle cx="8" cy="8" r="7" fill="none" stroke="#007bff" stroke-width="1.5"/>`;
-                    html += `<text x="8" y="11" text-anchor="middle" fill="#007bff" font-size="11" font-weight="bold" font-family="serif">i</text>`;
-                    html += `</svg>`;
-                    html += `<span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">`;
-                    html += field.help; // HTML with links already converted
-                    // Add small arrow pointing to icon
-                    html += `<span style="position: absolute; left: -6px; top: 8px; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 6px solid #2c3e50;"></span>`;
-                    html += `</span>`;
-                    html += `</span>`;
-                }
-                html += `</label>`;
-
-                if (isSecret) {
-                    // Password field with visibility toggle
-                    html += '<div style="position: relative;">';
-                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
-                    html += 'style="width: 100%; padding: 8px; padding-right: 40px; border: 1px solid #ddd; border-radius: 4px;" required />';
-                    html += `<button type="button" onclick="togglePasswordVisibility('field-${field.key}')" `;
-                    html += 'style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 4px;" ';
-                    html += 'title="Toggle password visibility">👁️</button>';
-                    html += '</div>';
-                } else {
-                    // Regular text field
-                    html += `<input type="${inputType}" id="field-${field.key}" placeholder="Enter ${field.label}" `;
-                    html += 'style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required />';
-                }
-
-                html += '</div>';
-            });
-
-            html += '</div>';
-            container.innerHTML = html;
-
-            // Restore saved form values and add event listeners
-            setTimeout(() => {
-                // Restore remote name
-                const nameInput = document.getElementById('remote-name-input');
-                if (manageRemotesState.formValues['remote-name']) {
-                    nameInput.value = manageRemotesState.formValues['remote-name'];
-                }
-
-                // Restore field values
-                template.fields.forEach(field => {
-                    const input = document.getElementById(`field-${field.key}`);
-                    if (manageRemotesState.formValues[field.key]) {
-                        input.value = manageRemotesState.formValues[field.key];
-                    }
-                });
-
-                validateRemoteForm(); // Initial validation
-
-                // Add input listeners to all fields
-                nameInput.addEventListener('input', validateRemoteForm);
-                template.fields.forEach(field => {
-                    document.getElementById(`field-${field.key}`).addEventListener('input', validateRemoteForm);
-                });
-
-                // Add tooltip hover event listeners
-                document.querySelectorAll('.help-icon').forEach(icon => {
-                    const tooltip = icon.querySelector('.help-tooltip');
-                    if (tooltip) {
-                        // Show tooltip on hover of icon or tooltip itself
-                        icon.addEventListener('mouseenter', () => {
-                            tooltip.style.display = 'block';
-                        });
-
-                        // Hide tooltip when mouse leaves both icon and tooltip
-                        let hideTimeout;
-                        icon.addEventListener('mouseleave', (e) => {
-                            hideTimeout = setTimeout(() => {
-                                // Check if mouse is over tooltip
-                                if (!tooltip.matches(':hover')) {
-                                    tooltip.style.display = 'none';
-                                }
-                            }, 100);
-                        });
-
-                        tooltip.addEventListener('mouseenter', () => {
-                            clearTimeout(hideTimeout);
-                            tooltip.style.display = 'block';
-                        });
-
-                        tooltip.addEventListener('mouseleave', () => {
-                            tooltip.style.display = 'none';
-                        });
-                    }
-                });
-            }, 0);
-        }
-
-        function saveCurrentFormValues() {
-            // Save form values for the current template
-            const template = manageRemotesState.selectedTemplate;
-            if (!template) return;
-
-            if (template.name === '__custom__') {
-                // Save custom config textarea
-                const textarea = document.getElementById('custom-remote-config');
-                if (textarea) {
-                    manageRemotesState.formValues = {
-                        'custom-config': textarea.value
-                    };
-                }
-            } else {
-                // Save regular form fields
-                const values = {};
-                const nameInput = document.getElementById('remote-name-input');
-                if (nameInput) {
-                    values['remote-name'] = nameInput.value;
-                }
-
-                template.fields.forEach(field => {
-                    const input = document.getElementById(`field-${field.key}`);
-                    if (input) {
-                        values[field.key] = input.value;
-                    }
-                });
-
-                manageRemotesState.formValues = values;
-            }
-        }
-
-        function validateRemoteForm() {
-            const template = manageRemotesState.selectedTemplate;
-            if (!template) return;
-
-            const createBtn = document.getElementById('create-remote-btn');
-            if (!createBtn) return;
-
-            // Handle custom remote validation
-            if (template.name === '__custom__') {
-                const configText = document.getElementById('custom-remote-config')?.value.trim();
-                // Check if config has content and contains a [remote_name] section header
-                // Allows comments before the [name] line with the 'm' (multiline) flag
-                const hasSection = configText && /^\[.+?\]/m.test(configText);
-                createBtn.disabled = !hasSection;
-                return;
-            }
-
-            // Check remote name
-            const remoteName = document.getElementById('remote-name-input')?.value.trim();
-            if (!remoteName) {
-                createBtn.disabled = true;
-                return;
-            }
-
-            // Check all template fields
-            for (const field of template.fields) {
-                const input = document.getElementById(`field-${field.key}`);
-                if (!input || !input.value.trim()) {
-                    createBtn.disabled = true;
-                    return;
-                }
-            }
-
-            // All fields are filled
-            createBtn.disabled = false;
-        }
-
-        async function deleteRemote(remoteName) {
-            // Check if remote is currently in use
-            const activeRemotes = new Set();
-            if (leftPaneState.remote) activeRemotes.add(leftPaneState.remote);
-            if (rightPaneState.remote) activeRemotes.add(rightPaneState.remote);
-
-            if (activeRemotes.has(remoteName)) {
-                alert(`Cannot delete remote "${remoteName}" while it is in use. Please select a different remote first.`);
-                return;
-            }
-
-            if (!confirm(`Are you sure you want to delete the remote "${remoteName}"?`)) {
-                return;
-            }
-
-            try {
-                await apiCall(`/api/remotes/${remoteName}`, 'DELETE');
-                await loadRemotesList();
-
-                // Reload remote dropdowns
-                await loadRemotes();
-            } catch (error) {
-                alert(`Failed to delete remote: ${error.message}`);
-            }
-        }
-
+        // OAuth Management
         let currentOAuthRemote = null;
 
         async function refreshOAuthToken(remoteName) {
@@ -3476,21 +2833,6 @@ type = s3
                 setTimeout(() => {
                     refreshOAuthToken(remoteName);
                 }, 500);
-            }
-        }
-
-        function togglePasswordVisibility(fieldId) {
-            const input = document.getElementById(fieldId);
-            const button = event.target;
-
-            if (input.type === 'password') {
-                input.type = 'text';
-                button.textContent = '👁️‍🗨️'; // Eye with lines (hidden state)
-                button.title = 'Hide password';
-            } else {
-                input.type = 'password';
-                button.textContent = '👁️'; // Regular eye
-                button.title = 'Show password';
             }
         }
 
