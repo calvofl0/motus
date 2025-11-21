@@ -956,37 +956,7 @@ type = s3
             }
         }
 
-        // Path construction helper
-        function buildPath(basePath, filename) {
-            // Normalize path to avoid double slashes
-            const normalized = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
-            return `${normalized}/${filename}`;
-        }
-
-        // Sorting helpers
-        function sortFiles(files, sortBy, sortAsc) {
-            const sorted = [...files];
-            sorted.sort((a, b) => {
-                // Directories first
-                if (a.IsDir !== b.IsDir) {
-                    return a.IsDir ? -1 : 1;
-                }
-
-                let comparison = 0;
-                if (sortBy === 'name') {
-                    comparison = a.Name.localeCompare(b.Name);
-                } else if (sortBy === 'size') {
-                    comparison = (a.Size || 0) - (b.Size || 0);
-                } else if (sortBy === 'date') {
-                    const dateA = new Date(a.ModTime || 0);
-                    const dateB = new Date(b.ModTime || 0);
-                    comparison = dateA - dateB;
-                }
-
-                return sortAsc ? comparison : -comparison;
-            });
-            return sorted;
-        }
+        // Helper functions now imported from modules
 
         function setSortBy(pane, field) {
             const state = pane === 'left' ? leftPaneState : rightPaneState;
@@ -1035,71 +1005,7 @@ type = s3
             document.removeEventListener('mouseup', stopColumnResize);
         }
 
-        function formatFileSize(bytes) {
-            if (bytes === undefined || bytes === null || bytes < 0) return '';
-            if (bytes === 0) return '0 B';
-            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-            let size = bytes;
-            let unitIndex = 0;
-            while (size >= 1024 && unitIndex < units.length - 1) {
-                size /= 1024;
-                unitIndex++;
-            }
-            return `${size.toFixed(1)} ${units[unitIndex]}`;
-        }
-
-        function formatFileDate(dateStr) {
-            if (!dateStr) return '';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-        }
-
-        // API helper
-        async function apiCall(endpoint, method = 'GET', body = null) {
-            const options = {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            };
-
-            if (authToken) {
-                options.headers['Authorization'] = `token ${authToken}`;
-            }
-
-            if (body) {
-                options.body = JSON.stringify(body);
-            }
-
-            const response = await fetch(endpoint, options);
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(error.error || 'Request failed');
-            }
-            return response.json();
-        }
-
-        // Utility functions
-        function expandTildePath(path) {
-            // Expand ~ to home directory (platform-aware)
-            if (path.startsWith('~')) {
-                // On Linux/Mac, replace with /home/username or /Users/username
-                // We'll use a simple heuristic - if path starts with ~, replace with empty
-                // The backend will handle actual expansion via os.path.expanduser or similar
-                return path;  // Send as-is, backend should handle ~
-            }
-            return path;
-        }
-
-        function resolveRelativePath(basePath, relativePath) {
-            // If relative path starts with /, it's absolute
-            if (relativePath.startsWith('/')) {
-                return relativePath;
-            }
-            // Otherwise, join with base path
-            const base = basePath.endsWith('/') ? basePath : basePath + '/';
-            return base + relativePath;
-        }
+        // Formatting and API functions now imported from modules
 
         // ENTER key handlers
         function handlePathKeypress(event, pane) {
