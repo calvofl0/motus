@@ -445,58 +445,37 @@ type = s3
     <script type="module">
         // Import modules
         import { ModalManager, initModalManager } from '/js/lib/modal-manager.js';
+        import { state, getPaneState, setPanePath, setPaneRemote, setPaneFiles, clearPaneSelection, togglePaneSort } from '/js/config.js';
+        import { apiCall, setAuthToken, getAuthToken } from '/js/lib/api.js';
+        import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath } from '/js/utils/helpers.js';
+        import { savePreferences, loadPreferences } from '/js/utils/preferences.js';
 
-        // Make ModalManager available globally for inline event handlers
+        // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
 
-        // Global state
-        let currentMode = 'easy';  // Will be set from config
-        let authToken = '';
-        let leftPaneState = {
-            remote: '',
-            path: '/',
-            files: [],
-            selectedIndexes: [],
-            sortBy: 'name',  // name, size, date
-            sortAsc: true
-        };
-        let rightPaneState = {
-            remote: '',
-            path: '/',
-            files: [],
-            selectedIndexes: [],
-            sortBy: 'name',
-            sortAsc: true
-        };
-        let viewMode = 'list';  // 'grid' or 'list' - default to list
-        let showHiddenFiles = false;  // show/hide files starting with . - default hidden
-        let lastFocusedPane = 'left';  // Track which pane was last focused
-        let contextMenuState = {
-            pane: null,
-            items: []
-        };
-        let jobsData = {
-            jobs: []
-        };
-        let interruptedJobsData = {
-            jobs: []
-        };
-        let failedJobsData = {
-            jobs: []
-        };
-        let jobUpdateInterval = null;
-        let interruptedJobsInterval = null;
-        let failedJobsInterval = null;
-        let createFolderPane = null;
-        let jobPanelManuallyToggled = false;  // Track if user manually toggled the panel
-        let previousJobState = 'empty';  // Track previous state: 'empty' or 'non-empty'
-        let trackedJobs = new Set();  // Track running jobs for completion detection
-        let pendingDragDrop = null;  // Store pending drag-drop operation for confirmation
-        let uploadAbortController = null;  // AbortController for canceling uploads
-        let uploadStartTime = null;  // Track upload start time for speed calculation
-        let maxUploadSize = 0;  // Maximum upload size in bytes (0 = unlimited)
-
-        // ModalManager is imported from /js/lib/modal-manager.js
+        // Use state from config.js instead of local variables
+        // Aliases for convenience (will be refactored away gradually)
+        let currentMode = state.currentMode;
+        let leftPaneState = state.panes.left;
+        let rightPaneState = state.panes.right;
+        let viewMode = state.ui.viewMode;
+        let showHiddenFiles = state.ui.showHiddenFiles;
+        let lastFocusedPane = state.ui.lastFocusedPane;
+        let contextMenuState = state.contextMenu;
+        let jobsData = state.jobs.active;
+        let interruptedJobsData = state.jobs.interrupted;
+        let failedJobsData = state.jobs.failed;
+        let jobUpdateInterval = state.jobs.updateInterval;
+        let interruptedJobsInterval = state.jobs.interruptedInterval;
+        let failedJobsInterval = state.jobs.failedInterval;
+        let createFolderPane = state.createFolder.pane;
+        let jobPanelManuallyToggled = state.jobs.panelManuallyToggled;
+        let previousJobState = state.jobs.previousState;
+        let trackedJobs = state.jobs.tracked;
+        let pendingDragDrop = state.dragDrop.pending;
+        let uploadAbortController = state.upload.abortController;
+        let uploadStartTime = state.upload.startTime;
+        let maxUploadSize = state.upload.maxSize;
 
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
