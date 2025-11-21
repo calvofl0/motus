@@ -571,6 +571,56 @@ type = s3
             document.getElementById('configure-back-btn').addEventListener('click', showTemplateSelection);
             document.getElementById('create-remote-btn').addEventListener('click', createRemote);
 
+            // Event delegation - Template selection
+            document.getElementById('templates-list-container').addEventListener('click', (e) => {
+                const templateItem = e.target.closest('.template-item');
+                if (templateItem) {
+                    const templateName = templateItem.dataset.templateName;
+                    selectTemplate(templateName);
+                }
+            });
+
+            // Event delegation - Remote list actions
+            document.getElementById('remotes-list-container').addEventListener('click', (e) => {
+                // Check if clicking on action button
+                const actionBtn = e.target.closest('.remote-action-btn');
+                if (actionBtn) {
+                    e.stopPropagation(); // Prevent row click
+                    const action = actionBtn.dataset.action;
+                    const remoteName = actionBtn.dataset.remoteName;
+
+                    if (action === 'refresh-oauth') {
+                        refreshOAuthToken(remoteName);
+                    } else if (action === 'edit') {
+                        editRemoteConfig(remoteName);
+                    } else if (action === 'delete') {
+                        deleteRemote(remoteName);
+                    }
+                    return;
+                }
+
+                // Check if clicking on remote row
+                const remoteRow = e.target.closest('.remote-row');
+                if (remoteRow) {
+                    const remoteName = remoteRow.dataset.remoteName;
+                    viewRemoteConfig(remoteName);
+                }
+            });
+
+            // Event delegation - Remote row hover effects
+            document.getElementById('remotes-list-container').addEventListener('mouseover', (e) => {
+                const remoteRow = e.target.closest('.remote-row');
+                if (remoteRow) {
+                    remoteRow.style.backgroundColor = '#f0f8ff';
+                }
+            });
+            document.getElementById('remotes-list-container').addEventListener('mouseout', (e) => {
+                const remoteRow = e.target.closest('.remote-row');
+                if (remoteRow) {
+                    remoteRow.style.backgroundColor = 'white';
+                }
+            });
+
             // Modal buttons - View Remote Config Modal
             document.getElementById('view-remote-close-btn').addEventListener('click', closeViewRemoteConfigModal);
             document.getElementById('copy-remote-config-btn').addEventListener('click', copyRemoteConfigToClipboard);
@@ -2647,13 +2697,13 @@ type = s3
 
             manageRemotesState.remotes.forEach(remote => {
                 const isActive = activeRemotes.has(remote.name);
-                html += '<tr style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;" onclick="viewRemoteConfig(\'' + remote.name + '\')" title="Click to view configuration" onmouseover="this.style.backgroundColor=\'#f0f8ff\'" onmouseout="this.style.backgroundColor=\'white\'">';
+                html += '<tr class="remote-row" data-remote-name="' + remote.name + '" style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;" title="Click to view configuration">';
                 html += `<td style="padding: 8px;">${remote.name}</td>`;
                 html += `<td style="padding: 8px;">${remote.type}</td>`;
-                html += `<td style="padding: 8px; text-align: center;" onclick="event.stopPropagation()">`;
+                html += `<td class="remote-actions" style="padding: 8px; text-align: center;">`;
                 // Refresh token icon (for OAuth remotes only) - or empty space for alignment
                 if (remote.is_oauth) {
-                    html += `<button onclick="refreshOAuthToken('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">↻</button>`;
+                    html += `<button class="remote-action-btn" data-action="refresh-oauth" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;" title="Refresh OAuth token">↻</button>`;
                 } else {
                     // Empty space for alignment
                     html += `<span style="display: inline-block; width: 32px; margin-right: 4px;"></span>`;
@@ -2662,13 +2712,13 @@ type = s3
                 if (isActive) {
                     html += `<button disabled style="background: none; border: none; font-size: 14px; cursor: not-allowed; color: #ccc; padding: 4px 8px; margin-right: 4px;" title="Cannot edit remote while in use">✏️</button>`;
                 } else {
-                    html += `<button onclick="editRemoteConfig('${remote.name}')" style="background: none; border: none; font-size: 14px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
+                    html += `<button class="remote-action-btn" data-action="edit" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 14px; cursor: pointer; color: #007bff; padding: 4px 8px; margin-right: 4px;" title="Edit remote">✏️</button>`;
                 }
                 // Delete icon (recycle bin) - disabled if remote is active
                 if (isActive) {
                     html += `<button disabled style="background: none; border: none; font-size: 18px; cursor: not-allowed; color: #ccc; padding: 4px 8px;" title="Cannot delete remote while in use">🗑️</button>`;
                 } else {
-                    html += `<button onclick="deleteRemote('${remote.name}')" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">🗑️</button>`;
+                    html += `<button class="remote-action-btn" data-action="delete" data-remote-name="${remote.name}" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #dc3545; padding: 4px 8px;" title="Delete remote">🗑️</button>`;
                 }
                 html += '</td></tr>';
             });
@@ -2847,7 +2897,7 @@ type = s3
                 const isSelected = manageRemotesState.selectedTemplate?.name === template.name;
                 const selectedStyle = isSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
 
-                html += `<div onclick="selectTemplate('${template.name}')" style="padding: 12px; ${selectedStyle} border-radius: 6px; cursor: pointer;">`;
+                html += `<div class="template-item" data-template-name="${template.name}" style="padding: 12px; ${selectedStyle} border-radius: 6px; cursor: pointer;">`;
                 html += `<strong style="display: block; margin-bottom: 4px;">${template.name}</strong>`;
                 // Only show "Fields:" if there are fields
                 if (template.fields && template.fields.length > 0) {
@@ -2859,7 +2909,7 @@ type = s3
             // Add "Custom Remote" option at the bottom
             const isCustomSelected = manageRemotesState.selectedTemplate?.name === '__custom__';
             const customSelectedStyle = isCustomSelected ? 'border: 2px solid #007bff; background: #e7f3ff;' : 'border: 1px solid #ddd;';
-            html += `<div onclick="selectTemplate('__custom__')" style="padding: 12px; ${customSelectedStyle} border-radius: 6px; cursor: pointer;">`;
+            html += `<div class="template-item" data-template-name="__custom__" style="padding: 12px; ${customSelectedStyle} border-radius: 6px; cursor: pointer;">`;
             html += `<strong style="display: block; margin-bottom: 4px;">Custom Remote</strong>`;
             html += `<small style="color: #666;">Manually enter remote configuration</small>`;
             html += '</div>';
