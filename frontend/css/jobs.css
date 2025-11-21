@@ -1,0 +1,280 @@
+        /* Job Panel */
+        .job-panel {
+            background: white;
+            border-top: 2px solid #007bff;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .job-panel.collapsed {
+            height: 50px;
+        }
+
+        .job-panel:not(.collapsed) {
+            height: 300px;
+        }
+
+        .job-panel-header {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .job-panel-header:hover {
+            background: #e9ecef;
+        }
+
+        .job-panel-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .collapse-icon {
+            transition: transform 0.3s;
+        }
+
+        .job-panel.collapsed .collapse-icon {
+            transform: rotate(180deg);
+        }
+
+        .job-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .job-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .job-item.completed {
+            border-left-color: #28a745;
+        }
+
+        .job-item.failed {
+            border-left-color: #dc3545;
+        }
+
+        .job-item.cancelled, .job-item.interrupted {
+            border-left-color: #ffc107;
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .job-id {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+            white-space: nowrap;
+            min-width: 120px;
+        }
+
+        .job-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            white-space: nowrap;
+        }
+
+        .job-path {
+            font-size: 12px;
+            color: #666;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .job-time-info {
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+            min-width: 280px;
+            text-align: right;
+        }
+
+        .progress-bar-container {
+            background: #e9ecef;
+            height: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .job-icon-btn {
+            background: none;
+            color: inherit;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+            opacity: 0.7;
+        }
+
+        .job-icon-btn:hover {
+            opacity: 1;
+        }
+
+        .job-icon-btn.cancel {
+            color: #dc3545;
+        }
+
+        .job-icon-btn.resume {
+            color: #28a745;
+        }
+
+        /* Interrupted Jobs Dropdown */
+        .interrupted-jobs-dropdown {
+            background: #fff8e1;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            margin: 15px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .interrupted-jobs-header {
+            background: #ffc107;
+            color: #000;
+            padding: 10px 15px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .interrupted-jobs-header:hover {
+            background: #ffb300;
+        }
+
+        .interrupted-jobs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .interrupted-job-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #ffc107;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .interrupted-job-info {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .interrupted-job-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Failed Jobs Dropdown */
+        .failed-jobs-dropdown {
+            background: #ffebee;
+            border: 1px solid #dc3545;
+            border-radius: 6px;
+            margin: 15px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .failed-jobs-header {
+            background: #dc3545;
+            color: white;
+            padding: 10px 15px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .failed-jobs-header:hover {
+            background: #c82333;
+        }
+
+        .failed-jobs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .failed-job-item {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #dc3545;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .failed-job-info {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .failed-job-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
