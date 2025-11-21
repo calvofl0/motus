@@ -4284,6 +4284,102 @@ ${data.text || '(no output yet)'}
 
             showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
+
+        // ===================================================================
+        // Expose functions globally for inline event handlers
+        // ===================================================================
+        // Since we're using ES6 modules, functions are module-scoped by default.
+        // We need to expose them to the window object so inline onclick/onchange
+        // handlers can access them.
+
+        // View and mode functions
+        window.toggleViewMenu = toggleViewMenu;
+        window.switchViewMode = switchViewMode;
+        window.toggleHiddenFilesOption = toggleHiddenFilesOption;
+        window.toggleMode = toggleMode;
+
+        // Remote management
+        window.onRemoteChange = onRemoteChange;
+        window.openManageRemotesDialog = openManageRemotesDialog;
+        window.closeManageRemotesDialog = closeManageRemotesDialog;
+        window.showTemplateSelection = showTemplateSelection;
+        window.showRemoteForm = showRemoteForm;
+        window.showRemotesList = showRemotesList;
+        window.selectTemplate = selectTemplate;
+        window.createRemote = createRemote;
+        window.viewRemoteConfig = viewRemoteConfig;
+        window.closeViewRemoteConfigModal = closeViewRemoteConfigModal;
+        window.editRemoteConfig = editRemoteConfig;
+        window.closeEditRemoteConfigModal = closeEditRemoteConfigModal;
+        window.saveRemoteConfig = saveRemoteConfig;
+        window.copyRemoteConfigToClipboard = copyRemoteConfigToClipboard;
+        window.deleteRemote = deleteRemote;
+        window.refreshOAuthToken = refreshOAuthToken;
+        window.closeOAuthModal = closeOAuthModal;
+        window.copyAuthorizeCommand = copyAuthorizeCommand;
+        window.submitOAuthToken = submitOAuthToken;
+        window.togglePasswordVisibility = togglePasswordVisibility;
+
+        // File navigation and operations
+        window.refreshPane = refreshPane;
+        window.handlePathKeypress = handlePathKeypress;
+        window.handleDragOver = handleDragOver;
+        window.handleDrop = handleDrop;
+        window.handleDragLeave = handleDragLeave;
+        window.copySelectedToRight = copySelectedToRight;
+        window.copySelectedToLeft = copySelectedToLeft;
+        window.confirmDragDrop = confirmDragDrop;
+        window.closeDragDropConfirmModal = closeDragDropConfirmModal;
+
+        // Context menu
+        window.contextMenuAction = contextMenuAction;
+        window.contextMenuSortBy = contextMenuSortBy;
+
+        // Modal operations
+        window.closeRenameModal = closeRenameModal;
+        window.confirmRename = confirmRename;
+        window.closeDeleteConfirmModal = closeDeleteConfirmModal;
+        window.confirmDelete = confirmDelete;
+        window.closeCreateFolderModal = closeCreateFolderModal;
+        window.confirmCreateFolder = confirmCreateFolder;
+
+        // Job management
+        window.toggleJobPanel = toggleJobPanel;
+        window.cancelJob = cancelJob;
+        window.resumeJobById = resumeJobById;
+        window.clearStoppedJobs = clearStoppedJobs;
+        window.toggleInterruptedJobsDropdown = toggleInterruptedJobsDropdown;
+        window.closeInterruptedJobsModal = closeInterruptedJobsModal;
+        window.resumeAllInterruptedJobs = resumeAllInterruptedJobs;
+        window.resumeInterruptedJobFromDropdown = resumeInterruptedJobFromDropdown;
+        window.cancelInterruptedJob = cancelInterruptedJob;
+        window.toggleFailedJobsDropdown = toggleFailedJobsDropdown;
+        window.resumeFailedJobFromDropdown = resumeFailedJobFromDropdown;
+        window.cancelFailedJob = cancelFailedJob;
+        window.cancelUpload = cancelUpload;
+
+        // Expert mode
+        window.authenticate = authenticate;
+        window.listRemotes = listRemotes;
+        window.listFiles = listFiles;
+        window.makeDirectory = makeDirectory;
+        window.deletePath = deletePath;
+        window.startCopyJob = startCopyJob;
+        window.startMoveJob = startMoveJob;
+        window.syncJob = syncJob;
+        window.listRunningJobs = listRunningJobs;
+        window.listAllJobs = listAllJobs;
+        window.listAbortedJobs = listAbortedJobs;
+        window.stopJob = stopJob;
+        window.getJobStatus = getJobStatus;
+        window.watchJobProgress = watchJobProgress;
+        window.stopWatchingProgress = stopWatchingProgress;
+        window.showJobLog = showJobLog;
+        window.checkIntegrity = checkIntegrity;
+        window.handleJobPathKeypress = handleJobPathKeypress;
+
+        // Quit
+        window.quitServer = quitServer;
     </script>
     <!-- OAuth Refresh Interactive Modal -->
     <div class="modal" id="oauth-interactive-modal">
