@@ -268,12 +268,12 @@ class RcloneWrapper:
             # Local path (use expanded path with tilde resolved)
             remote_path = clean_path
 
-        # Use rclone touch to create a .keep file (creates dir implicitly)
+        # Use rclone mkdir to create directory
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else DEVNULL,
-            'touch',
-            f"{remote_path}/.motuz_keep",
+            'mkdir',
+            remote_path,
         ]
 
         # Add S3-specific options if needed

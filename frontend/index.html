@@ -4376,7 +4376,7 @@ ${data.text || '(no output yet)'}
             if (!confirm('Clear all stopped jobs?')) return;
 
             try {
-                const data = await apiCall('/api/jobs/clear-stopped', 'POST');
+                const data = await apiCall('/api/jobs/clear_stopped', 'POST');
                 document.getElementById('all-jobs-output').textContent =
                     `Cleared ${data.count} stopped job(s)`;
             } catch (error) {
