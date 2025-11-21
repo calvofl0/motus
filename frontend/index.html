@@ -448,7 +448,7 @@ type = s3
         import { state, getPaneState, setPanePath, setPaneRemote, setPaneFiles, clearPaneSelection, togglePaneSort } from '/js/config.js';
         import { apiCall, setAuthToken, getAuthToken } from '/js/lib/api.js';
         import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath } from '/js/utils/helpers.js';
-        import { savePreferences, loadPreferences } from '/js/utils/preferences.js';
+        import { savePreferences as savePrefs, loadPreferences as loadPrefs } from '/js/utils/preferences.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -933,28 +933,23 @@ type = s3
             renderFiles('right');
         }
 
+        // Preferences wrapper functions (now using imported module)
         async function savePreferences() {
-            try {
-                await apiCall('/api/preferences', 'POST', {
-                    view_mode: viewMode,
-                    show_hidden_files: showHiddenFiles
-                });
-            } catch (error) {
-                console.error('Failed to save preferences:', error);
-            }
+            await savePrefs(apiCall, {
+                view_mode: viewMode,
+                show_hidden_files: showHiddenFiles
+            });
         }
 
         async function loadPreferences() {
-            try {
-                const prefs = await apiCall('/api/preferences');
-                if (prefs.view_mode) {
-                    viewMode = prefs.view_mode;
-                }
-                if (prefs.show_hidden_files !== undefined) {
-                    showHiddenFiles = prefs.show_hidden_files;
-                }
-            } catch (error) {
-                console.error('Failed to load preferences:', error);
+            const prefs = await loadPrefs(apiCall);
+            if (prefs.view_mode) {
+                viewMode = prefs.view_mode;
+                state.ui.viewMode = prefs.view_mode;
+            }
+            if (prefs.show_hidden_files !== undefined) {
+                showHiddenFiles = prefs.show_hidden_files;
+                state.ui.showHiddenFiles = prefs.show_hidden_files;
             }
         }
 
