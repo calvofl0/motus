@@ -265,8 +265,8 @@
             <p>Some jobs were interrupted when the server was last stopped. Would you like to resume them?</p>
             <div id="interrupted-jobs-list"></div>
             <div class="modal-buttons">
-                <button onclick="closeInterruptedJobsModal()">Skip</button>
-                <button onclick="resumeAllInterruptedJobs()" style="background: #28a745;">Resume All</button>
+                <button id="interrupted-jobs-skip-btn">Skip</button>
+                <button id="interrupted-jobs-resume-all-btn" style="background: #28a745;">Resume All</button>
             </div>
         </div>
     </div>
@@ -276,12 +276,11 @@
             <div class="modal-header">✏️ Rename</div>
             <div class="form-group">
                 <label>New name:</label>
-                <input type="text" id="rename-input"
-                       onkeypress="if(event.key === 'Enter') confirmRename()" />
+                <input type="text" id="rename-input" />
             </div>
             <div class="modal-buttons">
-                <button onclick="closeRenameModal()">Cancel</button>
-                <button onclick="confirmRename()" style="background: #28a745;">Rename</button>
+                <button id="rename-cancel-btn">Cancel</button>
+                <button id="rename-confirm-btn" style="background: #28a745;">Rename</button>
             </div>
         </div>
     </div>
@@ -291,12 +290,11 @@
             <div class="modal-header">📁 Create New Folder</div>
             <div class="form-group">
                 <label>Folder name:</label>
-                <input type="text" id="create-folder-input"
-                       onkeypress="if(event.key === 'Enter') confirmCreateFolder()" />
+                <input type="text" id="create-folder-input" />
             </div>
             <div class="modal-buttons">
-                <button onclick="closeCreateFolderModal()">Cancel</button>
-                <button onclick="confirmCreateFolder()" style="background: #28a745;">Create</button>
+                <button id="create-folder-cancel-btn">Cancel</button>
+                <button id="create-folder-confirm-btn" style="background: #28a745;">Create</button>
             </div>
         </div>
     </div>
@@ -309,8 +307,8 @@
             </p>
             <p id="delete-confirm-message">Are you sure you want to delete the selected items?</p>
             <div class="modal-buttons">
-                <button onclick="closeDeleteConfirmModal()">Cancel</button>
-                <button onclick="confirmDelete()" style="background: #dc3545;">Delete</button>
+                <button id="delete-cancel-btn">Cancel</button>
+                <button id="delete-confirm-btn" style="background: #dc3545;">Delete</button>
             </div>
         </div>
     </div>
@@ -334,8 +332,8 @@
                 <div id="drag-drop-destination" style="font-family: monospace; font-size: 12px; color: #333; word-break: break-all;"></div>
             </div>
             <div class="modal-buttons">
-                <button onclick="closeDragDropConfirmModal()">Cancel</button>
-                <button onclick="confirmDragDrop()" style="background: #28a745;">Copy</button>
+                <button id="drag-drop-cancel-btn">Cancel</button>
+                <button id="drag-drop-confirm-btn" style="background: #28a745;">Copy</button>
             </div>
         </div>
     </div>
@@ -358,7 +356,7 @@
                 </div>
             </div>
             <div class="modal-buttons">
-                <button id="upload-cancel-btn" onclick="cancelUpload()" style="background: #dc3545;">Cancel</button>
+                <button id="upload-cancel-btn" style="background: #dc3545;">Cancel</button>
             </div>
         </div>
     </div>
@@ -370,13 +368,13 @@
             <div id="manage-remotes-step1" class="manage-remotes-step" style="display: flex; flex-direction: column; max-height: 80vh;">
                 <div class="modal-header" style="position: relative;">
                     🔧 Manage Remotes
-                    <button onclick="closeManageRemotesDialog()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
+                    <button id="manage-remotes-close-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
                 </div>
                 <div id="remotes-list-container" style="margin-bottom: 15px; overflow-y: auto; max-height: 50vh;">
                     <p style="color: #666; text-align: center;">Loading remotes...</p>
                 </div>
                 <div class="modal-buttons">
-                    <button id="add-remote-btn" onclick="showTemplateSelection()" style="background: #28a745; display: none;">+ Add Remote</button>
+                    <button id="add-remote-btn" style="background: #28a745; display: none;">+ Add Remote</button>
                 </div>
             </div>
 
@@ -384,14 +382,14 @@
             <div id="manage-remotes-step2" class="manage-remotes-step" style="display: none; flex-direction: column; max-height: 80vh;">
                 <div class="modal-header" style="position: relative;">
                     📋 Select Template
-                    <button onclick="showRemotesList()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
+                    <button id="template-close-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
                 </div>
                 <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
                 <div id="templates-list-container" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
                     <p style="color: #666; text-align: center;">Loading templates...</p>
                 </div>
                 <div class="modal-buttons">
-                    <button id="template-next-btn" onclick="showRemoteForm()" style="background: #007bff;" disabled>Next</button>
+                    <button id="template-next-btn" style="background: #007bff;" disabled>Next</button>
                 </div>
             </div>
 
@@ -399,14 +397,14 @@
             <div id="manage-remotes-step3" class="manage-remotes-step" style="display: none; flex-direction: column; max-height: 80vh;">
                 <div class="modal-header" style="position: relative;">
                     ⚙️ Configure Remote
-                    <button onclick="showRemotesList()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
+                    <button id="configure-close-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close and return to remotes list">×</button>
                 </div>
                 <div id="remote-form-container" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
                     <!-- Form will be generated dynamically -->
                 </div>
                 <div class="modal-buttons">
-                    <button onclick="showTemplateSelection()">Back</button>
-                    <button id="create-remote-btn" onclick="createRemote()" style="background: #28a745;">Create Remote</button>
+                    <button id="configure-back-btn">Back</button>
+                    <button id="create-remote-btn" style="background: #28a745;">Create Remote</button>
                 </div>
             </div>
         </div>
@@ -417,13 +415,13 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header" style="position: relative;">
                 📄 Remote Configuration
-                <button onclick="closeViewRemoteConfigModal()" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
+                <button id="view-remote-close-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
             </div>
             <div id="remote-config-content" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;">
                 <!-- Config will be populated here -->
             </div>
             <div class="modal-buttons">
-                <button onclick="copyRemoteConfigToClipboard()" style="background: #28a745; position: relative;">
+                <button id="copy-remote-config-btn" style="background: #28a745; position: relative;">
                     📋 Copy to Clipboard
                     <span id="copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
                 </button>
@@ -444,8 +442,8 @@ type = s3
 ..."></textarea>
             </div>
             <div class="modal-buttons">
-                <button onclick="closeEditRemoteConfigModal()">Cancel</button>
-                <button onclick="saveRemoteConfig()" style="background: #28a745;">Save</button>
+                <button id="edit-remote-cancel-btn">Cancel</button>
+                <button id="edit-remote-save-btn" style="background: #28a745;">Save</button>
             </div>
         </div>
     </div>
@@ -559,6 +557,52 @@ type = s3
             document.getElementById('job-panel-header').addEventListener('click', toggleJobPanel);
             document.getElementById('interrupted-jobs-header').addEventListener('click', toggleInterruptedJobsDropdown);
             document.getElementById('failed-jobs-header').addEventListener('click', toggleFailedJobsDropdown);
+
+            // Modal buttons - Interrupted Jobs Modal
+            document.getElementById('interrupted-jobs-skip-btn').addEventListener('click', closeInterruptedJobsModal);
+            document.getElementById('interrupted-jobs-resume-all-btn').addEventListener('click', resumeAllInterruptedJobs);
+
+            // Modal buttons - Rename Modal
+            document.getElementById('rename-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') confirmRename();
+            });
+            document.getElementById('rename-cancel-btn').addEventListener('click', closeRenameModal);
+            document.getElementById('rename-confirm-btn').addEventListener('click', confirmRename);
+
+            // Modal buttons - Create Folder Modal
+            document.getElementById('create-folder-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') confirmCreateFolder();
+            });
+            document.getElementById('create-folder-cancel-btn').addEventListener('click', closeCreateFolderModal);
+            document.getElementById('create-folder-confirm-btn').addEventListener('click', confirmCreateFolder);
+
+            // Modal buttons - Delete Confirm Modal
+            document.getElementById('delete-cancel-btn').addEventListener('click', closeDeleteConfirmModal);
+            document.getElementById('delete-confirm-btn').addEventListener('click', confirmDelete);
+
+            // Modal buttons - Drag Drop Confirm Modal
+            document.getElementById('drag-drop-cancel-btn').addEventListener('click', closeDragDropConfirmModal);
+            document.getElementById('drag-drop-confirm-btn').addEventListener('click', confirmDragDrop);
+
+            // Modal buttons - Upload Progress Modal
+            document.getElementById('upload-cancel-btn').addEventListener('click', cancelUpload);
+
+            // Modal buttons - Manage Remotes Modal
+            document.getElementById('manage-remotes-close-btn').addEventListener('click', closeManageRemotesDialog);
+            document.getElementById('add-remote-btn').addEventListener('click', showTemplateSelection);
+            document.getElementById('template-close-btn').addEventListener('click', showRemotesList);
+            document.getElementById('template-next-btn').addEventListener('click', showRemoteForm);
+            document.getElementById('configure-close-btn').addEventListener('click', showRemotesList);
+            document.getElementById('configure-back-btn').addEventListener('click', showTemplateSelection);
+            document.getElementById('create-remote-btn').addEventListener('click', createRemote);
+
+            // Modal buttons - View Remote Config Modal
+            document.getElementById('view-remote-close-btn').addEventListener('click', closeViewRemoteConfigModal);
+            document.getElementById('copy-remote-config-btn').addEventListener('click', copyRemoteConfigToClipboard);
+
+            // Modal buttons - Edit Remote Config Modal
+            document.getElementById('edit-remote-cancel-btn').addEventListener('click', closeEditRemoteConfigModal);
+            document.getElementById('edit-remote-save-btn').addEventListener('click', saveRemoteConfig);
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
