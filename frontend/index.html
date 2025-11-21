@@ -139,7 +139,7 @@
                     <input type="text" id="token" placeholder="Enter your token (check server logs)" />
                     <div class="hint">The token is displayed when you start the server</div>
                 </div>
-                <button onclick="authenticate()">Authenticate</button>
+                <button id="expert-auth-btn">Authenticate</button>
                 <div id="auth-status"></div>
             </div>
 
@@ -150,41 +150,38 @@
                     Configure remotes using: <code>rclone config</code><br>
                     List remotes using: <code>rclone listremotes</code>
                 </div>
-                <button onclick="listRemotes()">List Remotes</button>
+                <button id="expert-list-remotes-btn">List Remotes</button>
                 <div class="output" id="remotes-output"></div>
             </div>
 
             <!-- File Operations -->
             <div class="section">
                 <h2>📁 File Operations</h2>
-                
+
                 <div class="form-group">
                     <label>Path:</label>
-                    <input type="text" id="ls-path" placeholder="/path or remote:/path" value="/"
-                           onkeypress="if(event.key === 'Enter') listFiles()" />
+                    <input type="text" id="ls-path" placeholder="/path or remote:/path" value="/" />
                     <div class="hint">Example: /tmp or myS3:/bucket/folder</div>
                 </div>
-                <button onclick="listFiles()">List Files</button>
+                <button id="expert-list-files-btn">List Files</button>
                 <div class="output" id="ls-output"></div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
                 <div class="form-group">
                     <label>Create Directory:</label>
-                    <input type="text" id="mkdir-path" placeholder="/path/to/newdir or remote:/path/newdir"
-                           onkeypress="if(event.key === 'Enter') makeDirectory()" />
+                    <input type="text" id="mkdir-path" placeholder="/path/to/newdir or remote:/path/newdir" />
                 </div>
-                <button onclick="makeDirectory()">Create Directory</button>
+                <button id="expert-mkdir-btn">Create Directory</button>
                 <div id="mkdir-status"></div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
                 <div class="form-group">
                     <label>Delete Path:</label>
-                    <input type="text" id="delete-path" placeholder="/path or remote:/path"
-                           onkeypress="if(event.key === 'Enter') deletePath()" />
+                    <input type="text" id="delete-path" placeholder="/path or remote:/path" />
                 </div>
-                <button onclick="deletePath()" style="background: #dc3545;">Delete</button>
+                <button id="expert-delete-btn" style="background: #dc3545;">Delete</button>
                 <div id="delete-status"></div>
             </div>
 
@@ -194,47 +191,44 @@
                 
                 <div class="form-group">
                     <label>Source Path:</label>
-                    <input type="text" id="job-src" placeholder="/source or remote:/source"
-                           onkeypress="handleJobPathKeypress(event, 'src')" />
+                    <input type="text" id="job-src" placeholder="/source or remote:/source" />
                 </div>
                 <div class="form-group">
                     <label>Destination Path:</label>
-                    <input type="text" id="job-dst" placeholder="/destination or remote:/destination"
-                           onkeypress="handleJobPathKeypress(event, 'dst')" />
+                    <input type="text" id="job-dst" placeholder="/destination or remote:/destination" />
                 </div>
                 <div class="form-group">
                     <label>
                         <input type="checkbox" id="copy-links" /> Follow Symlinks
                     </label>
                 </div>
-                <button onclick="startCopyJob()">Copy</button>
-                <button onclick="startMoveJob()" style="background: #ffc107; color: #000;">Move</button>
-                <button onclick="checkIntegrity()" style="background: #17a2b8;">Check Integrity</button>
-                <button onclick="syncJob()" style="background: #dc3545;">Sync (Destructive)</button>
+                <button id="expert-copy-btn">Copy</button>
+                <button id="expert-move-btn" style="background: #ffc107; color: #000;">Move</button>
+                <button id="expert-integrity-btn" style="background: #17a2b8;">Check Integrity</button>
+                <button id="expert-sync-btn" style="background: #dc3545;">Sync (Destructive)</button>
                 <div id="job-start-status"></div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
                 <div class="form-group">
                     <label>Job ID:</label>
-                    <input type="number" id="job-id" placeholder="Enter job ID"
-                           onkeypress="if(event.key === 'Enter') getJobStatus()" />
+                    <input type="number" id="job-id" placeholder="Enter job ID" />
                     <div class="hint">Press ENTER to get status</div>
                 </div>
-                <button onclick="getJobStatus()">Get Status</button>
-                <button onclick="watchJobProgress()" style="background: #17a2b8;" id="watch-progress-btn">Watch Progress (SSE)</button>
-                <button onclick="stopWatchingProgress()" style="background: #6c757d; display: none;" id="stop-watch-btn">Stop Watching</button>
-                <button onclick="showJobLog()" style="background: #6c757d;">Show Log</button>
-                <button onclick="resumeJobById()" style="background: #28a745;">Resume</button>
-                <button onclick="stopJob()" style="background: #dc3545;">Stop Job</button>
+                <button id="expert-job-status-btn">Get Status</button>
+                <button id="expert-watch-progress-btn" style="background: #17a2b8;">Watch Progress (SSE)</button>
+                <button id="expert-stop-watch-btn" style="background: #6c757d; display: none;">Stop Watching</button>
+                <button id="expert-show-log-btn" style="background: #6c757d;">Show Log</button>
+                <button id="expert-resume-btn" style="background: #28a745;">Resume</button>
+                <button id="expert-stop-job-btn" style="background: #dc3545;">Stop Job</button>
                 <div class="output" id="job-status-output"></div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
-                <button onclick="listAllJobs()">List All Jobs</button>
-                <button onclick="listRunningJobs()" style="background: #28a745;">List Running</button>
-                <button onclick="listAbortedJobs()" style="background: #ffc107; color: #000;">List Aborted</button>
-                <button onclick="clearStoppedJobs()" style="background: #6c757d;">Clear All Stopped Jobs</button>
+                <button id="expert-list-all-btn">List All Jobs</button>
+                <button id="expert-list-running-btn" style="background: #28a745;">List Running</button>
+                <button id="expert-list-aborted-btn" style="background: #ffc107; color: #000;">List Aborted</button>
+                <button id="expert-clear-stopped-btn" style="background: #6c757d;">Clear All Stopped Jobs</button>
                 <div class="output" id="all-jobs-output"></div>
             </div>
         </div>
@@ -242,18 +236,18 @@
 
     <!-- Context Menu -->
     <div class="context-menu" id="context-menu">
-        <div class="context-menu-item" onclick="contextMenuAction('newfolder')">📁 Create Folder</div>
-        <div class="context-menu-item" onclick="contextMenuAction('rename')">✏️ Rename</div>
-        <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ Delete</div>
+        <div class="context-menu-item" data-action="newfolder">📁 Create Folder</div>
+        <div class="context-menu-item" data-action="rename">✏️ Rename</div>
+        <div class="context-menu-item danger" data-action="delete">🗑️ Delete</div>
         <div class="context-menu-item has-submenu">
             📊 Sort by
             <div class="context-submenu">
-                <div class="context-menu-item" onclick="contextMenuSortBy('name', true)">Name (A-Z)</div>
-                <div class="context-menu-item" onclick="contextMenuSortBy('name', false)">Name (Z-A)</div>
-                <div class="context-menu-item" onclick="contextMenuSortBy('size', true)">Size (Smallest)</div>
-                <div class="context-menu-item" onclick="contextMenuSortBy('size', false)">Size (Largest)</div>
-                <div class="context-menu-item" onclick="contextMenuSortBy('date', true)">Date (Oldest)</div>
-                <div class="context-menu-item" onclick="contextMenuSortBy('date', false)">Date (Newest)</div>
+                <div class="context-menu-item" data-sort="name" data-asc="true">Name (A-Z)</div>
+                <div class="context-menu-item" data-sort="name" data-asc="false">Name (Z-A)</div>
+                <div class="context-menu-item" data-sort="size" data-asc="true">Size (Smallest)</div>
+                <div class="context-menu-item" data-sort="size" data-asc="false">Size (Largest)</div>
+                <div class="context-menu-item" data-sort="date" data-asc="true">Date (Oldest)</div>
+                <div class="context-menu-item" data-sort="date" data-asc="false">Date (Newest)</div>
             </div>
         </div>
     </div>
@@ -603,6 +597,106 @@ type = s3
             // Modal buttons - Edit Remote Config Modal
             document.getElementById('edit-remote-cancel-btn').addEventListener('click', closeEditRemoteConfigModal);
             document.getElementById('edit-remote-save-btn').addEventListener('click', saveRemoteConfig);
+
+            // Expert Mode buttons
+            document.getElementById('expert-auth-btn').addEventListener('click', authenticate);
+            document.getElementById('expert-list-remotes-btn').addEventListener('click', listRemotes);
+            document.getElementById('ls-path').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') listFiles();
+            });
+            document.getElementById('expert-list-files-btn').addEventListener('click', listFiles);
+            document.getElementById('mkdir-path').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') makeDirectory();
+            });
+            document.getElementById('expert-mkdir-btn').addEventListener('click', makeDirectory);
+            document.getElementById('delete-path').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') deletePath();
+            });
+            document.getElementById('expert-delete-btn').addEventListener('click', deletePath);
+
+            // Expert Mode - Job Management
+            document.getElementById('job-src').addEventListener('keypress', (e) => handleJobPathKeypress(e, 'src'));
+            document.getElementById('job-dst').addEventListener('keypress', (e) => handleJobPathKeypress(e, 'dst'));
+            document.getElementById('expert-copy-btn').addEventListener('click', startCopyJob);
+            document.getElementById('expert-move-btn').addEventListener('click', startMoveJob);
+            document.getElementById('expert-integrity-btn').addEventListener('click', checkIntegrity);
+            document.getElementById('expert-sync-btn').addEventListener('click', syncJob);
+            document.getElementById('job-id').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') getJobStatus();
+            });
+            document.getElementById('expert-job-status-btn').addEventListener('click', getJobStatus);
+            document.getElementById('expert-watch-progress-btn').addEventListener('click', watchJobProgress);
+            document.getElementById('expert-stop-watch-btn').addEventListener('click', stopWatchingProgress);
+            document.getElementById('expert-show-log-btn').addEventListener('click', showJobLog);
+            document.getElementById('expert-resume-btn').addEventListener('click', resumeJobById);
+            document.getElementById('expert-stop-job-btn').addEventListener('click', stopJob);
+            document.getElementById('expert-list-all-btn').addEventListener('click', listAllJobs);
+            document.getElementById('expert-list-running-btn').addEventListener('click', listRunningJobs);
+            document.getElementById('expert-list-aborted-btn').addEventListener('click', listAbortedJobs);
+            document.getElementById('expert-clear-stopped-btn').addEventListener('click', clearStoppedJobs);
+
+            // Context Menu - Event delegation
+            document.getElementById('context-menu').addEventListener('click', (e) => {
+                const item = e.target.closest('.context-menu-item');
+                if (!item) return;
+
+                // Handle action items (create folder, rename, delete)
+                const action = item.getAttribute('data-action');
+                if (action) {
+                    contextMenuAction(action);
+                    return;
+                }
+
+                // Handle sort items
+                const sortBy = item.getAttribute('data-sort');
+                if (sortBy) {
+                    const asc = item.getAttribute('data-asc') === 'true';
+                    contextMenuSortBy(sortBy, asc);
+                }
+            });
+
+            // Dynamic Job Buttons - Event delegation for active jobs
+            document.getElementById('job-list').addEventListener('click', (e) => {
+                const button = e.target.closest('.job-icon-btn');
+                if (!button) return;
+
+                const action = button.getAttribute('data-action');
+                const jobId = parseInt(button.getAttribute('data-job-id'));
+
+                if (action === 'cancel-job') {
+                    cancelJob(jobId);
+                }
+            });
+
+            // Dynamic Job Buttons - Event delegation for interrupted jobs
+            document.getElementById('interrupted-jobs-list').addEventListener('click', (e) => {
+                const button = e.target.closest('.job-icon-btn');
+                if (!button) return;
+
+                const action = button.getAttribute('data-action');
+                const jobId = parseInt(button.getAttribute('data-job-id'));
+
+                if (action === 'resume-interrupted') {
+                    resumeInterruptedJobFromDropdown(jobId);
+                } else if (action === 'cancel-interrupted') {
+                    cancelInterruptedJob(jobId);
+                }
+            });
+
+            // Dynamic Job Buttons - Event delegation for failed jobs
+            document.getElementById('failed-jobs-list').addEventListener('click', (e) => {
+                const button = e.target.closest('.job-icon-btn');
+                if (!button) return;
+
+                const action = button.getAttribute('data-action');
+                const jobId = parseInt(button.getAttribute('data-job-id'));
+
+                if (action === 'resume-failed') {
+                    resumeFailedJobFromDropdown(jobId);
+                } else if (action === 'cancel-failed') {
+                    cancelFailedJob(jobId);
+                }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -3708,7 +3802,7 @@ type = s3
                             </div>
                         </div>
                         <span class="job-status">${job.status}</span>
-                        <button class="job-icon-btn cancel" onclick="cancelJob(${job.job_id})" title="Cancel job">×</button>
+                        <button class="job-icon-btn cancel" data-action="cancel-job" data-job-id="${job.job_id}" title="Cancel job">×</button>
                     </div>
                 `;
             }).join('');
@@ -3754,8 +3848,8 @@ type = s3
                         Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
                     </div>
                     <div class="interrupted-job-actions">
-                        <button class="job-icon-btn resume" onclick="resumeInterruptedJobFromDropdown(${job.job_id})" title="Resume this job">▶</button>
-                        <button class="job-icon-btn cancel" onclick="cancelInterruptedJob(${job.job_id})" title="Cancel this job">×</button>
+                        <button class="job-icon-btn resume" data-action="resume-interrupted" data-job-id="${job.job_id}" title="Resume this job">▶</button>
+                        <button class="job-icon-btn cancel" data-action="cancel-interrupted" data-job-id="${job.job_id}" title="Cancel this job">×</button>
                     </div>
                 </div>
             `).join('');
@@ -3861,8 +3955,8 @@ type = s3
                         ${job.error_text ? '<br><span style="color: #dc3545; font-size: 11px;">' + job.error_text.substring(0, 100) + '...</span>' : ''}
                     </div>
                     <div class="failed-job-actions">
-                        <button class="job-icon-btn resume" onclick="resumeFailedJobFromDropdown(${job.job_id})" title="Resume this job">▶</button>
-                        <button class="job-icon-btn cancel" onclick="cancelFailedJob(${job.job_id})" title="Cancel this job">×</button>
+                        <button class="job-icon-btn resume" data-action="resume-failed" data-job-id="${job.job_id}" title="Resume this job">▶</button>
+                        <button class="job-icon-btn cancel" data-action="cancel-failed" data-job-id="${job.job_id}" title="Cancel this job">×</button>
                     </div>
                 </div>
             `).join('');
@@ -4379,100 +4473,8 @@ ${data.text || '(no output yet)'}
         }
 
         // ===================================================================
-        // Expose functions globally for inline event handlers
-        // ===================================================================
-        // Since we're using ES6 modules, functions are module-scoped by default.
-        // We need to expose them to the window object so inline onclick/onchange
-        // handlers can access them.
-
-        // View and mode functions
-        window.toggleViewMenu = toggleViewMenu;
-        window.switchViewMode = switchViewMode;
-        window.toggleHiddenFilesOption = toggleHiddenFilesOption;
-        window.toggleMode = toggleMode;
-
-        // Remote management
-        window.onRemoteChange = onRemoteChange;
-        window.openManageRemotesDialog = openManageRemotesDialog;
-        window.closeManageRemotesDialog = closeManageRemotesDialog;
-        window.showTemplateSelection = showTemplateSelection;
-        window.showRemoteForm = showRemoteForm;
-        window.showRemotesList = showRemotesList;
-        window.selectTemplate = selectTemplate;
-        window.createRemote = createRemote;
-        window.viewRemoteConfig = viewRemoteConfig;
-        window.closeViewRemoteConfigModal = closeViewRemoteConfigModal;
-        window.editRemoteConfig = editRemoteConfig;
-        window.closeEditRemoteConfigModal = closeEditRemoteConfigModal;
-        window.saveRemoteConfig = saveRemoteConfig;
-        window.copyRemoteConfigToClipboard = copyRemoteConfigToClipboard;
-        window.deleteRemote = deleteRemote;
-        window.refreshOAuthToken = refreshOAuthToken;
-        window.closeOAuthModal = closeOAuthModal;
-        window.copyAuthorizeCommand = copyAuthorizeCommand;
-        window.submitOAuthToken = submitOAuthToken;
-        window.togglePasswordVisibility = togglePasswordVisibility;
-
-        // File navigation and operations
-        window.refreshPane = refreshPane;
-        window.handlePathKeypress = handlePathKeypress;
-        window.handleDragOver = handleDragOver;
-        window.handleDrop = handleDrop;
-        window.handleDragLeave = handleDragLeave;
-        window.copySelectedToRight = copySelectedToRight;
-        window.copySelectedToLeft = copySelectedToLeft;
-        window.confirmDragDrop = confirmDragDrop;
-        window.closeDragDropConfirmModal = closeDragDropConfirmModal;
-
-        // Context menu
-        window.contextMenuAction = contextMenuAction;
-        window.contextMenuSortBy = contextMenuSortBy;
-
-        // Modal operations
-        window.closeRenameModal = closeRenameModal;
-        window.confirmRename = confirmRename;
-        window.closeDeleteConfirmModal = closeDeleteConfirmModal;
-        window.confirmDelete = confirmDelete;
-        window.closeCreateFolderModal = closeCreateFolderModal;
-        window.confirmCreateFolder = confirmCreateFolder;
-
-        // Job management
-        window.toggleJobPanel = toggleJobPanel;
-        window.cancelJob = cancelJob;
-        window.resumeJobById = resumeJobById;
-        window.clearStoppedJobs = clearStoppedJobs;
-        window.toggleInterruptedJobsDropdown = toggleInterruptedJobsDropdown;
-        window.closeInterruptedJobsModal = closeInterruptedJobsModal;
-        window.resumeAllInterruptedJobs = resumeAllInterruptedJobs;
-        window.resumeInterruptedJobFromDropdown = resumeInterruptedJobFromDropdown;
-        window.cancelInterruptedJob = cancelInterruptedJob;
-        window.toggleFailedJobsDropdown = toggleFailedJobsDropdown;
-        window.resumeFailedJobFromDropdown = resumeFailedJobFromDropdown;
-        window.cancelFailedJob = cancelFailedJob;
-        window.cancelUpload = cancelUpload;
-
-        // Expert mode
-        window.authenticate = authenticate;
-        window.listRemotes = listRemotes;
-        window.listFiles = listFiles;
-        window.makeDirectory = makeDirectory;
-        window.deletePath = deletePath;
-        window.startCopyJob = startCopyJob;
-        window.startMoveJob = startMoveJob;
-        window.syncJob = syncJob;
-        window.listRunningJobs = listRunningJobs;
-        window.listAllJobs = listAllJobs;
-        window.listAbortedJobs = listAbortedJobs;
-        window.stopJob = stopJob;
-        window.getJobStatus = getJobStatus;
-        window.watchJobProgress = watchJobProgress;
-        window.stopWatchingProgress = stopWatchingProgress;
-        window.showJobLog = showJobLog;
-        window.checkIntegrity = checkIntegrity;
-        window.handleJobPathKeypress = handleJobPathKeypress;
-
-        // Quit
-        window.quitServer = quitServer;
+        // All inline event handlers have been replaced with addEventListener
+        // No need to expose functions to window object anymore!
     </script>
     <!-- OAuth Refresh Interactive Modal -->
     <div class="modal" id="oauth-interactive-modal">
