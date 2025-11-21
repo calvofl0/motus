@@ -3,9 +3,25 @@ Rclone configuration file parsing and manipulation
 """
 import os
 import re
+import ast
 import logging
 from typing import Dict, List, Optional, Tuple
 from configparser import ConfigParser, DEFAULTSECT
+
+
+def markdown_links_to_html(text: str) -> str:
+    """
+    Convert markdown links [text](url) to HTML <a> tags
+
+    Args:
+        text: Text with markdown links
+
+    Returns:
+        Text with HTML links
+    """
+    # Pattern: [link text](url)
+    pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
+    return re.sub(pattern, r'<a href="\2" target="_blank">\1</a>', text)
 
 
 class RcloneConfig:
@@ -389,15 +405,53 @@ class RemoteTemplate:
                 key = key.strip()
                 value = value.strip()
 
-                # Check if value is a template variable {{ field_name }}
+                # Check if value is a template variable {{ field_spec }}
                 template_match = re.match(r'{{\s*(.+?)\s*}}', value)
                 if template_match:
-                    field_name = template_match.group(1)
-                    current_fields.append({
-                        'key': key,
-                        'label': field_name,
-                    })
-                    current_config[key] = f'{{{{{field_name}}}}}'
+                    field_spec = template_match.group(1).strip()
+
+                    # Try to parse as Python literal (dict or string)
+                    try:
+                        parsed = ast.literal_eval(field_spec)
+
+                        if isinstance(parsed, dict):
+                            # Dict format: {{ {"label": "...", "help": "..."} }}
+                            label = parsed.get('label', key)
+                            help_text = parsed.get('help', '')
+
+                            # Convert markdown links in help text to HTML
+                            if help_text:
+                                help_text = markdown_links_to_html(help_text)
+
+                            current_fields.append({
+                                'key': key,
+                                'label': label,
+                                'help': help_text,
+                            })
+                        elif isinstance(parsed, str):
+                            # String format: {{ "Field Label" }}
+                            current_fields.append({
+                                'key': key,
+                                'label': parsed,
+                                'help': '',
+                            })
+                        else:
+                            # Unexpected type - treat as raw string
+                            current_fields.append({
+                                'key': key,
+                                'label': field_spec,
+                                'help': '',
+                            })
+                    except (ValueError, SyntaxError):
+                        # Not valid Python literal - treat as raw string (old format)
+                        # This maintains backward compatibility with {{ field_name }}
+                        current_fields.append({
+                            'key': key,
+                            'label': field_spec,
+                            'help': '',
+                        })
+
+                    current_config[key] = f'{{{{{field_spec}}}}}'
                 else:
                     # Static value
                     current_config[key] = value

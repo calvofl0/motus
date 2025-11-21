@@ -1433,6 +1433,14 @@ type = s3
                 const modal = document.getElementById(modalId);
                 if (modal) {
                     modal.style.display = 'flex';
+
+                    // Auto-focus the first input/textarea/select field
+                    setTimeout(() => {
+                        const firstInput = modal.querySelector('input:not([type="hidden"]), textarea, select');
+                        if (firstInput) {
+                            firstInput.focus();
+                        }
+                    }, 100); // Small delay to ensure modal is rendered
                 }
             },
 
@@ -3779,7 +3787,10 @@ type = s3
 
                 html += `<div onclick="selectTemplate('${template.name}')" style="padding: 12px; ${selectedStyle} border-radius: 6px; cursor: pointer;">`;
                 html += `<strong style="display: block; margin-bottom: 4px;">${template.name}</strong>`;
-                html += `<small style="color: #666;">Fields: ${template.fields.map(f => f.label).join(', ')}</small>`;
+                // Only show "Fields:" if there are fields
+                if (template.fields && template.fields.length > 0) {
+                    html += `<small style="color: #666;">Fields: ${template.fields.map(f => f.label).join(', ')}</small>`;
+                }
                 html += '</div>';
             });
 
@@ -3871,7 +3882,20 @@ type = s3
                 const inputType = isSecret ? 'password' : 'text';
 
                 html += '<div>';
-                html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">${field.label}</label>`;
+
+                // Label with optional help icon
+                html += `<label style="display: block; margin-bottom: 4px; font-weight: 500;">`;
+                html += field.label;
+                if (field.help) {
+                    // Add help icon with tooltip
+                    html += ` <span class="help-icon" style="display: inline-block; cursor: help; color: #007bff; font-weight: normal; font-size: 14px; position: relative;">`;
+                    html += `ℹ️`;
+                    html += `<span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #333; color: white; padding: 8px 12px; border-radius: 4px; white-space: nowrap; z-index: 1000; font-size: 13px; font-weight: normal; max-width: 300px; white-space: normal; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">`;
+                    html += field.help; // HTML with links already converted
+                    html += `</span>`;
+                    html += `</span>`;
+                }
+                html += `</label>`;
 
                 if (isSecret) {
                     // Password field with visibility toggle
@@ -3916,6 +3940,37 @@ type = s3
                 nameInput.addEventListener('input', validateRemoteForm);
                 template.fields.forEach(field => {
                     document.getElementById(`field-${field.key}`).addEventListener('input', validateRemoteForm);
+                });
+
+                // Add tooltip hover event listeners
+                document.querySelectorAll('.help-icon').forEach(icon => {
+                    const tooltip = icon.querySelector('.help-tooltip');
+                    if (tooltip) {
+                        // Show tooltip on hover of icon or tooltip itself
+                        icon.addEventListener('mouseenter', () => {
+                            tooltip.style.display = 'block';
+                        });
+
+                        // Hide tooltip when mouse leaves both icon and tooltip
+                        let hideTimeout;
+                        icon.addEventListener('mouseleave', (e) => {
+                            hideTimeout = setTimeout(() => {
+                                // Check if mouse is over tooltip
+                                if (!tooltip.matches(':hover')) {
+                                    tooltip.style.display = 'none';
+                                }
+                            }, 100);
+                        });
+
+                        tooltip.addEventListener('mouseenter', () => {
+                            clearTimeout(hideTimeout);
+                            tooltip.style.display = 'block';
+                        });
+
+                        tooltip.addEventListener('mouseleave', () => {
+                            tooltip.style.display = 'none';
+                        });
+                    }
                 });
             }, 0);
         }
