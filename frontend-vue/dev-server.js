@@ -40,10 +40,19 @@ async function startServer() {
 }
 
 function monitorBackend() {
+  let checkCount = 0
   setInterval(() => {
+    checkCount++
+    const isRunning = isProcessRunning(backendPid)
+
+    // Log every 10th check (every ~20 seconds) to show monitoring is active
+    if (checkCount % 10 === 0) {
+      console.log(`[Monitor] Check #${checkCount}: Backend PID ${backendPid} is ${isRunning ? 'running' : 'STOPPED'}`)
+    }
+
     // Check if backend is still running
-    if (backendPid && !isProcessRunning(backendPid)) {
-      console.log('\n[Monitor] Backend has stopped')
+    if (backendPid && !isRunning) {
+      console.log('\n[Monitor] Backend has stopped!')
       console.log('[Monitor] Gracefully shutting down Vite...')
       shutdown()
     }
