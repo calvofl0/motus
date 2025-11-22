@@ -4,18 +4,7 @@
       v-if="visible"
       ref="menuRef"
       class="context-menu"
-      :style="{
-        display: 'block',
-        position: 'fixed',
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        background: 'white',
-        border: '1px solid #ccc',
-        borderRadius: '6px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        zIndex: 10000,
-        minWidth: '180px'
-      }"
+      :style="{ left: `${position.x}px`, top: `${position.y}px` }"
       @click="handleMenuClick"
     >
       <!-- Create Folder (only when no files selected or on empty space) -->
@@ -23,7 +12,6 @@
         v-if="canCreateFolder"
         class="context-menu-item"
         data-action="newfolder"
-        style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none;"
       >
         📁 Create Folder
       </div>
@@ -33,7 +21,6 @@
         v-if="canRename"
         class="context-menu-item"
         data-action="rename"
-        style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none;"
       >
         ✏️ Rename
       </div>
@@ -43,32 +30,30 @@
         v-if="canDelete"
         class="context-menu-item danger"
         data-action="delete"
-        style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; color: #dc3545;"
       >
         🗑️ Delete
       </div>
 
       <!-- Sort By -->
-      <div class="context-menu-item has-submenu" style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; position: relative;">
+      <div class="context-menu-item has-submenu">
         📊 Sort by
-        <span style="position: absolute; right: 10px; font-size: 10px;">▶</span>
-        <div class="context-submenu" style="display: none; position: absolute; left: 100%; top: 0; background: white; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 160px;">
-          <div class="context-menu-item" data-sort="name" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
+        <div class="context-submenu">
+          <div class="context-menu-item" data-sort="name" data-asc="true">
             Name (A-Z)
           </div>
-          <div class="context-menu-item" data-sort="name" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
+          <div class="context-menu-item" data-sort="name" data-asc="false">
             Name (Z-A)
           </div>
-          <div class="context-menu-item" data-sort="size" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
+          <div class="context-menu-item" data-sort="size" data-asc="true">
             Size (Smallest)
           </div>
-          <div class="context-menu-item" data-sort="size" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
+          <div class="context-menu-item" data-sort="size" data-asc="false">
             Size (Largest)
           </div>
-          <div class="context-menu-item" data-sort="date" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
+          <div class="context-menu-item" data-sort="date" data-asc="true">
             Date (Oldest)
           </div>
-          <div class="context-menu-item" data-sort="date" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; white-space: nowrap;">
+          <div class="context-menu-item" data-sort="date" data-asc="false">
             Date (Newest)
           </div>
         </div>
@@ -154,10 +139,6 @@ function handleKeyDown(event) {
 
 // Adjust position if menu would go off-screen
 watch(() => props.visible, async (isVisible) => {
-  console.log('[ContextMenu] Visibility changed:', isVisible)
-  console.log('[ContextMenu] Position:', props.position)
-  console.log('[ContextMenu] Selected count:', props.selectedCount)
-
   if (isVisible) {
     // Prevent immediate closing on the same click that opened the menu
     justOpened.value = true
@@ -166,10 +147,8 @@ watch(() => props.visible, async (isVisible) => {
     }, 100)
 
     await nextTick()
-    console.log('[ContextMenu] menuRef:', menuRef.value)
     if (menuRef.value) {
       const rect = menuRef.value.getBoundingClientRect()
-      console.log('[ContextMenu] Menu rect:', rect)
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
 
@@ -184,8 +163,6 @@ watch(() => props.visible, async (isVisible) => {
         const adjustedY = viewportHeight - rect.height - 10
         menuRef.value.style.top = `${Math.max(10, adjustedY)}px`
       }
-    } else {
-      console.error('[ContextMenu] menuRef is null!')
     }
   }
 })
@@ -203,7 +180,27 @@ onUnmounted(() => {
 
 <style>
 /* Note: Not using 'scoped' because Teleport moves element outside component scope */
-.context-menu {}
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10000;
+  min-width: 180px;
+}
+
+.context-menu-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 1px solid #f0f0f0;
+  user-select: none;
+}
+
+.context-menu-item:last-child {
+  border-bottom: none;
+}
 
 .context-menu-item:hover {
   background: #f5f5f5;
@@ -214,7 +211,34 @@ onUnmounted(() => {
   color: #dc3545;
 }
 
+.context-menu-item.has-submenu {
+  position: relative;
+}
+
+.context-menu-item.has-submenu::after {
+  content: '▶';
+  position: absolute;
+  right: 10px;
+  font-size: 10px;
+}
+
+.context-submenu {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 160px;
+}
+
 .context-menu-item.has-submenu:hover .context-submenu {
-  display: block !important;
+  display: block;
+}
+
+.context-submenu .context-menu-item {
+  white-space: nowrap;
 }
 </style>

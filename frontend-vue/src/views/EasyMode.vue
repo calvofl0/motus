@@ -102,7 +102,6 @@ function copyToLeft() {
 
 // Context menu functions
 function showContextMenu(pane, event) {
-  console.log('[EasyMode] showContextMenu called', pane, event.clientX, event.clientY)
   const paneState = appStore[`${pane}Pane`]
 
   // Update refs directly
@@ -110,13 +109,6 @@ function showContextMenu(pane, event) {
   contextMenuPosition.value = { x: event.clientX, y: event.clientY }
   contextMenuPane.value = pane
   contextMenuSelectedCount.value = paneState.selectedIndexes.length
-
-  console.log('[EasyMode] Updated context menu state:', {
-    visible: contextMenuVisible.value,
-    position: contextMenuPosition.value,
-    pane: contextMenuPane.value,
-    count: contextMenuSelectedCount.value
-  })
 }
 
 function closeContextMenu() {

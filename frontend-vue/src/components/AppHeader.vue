@@ -58,7 +58,6 @@ const modeButtonText = computed(() =>
 
 function openManageRemotes() {
   // TODO: Implement manage remotes modal
-  console.log('Open manage remotes')
 }
 
 function toggleViewMenu(e) {
@@ -86,9 +85,7 @@ async function quitServer() {
   // TODO: Check running jobs
   if (confirm('Are you sure you want to quit the server?')) {
     try {
-      console.log('[Quit] Calling /api/shutdown...')
-      const response = await apiCall('/api/shutdown', 'POST')
-      console.log('[Quit] Shutdown response:', response)
+      await apiCall('/api/shutdown', 'POST')
 
       document.body.innerHTML = `
         <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -105,8 +102,6 @@ async function quitServer() {
       console.error('[Quit] Shutdown failed:', error)
       alert(`Failed to shutdown server: ${error.message}`)
     }
-  } else {
-    console.log('[Quit] User canceled shutdown')
   }
 }
 
