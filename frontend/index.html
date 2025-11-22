@@ -453,6 +453,7 @@ type = s3
         import { RemoteManager } from '/js/modules/remote-manager.js';
         import { OAuthManager } from '/js/modules/oauth-manager.js';
         import { UploadManager } from '/js/modules/upload-manager.js';
+        import { ExpertModeManager } from '/js/modules/expert-mode.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -510,6 +511,8 @@ type = s3
             }),
             onOAuthRefresh: (remoteName) => oauthManager.refreshToken(remoteName)
         });
+
+        const expertModeManager = new ExpertModeManager(apiCall, setAuthToken, formatFileSize);
 
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
@@ -667,41 +670,41 @@ type = s3
             document.getElementById('edit-remote-save-btn').addEventListener('click', () => remoteManager.saveRemoteConfig());
 
             // Expert Mode buttons
-            document.getElementById('expert-auth-btn').addEventListener('click', authenticate);
-            document.getElementById('expert-list-remotes-btn').addEventListener('click', listRemotes);
+            document.getElementById('expert-auth-btn').addEventListener('click', () => expertModeManager.authenticate());
+            document.getElementById('expert-list-remotes-btn').addEventListener('click', () => expertModeManager.listRemotes());
             document.getElementById('ls-path').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') listFiles();
+                if (e.key === 'Enter') expertModeManager.listFiles();
             });
-            document.getElementById('expert-list-files-btn').addEventListener('click', listFiles);
+            document.getElementById('expert-list-files-btn').addEventListener('click', () => expertModeManager.listFiles());
             document.getElementById('mkdir-path').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') makeDirectory();
+                if (e.key === 'Enter') expertModeManager.makeDirectory();
             });
-            document.getElementById('expert-mkdir-btn').addEventListener('click', makeDirectory);
+            document.getElementById('expert-mkdir-btn').addEventListener('click', () => expertModeManager.makeDirectory());
             document.getElementById('delete-path').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') deletePath();
+                if (e.key === 'Enter') expertModeManager.deletePath();
             });
-            document.getElementById('expert-delete-btn').addEventListener('click', deletePath);
+            document.getElementById('expert-delete-btn').addEventListener('click', () => expertModeManager.deletePath());
 
             // Expert Mode - Job Management
-            document.getElementById('job-src').addEventListener('keypress', (e) => handleJobPathKeypress(e, 'src'));
-            document.getElementById('job-dst').addEventListener('keypress', (e) => handleJobPathKeypress(e, 'dst'));
-            document.getElementById('expert-copy-btn').addEventListener('click', startCopyJob);
-            document.getElementById('expert-move-btn').addEventListener('click', startMoveJob);
-            document.getElementById('expert-integrity-btn').addEventListener('click', checkIntegrity);
-            document.getElementById('expert-sync-btn').addEventListener('click', syncJob);
+            document.getElementById('job-src').addEventListener('keypress', (e) => expertModeManager.handleJobPathKeypress(e, 'src'));
+            document.getElementById('job-dst').addEventListener('keypress', (e) => expertModeManager.handleJobPathKeypress(e, 'dst'));
+            document.getElementById('expert-copy-btn').addEventListener('click', () => expertModeManager.startCopyJob());
+            document.getElementById('expert-move-btn').addEventListener('click', () => expertModeManager.startMoveJob());
+            document.getElementById('expert-integrity-btn').addEventListener('click', () => expertModeManager.checkIntegrity());
+            document.getElementById('expert-sync-btn').addEventListener('click', () => expertModeManager.syncJob());
             document.getElementById('job-id').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') getJobStatus();
+                if (e.key === 'Enter') expertModeManager.getJobStatus();
             });
-            document.getElementById('expert-job-status-btn').addEventListener('click', getJobStatus);
-            document.getElementById('expert-watch-progress-btn').addEventListener('click', watchJobProgress);
-            document.getElementById('expert-stop-watch-btn').addEventListener('click', stopWatchingProgress);
-            document.getElementById('expert-show-log-btn').addEventListener('click', showJobLog);
-            document.getElementById('expert-resume-btn').addEventListener('click', resumeJobById);
-            document.getElementById('expert-stop-job-btn').addEventListener('click', stopJob);
-            document.getElementById('expert-list-all-btn').addEventListener('click', listAllJobs);
-            document.getElementById('expert-list-running-btn').addEventListener('click', listRunningJobs);
-            document.getElementById('expert-list-aborted-btn').addEventListener('click', listAbortedJobs);
-            document.getElementById('expert-clear-stopped-btn').addEventListener('click', clearStoppedJobs);
+            document.getElementById('expert-job-status-btn').addEventListener('click', () => expertModeManager.getJobStatus());
+            document.getElementById('expert-watch-progress-btn').addEventListener('click', () => expertModeManager.watchJobProgress(getAuthToken));
+            document.getElementById('expert-stop-watch-btn').addEventListener('click', () => expertModeManager.stopWatchingJobProgress());
+            document.getElementById('expert-show-log-btn').addEventListener('click', () => expertModeManager.showJobLog());
+            document.getElementById('expert-resume-btn').addEventListener('click', () => expertModeManager.resumeJobById());
+            document.getElementById('expert-stop-job-btn').addEventListener('click', () => expertModeManager.stopJob());
+            document.getElementById('expert-list-all-btn').addEventListener('click', () => expertModeManager.listAllJobs());
+            document.getElementById('expert-list-running-btn').addEventListener('click', () => expertModeManager.listRunningJobs());
+            document.getElementById('expert-list-aborted-btn').addEventListener('click', () => expertModeManager.listAbortedJobs());
+            document.getElementById('expert-clear-stopped-btn').addEventListener('click', () => expertModeManager.clearStoppedJobs());
 
             // Context Menu - Event delegation
             document.getElementById('context-menu').addEventListener('click', (e) => {
@@ -2789,352 +2792,6 @@ type = s3
             }
         }
 
-        // Expert mode functions (existing)
-        async function authenticate() {
-            authToken = document.getElementById('token').value;
-            setAuthToken(authToken);  // Sync with api.js
-            document.cookie = `motus_token=${authToken}; path=/; max-age=31536000`;
-            try {
-                await apiCall('/api/health');
-                document.getElementById('auth-status').innerHTML = '<div class="success">✓ Authenticated successfully</div>';
-            } catch (error) {
-                document.getElementById('auth-status').innerHTML = `<div class="error">✗ Authentication failed: ${error.message}</div>`;
-            }
-        }
-
-        async function listRemotes() {
-            try {
-                const data = await apiCall('/api/remotes');
-                document.getElementById('remotes-output').textContent = 
-                    `Found ${data.count} remote(s):\n\n` + data.remotes.join('\n');
-            } catch (error) {
-                document.getElementById('remotes-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function listFiles() {
-            const path = document.getElementById('ls-path').value;
-            try {
-                const data = await apiCall('/api/files/ls', 'POST', { path });
-
-                // Backend returns rclone's format: Name, Size, IsDir, ModTime
-                const output = data.files.map(f => {
-                    const type = f.IsDir ? 'DIR ' : 'FILE';
-                    const size = f.IsDir ? '' : formatFileSize(f.Size);
-                    return `${type} ${f.Name.padEnd(40)} ${size}`;
-                }).join('\n');
-
-                document.getElementById('ls-output').textContent = output || 'Empty directory';
-            } catch (error) {
-                document.getElementById('ls-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function makeDirectory() {
-            const path = document.getElementById('mkdir-path').value;
-            try {
-                await apiCall('/api/files/mkdir', 'POST', { path });
-                document.getElementById('mkdir-status').innerHTML = `<div class="success">✓ Directory created: ${path}</div>`;
-            } catch (error) {
-                document.getElementById('mkdir-status').innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function deletePath() {
-            const path = document.getElementById('delete-path').value;
-            if (!confirm(`Are you sure you want to delete: ${path}?`)) return;
-            
-            try {
-                await apiCall('/api/files/delete', 'POST', { path });
-                document.getElementById('delete-status').innerHTML = `<div class="success">✓ Deleted: ${path}</div>`;
-            } catch (error) {
-                document.getElementById('delete-status').innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function startCopyJob() {
-            const src = document.getElementById('job-src').value.trim();
-            const dst = document.getElementById('job-dst').value.trim();
-
-            if (!src || !dst) {
-                alert('Please provide both source and destination paths');
-                return;
-            }
-
-            const copyLinks = document.getElementById('copy-links').checked;
-
-            try {
-                const data = await apiCall('/api/jobs/copy', 'POST', {
-                    src_path: src,
-                    dst_path: dst,
-                    copy_links: copyLinks
-                });
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML =
-                    `<div class="success">✓ Copy job started (ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML =
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function resumeJobById() {
-            const jobIdValue = document.getElementById('job-id').value.trim();
-            const jobId = parseInt(jobIdValue);
-
-            if (!jobId) {
-                alert('Please enter a valid job ID');
-                return;
-            }
-
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML =
-                    `<div class="success">✓ Job resumed (New ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML =
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function startMoveJob() {
-            const src = document.getElementById('job-src').value;
-            const dst = document.getElementById('job-dst').value;
-            
-            try {
-                const data = await apiCall('/api/jobs/move', 'POST', { 
-                    src_path: src, 
-                    dst_path: dst
-                });
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="success">✓ Move job started (ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function checkIntegrity() {
-            const src = document.getElementById('job-src').value;
-            const dst = document.getElementById('job-dst').value;
-            
-            try {
-                const data = await apiCall('/api/jobs/check', 'POST', { 
-                    src_path: src, 
-                    dst_path: dst
-                });
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="success">✓ Integrity check started (ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        // Keep old function for compatibility (not used in UI anymore)
-        async function resumeJob() {
-            startCopyOrResumeJob();
-        }
-
-        async function syncJob() {
-            const src = document.getElementById('job-src').value;
-            const dst = document.getElementById('job-dst').value;
-            
-            if (!confirm(
-                '⚠️ WARNING: Sync is a DESTRUCTIVE operation!\n\n' +
-                'Files in the destination that don\'t exist in the source will be DELETED.\n\n' +
-                'Are you sure you want to continue?'
-            )) {
-                return;
-            }
-            
-            try {
-                const data = await apiCall('/api/jobs/sync', 'POST', { 
-                    src_path: src, 
-                    dst_path: dst
-                });
-                document.getElementById('job-id').value = data.job_id;
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="success">✓ Sync job started (ID: ${data.job_id})</div>`;
-            } catch (error) {
-                document.getElementById('job-start-status').innerHTML = 
-                    `<div class="error">✗ Error: ${error.message}</div>`;
-            }
-        }
-
-        async function getJobStatus() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-
-            try {
-                const job = await apiCall(`/api/jobs/${jobId}`);
-                const output = `
-Job ID: ${job.job_id}
-Operation: ${job.operation}
-Status: ${job.status}
-Progress: ${job.progress}%
-Source: ${job.src_path}
-Destination: ${job.dst_path}
-Created: ${job.created_at}
-${job.finished_at ? 'Finished: ' + job.finished_at : ''}
-${job.error_text ? 'Error: ' + job.error_text : ''}
-
-Output:
-${job.text || '(no output yet)'}
-                `.trim();
-                document.getElementById('job-status-output').textContent = output;
-            } catch (error) {
-                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function showJobLog() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/log`);
-                const logText = data.log_text || '(no log available)';
-                document.getElementById('job-status-output').textContent = `=== Job ${jobId} Log ===\n\n${logText}`;
-            } catch (error) {
-                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        // SSE Progress Watching
-        const jobProgressWatcher = new JobProgressWatcher();
-
-        function watchJobProgress() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-
-            // Stop any existing connection
-            stopWatchingProgress();
-
-            const token = getToken();
-
-            // Show watching indicator
-            document.getElementById('watch-progress-btn').style.display = 'none';
-            document.getElementById('stop-watch-btn').style.display = 'inline-block';
-            document.getElementById('job-status-output').textContent = `🔴 Watching job ${jobId} (real-time updates)...\n\n`;
-
-            // Start watching using SSE module
-            jobProgressWatcher.watch(
-                jobId,
-                token,
-                // onUpdate callback
-                (data) => {
-                    const timestamp = new Date().toLocaleTimeString();
-                    const output = `
-🔴 LIVE UPDATE - ${timestamp}
-
-Job ID: ${data.job_id}
-Progress: ${data.progress}%
-Status: ${data.finished ? 'Finished' : 'Running'}
-Exit Status: ${data.exit_status}
-${data.error_text ? 'Error: ' + data.error_text : ''}
-
-Recent Output:
-${data.text || '(no output yet)'}
-                    `.trim();
-
-                    document.getElementById('job-status-output').textContent = output;
-
-                    // Show completion status when finished
-                    if (data.finished) {
-                        const finalOutput = output.replace('🔴 LIVE UPDATE', '✓ Job Completed');
-                        document.getElementById('job-status-output').textContent = finalOutput;
-                        stopWatchingProgress();
-                    }
-                },
-                // onError callback
-                (error) => {
-                    document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
-                    stopWatchingProgress();
-                }
-            );
-        }
-
-        function stopWatchingProgress() {
-            jobProgressWatcher.stop();
-            document.getElementById('watch-progress-btn').style.display = 'inline-block';
-            document.getElementById('stop-watch-btn').style.display = 'none';
-        }
-
-        async function stopJob() {
-            const jobId = document.getElementById('job-id').value;
-            if (!jobId) {
-                alert('Please enter a job ID');
-                return;
-            }
-            
-            try {
-                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
-                document.getElementById('job-status-output').textContent = `Job ${jobId} stopped`;
-            } catch (error) {
-                document.getElementById('job-status-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function listAllJobs() {
-            try {
-                const data = await apiCall('/api/jobs');
-                const output = data.jobs.map(j =>
-                    `#${j.job_id} ${j.operation} ${j.status} ${j.progress}% - ${j.src_path} → ${j.dst_path}`
-                ).join('\n');
-                document.getElementById('all-jobs-output').textContent = output || 'No jobs';
-            } catch (error) {
-                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function listRunningJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=running');
-                const output = data.jobs.map(j =>
-                    `#${j.job_id} ${j.operation} ${j.progress}% - ${j.src_path} → ${j.dst_path}`
-                ).join('\n');
-                document.getElementById('all-jobs-output').textContent = output || 'No running jobs';
-            } catch (error) {
-                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function listAbortedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=aborted');
-                const output = data.jobs.map(j =>
-                    `#${j.job_id} ${j.operation} - ${j.src_path} → ${j.dst_path}`
-                ).join('\n');
-                document.getElementById('all-jobs-output').textContent = output || 'No aborted jobs';
-            } catch (error) {
-                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function clearStoppedJobs() {
-            if (!confirm('Clear all stopped jobs?')) return;
-
-            try {
-                const data = await apiCall('/api/jobs/clear_stopped', 'POST');
-                document.getElementById('all-jobs-output').textContent =
-                    `Cleared ${data.count} stopped job(s)`;
-            } catch (error) {
-                document.getElementById('all-jobs-output').textContent = `Error: ${error.message}`;
-            }
-        }
 
         // Arrow button functions
         function updateArrowButtons() {
