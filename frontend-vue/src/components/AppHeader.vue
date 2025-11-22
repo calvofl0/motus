@@ -33,6 +33,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
+import { apiCall } from '../services/api'
 
 const appStore = useAppStore()
 const router = useRouter()
@@ -85,13 +86,9 @@ async function quitServer() {
   // TODO: Check running jobs
   if (confirm('Are you sure you want to quit the server?')) {
     try {
-      await fetch('/api/shutdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `token ${appStore.authToken}`
-        }
-      })
+      console.log('[Quit] Calling /api/shutdown...')
+      const response = await apiCall('/api/shutdown', 'POST')
+      console.log('[Quit] Shutdown response:', response)
 
       document.body.innerHTML = `
         <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -105,8 +102,11 @@ async function quitServer() {
         </div>
       `
     } catch (error) {
+      console.error('[Quit] Shutdown failed:', error)
       alert(`Failed to shutdown server: ${error.message}`)
     }
+  } else {
+    console.log('[Quit] User canceled shutdown')
   }
 }
 
