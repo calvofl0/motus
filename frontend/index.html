@@ -456,6 +456,7 @@ type = s3
         import { ExpertModeManager } from '/js/modules/expert-mode.js';
         import { JobManager } from '/js/modules/job-manager.js';
         import { FileBrowser } from '/js/modules/file-browser.js';
+        import { FileOperations } from '/js/modules/file-operations.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -551,6 +552,23 @@ type = s3
             }
         });
 
+        const fileOperations = new FileOperations({
+            apiCall,
+            buildPath,
+            expandTildePath,
+            resolveRelativePath,
+            ModalManager
+        }, {
+            onRefreshPane: refreshPane,
+            onRenderFiles: renderFiles,
+            onShowDragDropConfirm: (operation) => {
+                // Store the pending operation
+                pendingDragDrop = operation;
+                // Show confirmation dialog
+                showDragDropConfirmModal(operation.fileNames, operation.sourcePath, operation.destPath);
+            }
+        });
+
         const fileBrowser = new FileBrowser({
             apiCall,
             formatFileSize,
@@ -561,14 +579,22 @@ type = s3
             uploadManager,
             jobManager
         }, {
-            onArrowButtonsUpdate: updateArrowButtons,
-            onContextMenuShow: showContextMenu,
+            onArrowButtonsUpdate: () => fileOperations.updateArrowButtons(),
+            onContextMenuShow: (event, pane) => fileOperations.showContextMenu(event, pane, { value: lastFocusedPane }),
             onDragDropConfirm: (operation) => {
                 // Store the pending operation
                 pendingDragDrop = operation;
                 // Show confirmation dialog
                 showDragDropConfirmModal(operation.fileNames, operation.sourcePath, operation.destPath);
             }
+        });
+
+        // Initialize fileOperations with state references
+        fileOperations.init({
+            leftPaneState,
+            rightPaneState,
+            contextMenuState,
+            createFolderPane: { value: createFolderPane }
         });
 
         // Initialize fileBrowser with state references
@@ -612,8 +638,8 @@ type = s3
             });
 
             // Arrow buttons
-            document.getElementById('copy-right-btn').addEventListener('click', copySelectedToRight);
-            document.getElementById('copy-left-btn').addEventListener('click', copySelectedToLeft);
+            document.getElementById('copy-right-btn').addEventListener('click', () => fileOperations.copySelectedToRight());
+            document.getElementById('copy-left-btn').addEventListener('click', () => fileOperations.copySelectedToLeft());
 
             // Drag-and-drop for file grids
             const leftFiles = document.getElementById('left-files');
@@ -638,21 +664,21 @@ type = s3
 
             // Modal buttons - Rename Modal
             document.getElementById('rename-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') confirmRename();
+                if (e.key === 'Enter') fileOperations.confirmRename();
             });
-            document.getElementById('rename-cancel-btn').addEventListener('click', closeRenameModal);
-            document.getElementById('rename-confirm-btn').addEventListener('click', confirmRename);
+            document.getElementById('rename-cancel-btn').addEventListener('click', () => fileOperations.closeRenameModal());
+            document.getElementById('rename-confirm-btn').addEventListener('click', () => fileOperations.confirmRename());
 
             // Modal buttons - Create Folder Modal
             document.getElementById('create-folder-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') confirmCreateFolder();
+                if (e.key === 'Enter') fileOperations.confirmCreateFolder();
             });
-            document.getElementById('create-folder-cancel-btn').addEventListener('click', closeCreateFolderModal);
-            document.getElementById('create-folder-confirm-btn').addEventListener('click', confirmCreateFolder);
+            document.getElementById('create-folder-cancel-btn').addEventListener('click', () => fileOperations.closeCreateFolderModal());
+            document.getElementById('create-folder-confirm-btn').addEventListener('click', () => fileOperations.confirmCreateFolder());
 
             // Modal buttons - Delete Confirm Modal
-            document.getElementById('delete-cancel-btn').addEventListener('click', closeDeleteConfirmModal);
-            document.getElementById('delete-confirm-btn').addEventListener('click', confirmDelete);
+            document.getElementById('delete-cancel-btn').addEventListener('click', () => fileOperations.closeDeleteConfirmModal());
+            document.getElementById('delete-confirm-btn').addEventListener('click', () => fileOperations.confirmDelete());
 
             // Modal buttons - Drag Drop Confirm Modal
             document.getElementById('drag-drop-cancel-btn').addEventListener('click', closeDragDropConfirmModal);
@@ -778,7 +804,7 @@ type = s3
                 // Handle action items (create folder, rename, delete)
                 const action = item.getAttribute('data-action');
                 if (action) {
-                    contextMenuAction(action);
+                    fileOperations.contextMenuAction(action);
                     return;
                 }
 
@@ -786,7 +812,7 @@ type = s3
                 const sortBy = item.getAttribute('data-sort');
                 if (sortBy) {
                     const asc = item.getAttribute('data-asc') === 'true';
-                    contextMenuSortBy(sortBy, asc);
+                    fileOperations.contextMenuSortBy(sortBy, asc);
                 }
             });
 
@@ -973,17 +999,17 @@ type = s3
                 if (e.key === 'Enter') {
                     if (renameModal.style.display === 'flex') {
                         e.preventDefault();
-                        confirmRename();
+                        fileOperations.confirmRename();
                         return;
                     }
                     if (deleteModal.style.display === 'flex') {
                         e.preventDefault();
-                        confirmDelete();
+                        fileOperations.confirmDelete();
                         return;
                     }
                     if (createFolderModal.style.display === 'flex') {
                         e.preventDefault();
-                        confirmCreateFolder();
+                        fileOperations.confirmCreateFolder();
                         return;
                     }
                     if (dragDropModal.style.display === 'flex') {
@@ -1006,7 +1032,7 @@ type = s3
                         const file = state.files[state.selectedIndexes[0]];
                         contextMenuState.pane = lastFocusedPane;
                         contextMenuState.items = [file];
-                        showRenameModal(file.Name);
+                        fileOperations.showRenameModal(file.Name);
                     }
                     return;
                 }
@@ -1018,7 +1044,7 @@ type = s3
                     if (state.selectedIndexes.length > 0) {
                         contextMenuState.pane = lastFocusedPane;
                         contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
-                        showDeleteConfirmModal();
+                        fileOperations.showDeleteConfirmModal();
                     }
                     return;
                 }
@@ -1328,461 +1354,6 @@ type = s3
             // Refresh target pane and update jobs
             refreshPane(targetPane);
             jobManager.updateJobs();
-        }
-
-        // Context menu
-        function showContextMenu(event, pane) {
-            lastFocusedPane = pane;  // Track which pane has context menu
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-            contextMenuState.pane = pane;
-            contextMenuState.items = state.selectedIndexes.map(i => state.files[i]);
-
-            const menu = document.getElementById('context-menu');
-            menu.style.display = 'block';
-            menu.style.left = event.pageX + 'px';
-            menu.style.top = event.pageY + 'px';
-
-            // Get menu items
-            const menuItems = menu.querySelectorAll('.context-menu-item');
-            const createFolderItem = menuItems[0];  // 📁 Create Folder
-            const renameItem = menuItems[1];  // ✏️ Rename
-            const deleteItem = menuItems[2];  // 🗑️ Delete
-
-            // Show/hide items based on selection
-            const hasSelection = state.selectedIndexes.length > 0;
-            const isSingleSelection = state.selectedIndexes.length === 1;
-
-            // Create Folder: always available
-            createFolderItem.style.display = 'block';
-
-            // Rename: only for single selection
-            if (isSingleSelection) {
-                renameItem.style.display = 'block';
-            } else {
-                renameItem.style.display = 'none';
-            }
-
-            // Delete: only when something is selected
-            if (hasSelection) {
-                deleteItem.style.display = 'block';
-            } else {
-                deleteItem.style.display = 'none';
-            }
-        }
-
-        function contextMenuAction(action) {
-            document.getElementById('context-menu').style.display = 'none';
-
-            if (action === 'rename' && contextMenuState.items.length === 1) {
-                showRenameModal(contextMenuState.items[0].Name);
-            } else if (action === 'delete') {
-                showDeleteConfirmModal();
-            } else if (action === 'newfolder') {
-                createFolder(contextMenuState.pane);
-            }
-        }
-
-        function contextMenuSortBy(field, ascending) {
-            document.getElementById('context-menu').style.display = 'none';
-
-            const pane = contextMenuState.pane;
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-            state.sortBy = field;
-            state.sortAsc = ascending;
-            renderFiles(pane);
-        }
-
-        // Rename modal
-        function showRenameModal(currentName) {
-            const input = document.getElementById('rename-input');
-            input.value = currentName;
-
-            ModalManager.open('rename-modal', {
-                onEscape: closeRenameModal,
-                onEnter: confirmRename
-            });
-
-            // Select text after modal opens for easy editing
-            setTimeout(() => {
-                input.select();
-            }, 150);
-        }
-
-        function closeRenameModal() {
-            ModalManager.close('rename-modal');
-        }
-
-        async function confirmRename() {
-            const newName = document.getElementById('rename-input').value.trim();
-            if (!newName) {
-                alert('Please enter a name');
-                return;
-            }
-
-            const pane = contextMenuState.pane;
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-            const file = contextMenuState.items[0];
-
-            // Skip no-op rename (same name)
-            if (newName === file.Name) {
-                closeRenameModal();
-                return;
-            }
-
-            // Check if destination already exists
-            const existingFile = state.files.find(f => f.Name === newName);
-            if (existingFile) {
-                alert(`A file or folder named "${newName}" already exists in this directory`);
-                return;
-            }
-
-            const oldPath = state.remote ?
-                `${state.remote}:${buildPath(state.path, file.Name)}` :
-                buildPath(state.path, file.Name);
-            const newPath = state.remote ?
-                `${state.remote}:${buildPath(state.path, newName)}` :
-                buildPath(state.path, newName);
-
-            try {
-                // Use move operation for rename
-                await apiCall('/api/jobs/move', 'POST', {
-                    src_path: oldPath,
-                    dst_path: newPath
-                });
-                closeRenameModal();
-                refreshPane(pane);
-            } catch (error) {
-                alert(`Rename failed: ${error.message}`);
-            }
-        }
-
-        // Delete confirmation
-        function showDeleteConfirmModal() {
-            const count = contextMenuState.items.length;
-            document.getElementById('delete-confirm-message').textContent =
-                `Are you sure you want to delete ${count} item(s)?`;
-
-            ModalManager.open('delete-confirm-modal', {
-                onEscape: closeDeleteConfirmModal,
-                onEnter: confirmDelete
-            });
-        }
-
-        function closeDeleteConfirmModal() {
-            ModalManager.close('delete-confirm-modal');
-        }
-
-        async function confirmDelete() {
-            const pane = contextMenuState.pane;
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-
-            // Close modal immediately for better UX
-            closeDeleteConfirmModal();
-
-            // Perform deletes in background
-            for (const file of contextMenuState.items) {
-                const path = state.remote ?
-                    `${state.remote}:${buildPath(state.path, file.Name)}` :
-                    buildPath(state.path, file.Name);
-
-                try {
-                    await apiCall('/api/files/delete', 'POST', { path });
-                } catch (error) {
-                    alert(`Failed to delete ${file.Name}: ${error.message}`);
-                }
-            }
-
-            // Refresh after all deletes complete
-            refreshPane(pane, true);
-        }
-
-        // Create folder
-        function createFolder(pane) {
-            createFolderPane = pane;
-            const input = document.getElementById('create-folder-input');
-            input.value = '';
-
-            ModalManager.open('create-folder-modal', {
-                onEscape: closeCreateFolderModal,
-                onEnter: confirmCreateFolder
-            });
-        }
-
-        function closeCreateFolderModal() {
-            ModalManager.close('create-folder-modal');
-        }
-
-        async function confirmCreateFolder() {
-            let name = document.getElementById('create-folder-input').value.trim();
-            if (!name) {
-                alert('Please enter a folder name');
-                return;
-            }
-
-            const pane = createFolderPane;
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-
-            // Support relative paths - resolve against current directory
-            const resolvedName = resolveRelativePath(state.path, name);
-
-            const path = state.remote ?
-                `${state.remote}:${resolvedName}` :
-                resolvedName;
-
-            try {
-                await apiCall('/api/files/mkdir', 'POST', { path: expandTildePath(path) });
-                closeCreateFolderModal();
-                refreshPane(pane);
-            } catch (error) {
-                alert(`Failed to create folder: ${error.message}`);
-            }
-        }
-
-        // Remote Manager and OAuth Manager functions are now handled by their respective modules
-
-        async function createRemote() {
-            const template = manageRemotesState.selectedTemplate;
-
-            // Handle custom remote creation
-            if (template.name === '__custom__') {
-                const configText = document.getElementById('custom-remote-config').value.trim();
-
-                // Extract remote name from config
-                const match = configText.match(/^\[(.+?)\]/m);
-                if (!match) {
-                    alert('Configuration must include a [remote_name] section header');
-                    return;
-                }
-                const remoteName = match[1];
-
-                try {
-                    const createBtn = document.getElementById('create-remote-btn');
-                    createBtn.disabled = true;
-                    createBtn.textContent = 'Create';
-
-                    // Use the raw config API to create the remote
-                    await apiCall('/api/remotes/raw', 'POST', {
-                        raw_config: configText
-                    });
-
-                    // Reload remotes list and dropdowns
-                    await loadRemotesList();
-                    await loadRemotes();
-
-                    // Go back to step 1
-                    showRemotesList();
-                    manageRemotesState.selectedTemplate = null;
-                    manageRemotesState.formValues = {};
-
-                    // Check if the newly created remote needs OAuth and auto-trigger
-                    await checkAndTriggerOAuthForNewRemote(remoteName);
-                } catch (error) {
-                    alert(`Failed to create remote: ${error.message}`);
-                    const createBtn = document.getElementById('create-remote-btn');
-                    createBtn.disabled = false;
-                    createBtn.textContent = 'Create Remote';
-                }
-                return;
-            }
-
-            // Regular template-based remote creation
-            const remoteName = document.getElementById('remote-name-input').value.trim();
-
-            if (!remoteName) {
-                alert('Please enter a remote name');
-                return;
-            }
-
-            if (!/^[a-zA-Z0-9_-]+$/.test(remoteName)) {
-                alert('Invalid remote name. Use only letters, numbers, underscores, and hyphens.');
-                return;
-            }
-
-            // Collect field values
-            const values = {};
-            for (const field of template.fields) {
-                const input = document.getElementById(`field-${field.key}`);
-                if (!input || !input.value.trim()) {
-                    alert(`Please fill in all fields: ${field.label}`);
-                    return;
-                }
-                values[field.label] = input.value.trim();
-            }
-
-            try {
-                const createBtn = document.getElementById('create-remote-btn');
-                createBtn.disabled = true;
-                createBtn.textContent = 'Create';
-
-                await apiCall('/api/remotes', 'POST', {
-                    name: remoteName,
-                    template: template.name,
-                    values: values
-                });
-
-                // Reload remotes list and dropdowns
-                await loadRemotesList();
-                await loadRemotes();
-
-                // Go back to step 1
-                showRemotesList();
-
-                createBtn.disabled = false;
-                createBtn.textContent = 'Create Remote';
-
-                // Check if the newly created remote needs OAuth and auto-trigger
-                await checkAndTriggerOAuthForNewRemote(remoteName);
-
-            } catch (error) {
-                alert(`Failed to create remote: ${error.message}`);
-                const createBtn = document.getElementById('create-remote-btn');
-                createBtn.disabled = false;
-                createBtn.textContent = 'Create Remote';
-            }
-        }
-
-        async function checkAndTriggerOAuthForNewRemote(remoteName) {
-            // Find the newly created remote in the list
-            const remote = manageRemotesState.remotes.find(r => r.name === remoteName);
-
-            if (!remote) {
-                return; // Remote not found, nothing to do
-            }
-
-            // Check if it's an OAuth remote with empty token
-            if (remote.is_oauth && remote.config && remote.config.token === '') {
-                // Wait a moment for the UI to settle, then trigger OAuth refresh
-                setTimeout(() => {
-                    oauthManager.refreshToken(remoteName);
-                }, 500);
-            }
-        }
-
-
-        // Quit server
-        async function quitServer() {
-            const runningCount = jobManager.getRunningCount();
-            if (runningCount > 0) {
-                const confirmed = confirm(
-                    `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-                    `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
-                    `Are you sure you want to quit?`
-                );
-                if (!confirmed) return;
-            }
-
-            try {
-                const data = await apiCall('/api/shutdown', 'POST');
-                
-                // Replace page content with shutdown message
-                document.body.innerHTML = `
-                    <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                        <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
-                        <p style="font-size:18px; color:#666; margin-bottom:30px;">
-                            The Motus server has been shut down gracefully.
-                        </p>
-                        ${data.running_jobs_stopped > 0 ?
-                            `<p style="color:#666; margin-bottom:20px;">
-                                ${data.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
-                                You can resume them next time you start the server.
-                            </p>` : ''}
-                        <p style="color:#999; font-size:14px;">
-                            You can close this window now.
-                        </p>
-                    </div>
-                `;
-            } catch (error) {
-                alert(`Failed to shutdown server: ${error.message}`);
-            }
-        }
-
-
-        // Arrow button functions
-        function updateArrowButtons() {
-            const leftBtn = document.getElementById('copy-left-btn');
-            const rightBtn = document.getElementById('copy-right-btn');
-
-            if (!leftBtn || !rightBtn) return;
-
-            // Enable right arrow if left pane has selections
-            if (leftPaneState.selectedIndexes.length > 0) {
-                rightBtn.style.opacity = '1';
-                rightBtn.style.cursor = 'pointer';
-                rightBtn.style.transform = rightBtn.style.transform ? rightBtn.style.transform.replace('scale(1)', 'scale(1.1)') : 'scale(1.1)';
-            } else {
-                rightBtn.style.opacity = '0.3';
-                rightBtn.style.cursor = 'not-allowed';
-                rightBtn.style.transform = rightBtn.style.transform ? rightBtn.style.transform.replace('scale(1.1)', 'scale(1)') : 'scale(1)';
-            }
-
-            // Enable left arrow if right pane has selections
-            if (rightPaneState.selectedIndexes.length > 0) {
-                leftBtn.style.opacity = '1';
-                leftBtn.style.cursor = 'pointer';
-                // Keep rotation but add scale
-                const rotation = leftBtn.style.transform.includes('rotate') ? 'rotate(180deg) ' : '';
-                leftBtn.style.transform = rotation + 'scale(1.1)';
-            } else {
-                leftBtn.style.opacity = '0.3';
-                leftBtn.style.cursor = 'not-allowed';
-                // Keep rotation but reset scale
-                const rotation = leftBtn.style.transform.includes('rotate') ? 'rotate(180deg) ' : '';
-                leftBtn.style.transform = rotation + 'scale(1)';
-            }
-        }
-
-        async function copySelectedToRight() {
-            if (leftPaneState.selectedIndexes.length === 0) return;
-
-            // Build list of files and paths for confirmation
-            const files = leftPaneState.selectedIndexes.map(index => leftPaneState.files[index]);
-            const fileNames = files.map(f => f.Name);
-
-            const sourcePath = leftPaneState.remote ?
-                `${leftPaneState.remote}:${leftPaneState.path}` :
-                leftPaneState.path;
-            const destPath = rightPaneState.remote ?
-                `${rightPaneState.remote}:${rightPaneState.path}` :
-                rightPaneState.path;
-
-            // Store pending operation and show confirmation
-            pendingDragDrop = {
-                sourcePane: 'left',
-                targetPane: 'right',
-                sourceState: leftPaneState,
-                targetState: rightPaneState,
-                indexes: leftPaneState.selectedIndexes,
-                files: files
-            };
-
-            showDragDropConfirmModal(fileNames, sourcePath, destPath);
-        }
-
-        async function copySelectedToLeft() {
-            if (rightPaneState.selectedIndexes.length === 0) return;
-
-            // Build list of files and paths for confirmation
-            const files = rightPaneState.selectedIndexes.map(index => rightPaneState.files[index]);
-            const fileNames = files.map(f => f.Name);
-
-            const sourcePath = rightPaneState.remote ?
-                `${rightPaneState.remote}:${rightPaneState.path}` :
-                rightPaneState.path;
-            const destPath = leftPaneState.remote ?
-                `${leftPaneState.remote}:${leftPaneState.path}` :
-                leftPaneState.path;
-
-            // Store pending operation and show confirmation
-            pendingDragDrop = {
-                sourcePane: 'right',
-                targetPane: 'left',
-                sourceState: rightPaneState,
-                targetState: leftPaneState,
-                indexes: rightPaneState.selectedIndexes,
-                files: files
-            };
-
-            showDragDropConfirmModal(fileNames, sourcePath, destPath);
         }
 
         // ===================================================================
