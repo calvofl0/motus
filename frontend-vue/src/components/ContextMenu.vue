@@ -22,6 +22,7 @@
         v-if="canCreateFolder"
         class="context-menu-item"
         data-action="newfolder"
+        style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none;"
       >
         📁 Create Folder
       </div>
@@ -31,6 +32,7 @@
         v-if="canRename"
         class="context-menu-item"
         data-action="rename"
+        style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none;"
       >
         ✏️ Rename
       </div>
@@ -40,30 +42,32 @@
         v-if="canDelete"
         class="context-menu-item danger"
         data-action="delete"
+        style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; color: #dc3545;"
       >
         🗑️ Delete
       </div>
 
       <!-- Sort By -->
-      <div class="context-menu-item has-submenu">
+      <div class="context-menu-item has-submenu" style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; position: relative;">
         📊 Sort by
-        <div class="context-submenu">
-          <div class="context-menu-item" data-sort="name" data-asc="true">
+        <span style="position: absolute; right: 10px; font-size: 10px;">▶</span>
+        <div class="context-submenu" style="display: none; position: absolute; left: 100%; top: 0; background: white; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 160px;">
+          <div class="context-menu-item" data-sort="name" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
             Name (A-Z)
           </div>
-          <div class="context-menu-item" data-sort="name" data-asc="false">
+          <div class="context-menu-item" data-sort="name" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
             Name (Z-A)
           </div>
-          <div class="context-menu-item" data-sort="size" data-asc="true">
+          <div class="context-menu-item" data-sort="size" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
             Size (Smallest)
           </div>
-          <div class="context-menu-item" data-sort="size" data-asc="false">
+          <div class="context-menu-item" data-sort="size" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
             Size (Largest)
           </div>
-          <div class="context-menu-item" data-sort="date" data-asc="true">
+          <div class="context-menu-item" data-sort="date" data-asc="true" style="padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; user-select: none; white-space: nowrap;">
             Date (Oldest)
           </div>
-          <div class="context-menu-item" data-sort="date" data-asc="false">
+          <div class="context-menu-item" data-sort="date" data-asc="false" style="padding: 10px 16px; cursor: pointer; font-size: 14px; user-select: none; white-space: nowrap;">
             Date (Newest)
           </div>
         </div>
@@ -198,27 +202,7 @@ onUnmounted(() => {
 
 <style>
 /* Note: Not using 'scoped' because Teleport moves element outside component scope */
-.context-menu {
-  position: fixed;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  z-index: 10000;
-  min-width: 180px;
-}
-
-.context-menu-item {
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: 14px;
-  border-bottom: 1px solid #f0f0f0;
-  user-select: none;
-}
-
-.context-menu-item:last-child {
-  border-bottom: none;
-}
+.context-menu {}
 
 .context-menu-item:hover {
   background: #f5f5f5;
@@ -229,34 +213,7 @@ onUnmounted(() => {
   color: #dc3545;
 }
 
-.context-menu-item.has-submenu {
-  position: relative;
-}
-
-.context-menu-item.has-submenu::after {
-  content: '▶';
-  position: absolute;
-  right: 10px;
-  font-size: 10px;
-}
-
-.context-submenu {
-  display: none;
-  position: absolute;
-  left: 100%;
-  top: 0;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  min-width: 160px;
-}
-
 .context-menu-item.has-submenu:hover .context-submenu {
-  display: block;
-}
-
-.context-submenu .context-menu-item {
-  white-space: nowrap;
+  display: block !important;
 }
 </style>
