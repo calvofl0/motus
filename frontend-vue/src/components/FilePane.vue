@@ -152,6 +152,7 @@
 import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
+import { useUpload } from '../composables/useUpload'
 
 const props = defineProps({
   pane: {
@@ -164,6 +165,9 @@ const props = defineProps({
 const appStore = useAppStore()
 const fileOperations = inject('fileOperations', null)
 const contextMenuHandler = inject('contextMenu', null)
+
+// Upload functionality
+const { handleExternalFileUpload } = useUpload()
 
 // Reactive state
 const refreshHover = ref(false)
@@ -522,14 +526,24 @@ function handleDragLeave(event) {
   event.currentTarget.classList.remove('drag-over')
 }
 
-function handleDrop(event) {
+async function handleDrop(event) {
   event.preventDefault()
   event.currentTarget.classList.remove('drag-over')
 
   const dragDataText = event.dataTransfer.getData('text/plain')
+  const items = event.dataTransfer.items
+  const externalFiles = event.dataTransfer.files
 
-  if (!dragDataText) {
-    // External file drop - TODO: handle upload
+  // Check if this is external file drop (from desktop)
+  if ((items || externalFiles) && externalFiles.length > 0 && !dragDataText) {
+    // External file drop from desktop - check for folders
+    if (items && items.length > 0) {
+      // Use DataTransferItem API to support folders (Chrome/Edge/Safari)
+      await handleExternalDropWithFolders(items)
+    } else {
+      // Fallback to simple file drop (Firefox)
+      await handleExternalFileDrop(externalFiles)
+    }
     return
   }
 
@@ -542,6 +556,97 @@ function handleDrop(event) {
   // Use file operations to handle drag-drop
   if (fileOperations) {
     fileOperations.handleDragDrop(data.pane, props.pane, data.indexes)
+  }
+}
+
+/**
+ * Traverse file tree recursively for folder uploads
+ */
+async function traverseFileTree(entry, path, filesWithPaths) {
+  if (entry.isFile) {
+    // Get the file
+    const file = await new Promise((resolve, reject) => {
+      entry.file(resolve, reject)
+    })
+    const fullPath = path + file.name
+    filesWithPaths.push({ file, path: fullPath })
+  } else if (entry.isDirectory) {
+    // Read directory
+    const dirReader = entry.createReader()
+    const entries = await new Promise((resolve, reject) => {
+      dirReader.readEntries(resolve, reject)
+    })
+
+    for (const childEntry of entries) {
+      await traverseFileTree(childEntry, path + entry.name + '/', filesWithPaths)
+    }
+  }
+}
+
+/**
+ * Handle external drop with folder support
+ */
+async function handleExternalDropWithFolders(items) {
+  try {
+    // Collect all files (including from folders recursively)
+    const filesWithPaths = []
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind === 'file') {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : item.getAsEntry?.()
+        if (entry) {
+          await traverseFileTree(entry, '', filesWithPaths)
+        } else {
+          // Fallback for browsers without folder support
+          const file = item.getAsFile()
+          if (file) {
+            filesWithPaths.push({ file, path: file.name })
+          }
+        }
+      }
+    }
+
+    if (filesWithPaths.length === 0) {
+      alert('No files found to upload')
+      return
+    }
+
+    // Start upload
+    await handleExternalFileUpload(
+      filesWithPaths,
+      selectedRemote.value,
+      currentPath.value,
+      true,
+      refresh
+    )
+  } catch (error) {
+    console.error('External drop with folders failed:', error)
+    alert(`Failed to upload files: ${error.message}`)
+  }
+}
+
+/**
+ * Handle simple external file drop (no folders)
+ */
+async function handleExternalFileDrop(files) {
+  if (files.length === 0) {
+    return
+  }
+
+  const fileArray = Array.from(files)
+
+  try {
+    await handleExternalFileUpload(
+      fileArray,
+      selectedRemote.value,
+      currentPath.value,
+      false,
+      refresh
+    )
+  } catch (error) {
+    console.error('External file drop failed:', error)
+    alert(`Failed to upload files: ${error.message}`)
   }
 }
 

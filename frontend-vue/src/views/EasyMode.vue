@@ -43,6 +43,15 @@
       @confirm="fileOps.confirmCopy"
     />
 
+    <UploadProgressModal
+      v-model="upload.showUploadModal.value"
+      :message="upload.uploadMessage.value"
+      :progress="upload.uploadProgress.value"
+      :details="upload.uploadDetails.value"
+      :can-cancel="upload.canCancelUpload.value"
+      @cancel="upload.cancelUpload"
+    />
+
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
@@ -59,16 +68,19 @@
 import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
 import { useAppStore } from '../stores/app'
 import { useFileOperations } from '../composables/useFileOperations'
+import { useUpload } from '../composables/useUpload'
 import FilePane from '../components/FilePane.vue'
 import JobPanel from '../components/JobPanel.vue'
 import RenameModal from '../components/modals/RenameModal.vue'
 import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
+import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 
 const appStore = useAppStore()
 const fileOps = useFileOperations()
+const upload = useUpload()
 
 // Refs to FilePane components
 const leftPaneRef = ref(null)
