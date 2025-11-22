@@ -106,33 +106,43 @@ python -m http.server 8000
 ```
 
 ### Vue.js Version (New - In Development)
+
+**🚀 One-Command Start (Recommended):**
 ```bash
-# Prerequisites: Node.js 18+ required
+# Prerequisites: Node.js 18+ and backend dependencies installed
 node --version  # Should be 18.x or higher
+pip install -r requirements.txt  # If not done yet
 
-cd /home/user/motus/frontend-vue
-
-# First time only: Install dependencies
+# First time only: Install frontend dependencies
+cd frontend-vue
 npm install
+cd ..
 
-# Start backend first (in separate terminal)
-cd /home/user/motus
-python -m backend.main
-# Note the token printed on startup
+# Start everything with ONE command:
+python dev-vue.py
 
-# Start Vue dev server (in another terminal)
-cd /home/user/motus/frontend-vue
-npm run dev
+# This automatically:
+# ✓ Starts backend (if not running)
+# ✓ Reads token from backend
+# ✓ Starts Vue dev server
+# ✓ Opens browser to http://localhost:3000?token=XXX
+# ✓ Saves token to localStorage on first visit!
 
-# First time: Visit with token from backend startup
-# Example: http://localhost:3000?token=abc123...
-# After first visit, token is saved automatically!
+# Subsequent runs: Just "python dev-vue.py" again!
+# Token loads automatically from localStorage - no manual copy/paste!
+```
 
-# Subsequent visits: Just open http://localhost:3000
-# Token loads automatically from localStorage
+**Manual Start (for advanced users):**
+```bash
+# Terminal 1: Start backend
+python run.py
 
-# If backend uses different port:
-MOTUS_PORT=9999 npm run dev  # Proxy will use port 9999
+# Terminal 2: Start Vue dev server
+cd frontend-vue
+MOTUS_PORT=8888 npm run dev  # Match backend port
+
+# Browser: First time visit with token from backend output
+# After that, token loads automatically from localStorage
 ```
 
 ### Build Vue.js for Production

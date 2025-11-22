@@ -30,6 +30,7 @@ This is the Vue.js migration of the Motus frontend. The goal is to create a more
 
 ### Prerequisites
 - Node.js 18+ (LTS recommended)
+- Python 3.10+ with backend dependencies installed (`pip install -r requirements.txt`)
 - npm or yarn
 
 ### Installation
@@ -41,12 +42,33 @@ npm install
 
 ### Development
 
+**🎯 Recommended: One-Command Start**
+
+From the project root (`/home/user/motus`):
 ```bash
-# Start dev server (with hot reload)
-npm run dev
+python dev-vue.py
 ```
 
-The app will be available at `http://localhost:3000`. The backend API calls are proxied to `http://localhost:8080` (make sure your Motus backend is running).
+This automatically:
+- ✅ Starts backend (if not running)
+- ✅ Reads authentication token
+- ✅ Opens browser to `http://localhost:3000?token=XXX`
+- ✅ Starts Vite dev server with correct proxy port
+- ✅ Saves token to localStorage on first visit
+
+**Manual Start** (for advanced users):
+```bash
+# Terminal 1: Start backend
+python run.py
+
+# Terminal 2: Start frontend
+cd frontend-vue
+MOTUS_PORT=8888 npm run dev  # Match backend port
+```
+
+Then visit: `http://localhost:3000?token=YOUR_TOKEN`
+
+After first visit, the token is saved to localStorage and you won't need it in the URL anymore!
 
 ### Build for Production
 
