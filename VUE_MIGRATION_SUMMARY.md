@@ -115,11 +115,24 @@ cd /home/user/motus/frontend-vue
 # First time only: Install dependencies
 npm install
 
-# Start dev server
+# Start backend first (in separate terminal)
+cd /home/user/motus
+python -m backend.main
+# Note the token printed on startup
+
+# Start Vue dev server (in another terminal)
+cd /home/user/motus/frontend-vue
 npm run dev
 
-# Visit: http://localhost:3000
-# (Backend must be running on port 8080)
+# First time: Visit with token from backend startup
+# Example: http://localhost:3000?token=abc123...
+# After first visit, token is saved automatically!
+
+# Subsequent visits: Just open http://localhost:3000
+# Token loads automatically from localStorage
+
+# If backend uses different port:
+MOTUS_PORT=9999 npm run dev  # Proxy will use port 9999
 ```
 
 ### Build Vue.js for Production
@@ -318,6 +331,30 @@ If CSS doesn't load, check that `public/css/` exists:
 ```bash
 ls frontend-vue/public/
 # Should show: base.css, header.css, etc.
+```
+
+### ✅ Development Workflow (IMPROVED)
+**Problem**: Originally had to manually provide token in URL every time.
+
+**Solution**: Now uses localStorage for token persistence!
+
+**How it works:**
+1. **First time**: Visit `http://localhost:3000?token=YOUR_TOKEN`
+2. **Token is saved** to localStorage automatically
+3. **Next time**: Just visit `http://localhost:3000` - token loads automatically!
+
+**Port flexibility:**
+- Backend reads `MOTUS_PORT` env var (default: 8888)
+- Frontend proxy reads same `MOTUS_PORT` env var
+- Both stay in sync automatically
+
+**Example with custom port:**
+```bash
+# Terminal 1: Start backend on port 9999
+MOTUS_PORT=9999 python -m backend.main
+
+# Terminal 2: Start frontend (proxy auto-detects port 9999)
+MOTUS_PORT=9999 npm run dev
 ```
 
 ---
