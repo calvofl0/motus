@@ -14,7 +14,7 @@ from pathlib import Path
 
 def get_connection_info():
     """Read connection info from existing backend instance"""
-    data_dir = Path.home() / '.motuz'
+    data_dir = Path.home() / '.motus'  # Fixed: was .motuz, should be .motus
     connection_file = data_dir / 'connection.json'
 
     if connection_file.exists():
