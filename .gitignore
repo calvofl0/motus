@@ -36,7 +36,7 @@ env/
 Thumbs.db
 
 # Application data
-.motuz/
+.motus/
 *.db
 *.log
 

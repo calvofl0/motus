@@ -342,7 +342,7 @@ def create_app(config: Config = None):
     # Store instances in app context
     app.rclone = rclone
     app.db = db
-    app.motuz_config = config
+    app.motus_config = config
 
     # Setup signal handlers for graceful shutdown
     setup_signal_handlers(rclone, db, config)
@@ -452,7 +452,7 @@ def register_routes(app: Flask, config: Config):
         # Shutdown in background thread to allow response to be sent
         def shutdown_delayed():
             time.sleep(0.5)  # Give time for response to be sent
-            perform_shutdown(app.rclone, app.db, app.motuz_config)
+            perform_shutdown(app.rclone, app.db, app.motus_config)
             os._exit(0)  # Force exit
 
         threading.Thread(target=shutdown_delayed, daemon=True).start()

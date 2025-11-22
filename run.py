@@ -215,7 +215,7 @@ def main():
     parser.add_argument(
         '--data-dir',
         type=str,
-        help='Data directory (default: ~/.motuz, or MOTUS_DATA_DIR env var)'
+        help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
     parser.add_argument(
         '--config',
