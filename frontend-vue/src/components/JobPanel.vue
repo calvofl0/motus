@@ -11,18 +11,17 @@
           No active jobs
         </div>
         <div v-else class="job-items">
-          <div v-for="job in activeJobs" :key="job.job_id" class="job-item">
-            <div class="job-header">
-              <span class="job-id">Job #{{ job.job_id }} - {{ job.operation }}</span>
-              <button class="job-cancel-btn" @click="cancelJob(job.job_id)" title="Cancel job">×</button>
-            </div>
-            <div class="job-path">{{ job.src_path }} → {{ job.dst_path }} ({{ formatTime(getElapsedTime(job.created_at)) }})</div>
-            <div class="job-time-info">{{ getTransferStatus(job) }}</div>
+          <div v-for="job in activeJobs" :key="job.job_id" :class="['job-item', job.status]">
+            <span class="job-id">Job #{{ job.job_id }} - {{ job.operation }}</span>
+            <span class="job-path">{{ job.src_path }} → {{ job.dst_path }} ({{ formatTime(getElapsedTime(job.created_at)) }})</span>
+            <span class="job-time-info">{{ getTransferStatus(job) }}</span>
             <div class="progress-bar-container">
               <div class="progress-bar" :style="{ width: `${job.progress || 0}%` }">
                 {{ job.progress || 0 }}%
               </div>
             </div>
+            <span class="job-status">{{ job.status }}</span>
+            <button class="job-icon-btn cancel" @click="cancelJob(job.job_id)" title="Cancel job">×</button>
           </div>
         </div>
       </div>
@@ -38,10 +37,15 @@
         <span class="collapse-icon">{{ interruptedJobsCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div v-if="!interruptedJobsCollapsed" class="interrupted-jobs-list">
-        <!-- Interrupted jobs will be populated here -->
-        <p style="padding: 20px; text-align: center; color: #666;">
-          Interrupted jobs in progress...
-        </p>
+        <div v-for="job in interruptedJobs" :key="job.job_id" class="interrupted-job-item">
+          <div class="interrupted-job-info">
+            Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
+          </div>
+          <div class="interrupted-job-actions">
+            <button class="job-icon-btn resume" @click="resumeJob(job.job_id)" title="Resume this job">▶</button>
+            <button class="job-icon-btn cancel" @click="cancelInterruptedJob(job.job_id)" title="Cancel this job">×</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -55,10 +59,14 @@
         <span class="collapse-icon">{{ failedJobsCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div v-if="!failedJobsCollapsed" class="failed-jobs-list">
-        <!-- Failed jobs will be populated here -->
-        <p style="padding: 20px; text-align: center; color: #666;">
-          Failed jobs in progress...
-        </p>
+        <div v-for="job in failedJobs" :key="job.job_id" class="failed-job-item">
+          <div class="failed-job-info">
+            Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
+          </div>
+          <div class="failed-job-actions">
+            <button class="job-icon-btn cancel" @click="clearFailedJob(job.job_id)" title="Remove from list">×</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -282,6 +290,43 @@ async function cancelJob(jobId) {
 }
 
 /**
+ * Resume an interrupted job
+ */
+async function resumeJob(jobId) {
+  try {
+    await apiCall(`/api/jobs/${jobId}/resume`, 'POST')
+    await updateInterruptedJobs()
+    await updateJobs()
+  } catch (error) {
+    alert(`Failed to resume job: ${error.message}`)
+  }
+}
+
+/**
+ * Cancel an interrupted job
+ */
+async function cancelInterruptedJob(jobId) {
+  try {
+    await apiCall(`/api/jobs/${jobId}/stop`, 'POST')
+    await updateInterruptedJobs()
+  } catch (error) {
+    alert(`Failed to cancel job: ${error.message}`)
+  }
+}
+
+/**
+ * Clear a failed job from the list
+ */
+async function clearFailedJob(jobId) {
+  try {
+    await apiCall(`/api/jobs/${jobId}`, 'DELETE')
+    await updateFailedJobs()
+  } catch (error) {
+    alert(`Failed to clear job: ${error.message}`)
+  }
+}
+
+/**
  * Start all job update intervals
  */
 function startJobUpdates() {
@@ -384,80 +429,114 @@ onUnmounted(() => {
 .job-items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .job-item {
   background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  padding: 8px 12px;
+  margin-bottom: 0;
   border-radius: 6px;
-  padding: 12px;
+  border-left: 4px solid #007bff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.job-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.job-item.completed {
+  border-left-color: #28a745;
+}
+
+.job-item.failed {
+  border-left-color: #dc3545;
+}
+
+.job-item.cancelled,
+.job-item.interrupted {
+  border-left-color: #ffc107;
 }
 
 .job-id {
   font-weight: 600;
-  font-size: 13px;
   color: #333;
-}
-
-.job-cancel-btn {
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.job-cancel-btn:hover {
-  background: #c82333;
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 120px;
 }
 
 .job-path {
   font-size: 12px;
   color: #666;
-  margin-bottom: 4px;
-  word-break: break-all;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .job-time-info {
-  font-size: 12px;
-  color: #495057;
-  margin-bottom: 8px;
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+  min-width: 280px;
+  text-align: right;
 }
 
 .progress-bar-container {
   background: #e9ecef;
-  border-radius: 4px;
-  height: 24px;
+  height: 16px;
+  border-radius: 8px;
   overflow: hidden;
-  position: relative;
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .progress-bar {
   background: linear-gradient(90deg, #007bff, #0056b3);
   height: 100%;
+  transition: width 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  transition: width 0.3s ease;
-  min-width: 30px;
+}
+
+.job-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #007bff;
+  color: white;
+  white-space: nowrap;
+}
+
+.job-icon-btn {
+  background: none;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 4px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+  opacity: 0.7;
+}
+
+.job-icon-btn:hover {
+  opacity: 1;
+}
+
+.job-icon-btn.cancel {
+  color: #dc3545;
+}
+
+.job-icon-btn.resume {
+  color: #28a745;
 }
 
 /* Interrupted Jobs Dropdown */
@@ -492,6 +571,29 @@ onUnmounted(() => {
   padding: 10px;
 }
 
+.interrupted-job-item {
+  background: white;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #ffc107;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.interrupted-job-info {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.interrupted-job-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 /* Failed Jobs Dropdown */
 .failed-jobs-dropdown {
   background: #ffebee;
@@ -522,5 +624,28 @@ onUnmounted(() => {
   max-height: 200px;
   overflow-y: auto;
   padding: 10px;
+}
+
+.failed-job-item {
+  background: white;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.failed-job-info {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.failed-job-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 </style>
