@@ -43,31 +43,29 @@ def is_process_running(pid):
 
 def monitor_backend(backend_pid):
     """Monitor backend process and trigger cleanup when it stops"""
-    print(f"  [Monitor] Watching backend process (PID: {backend_pid})")
+    # Note: The Node.js dev-server.js now handles backend monitoring
+    # This is kept as a backup in case the Node.js monitoring fails
+    print(f"  [Python Monitor] Backup monitor active (PID: {backend_pid})")
 
     while True:
-        time.sleep(2)  # Check every 2 seconds
+        time.sleep(5)  # Check less frequently since Node handles primary monitoring
 
         if not is_process_running(backend_pid):
-            print("\n\n  [Monitor] Backend has stopped")
-            print("  [Monitor] Auto-shutting down Vite dev server...")
+            print("\n\n  [Python Monitor] Backend has stopped (Node monitor may have missed it)")
+            print("  [Python Monitor] Terminating npm process...")
 
-            # Directly kill the npm process group
+            # Just terminate npm - the Node.js script should have already handled Vite gracefully
             global npm_process
             if npm_process:
                 try:
-                    # Kill the entire process group forcefully
-                    os.killpg(os.getpgid(npm_process.pid), signal.SIGKILL)
-                    print("  [Monitor] Vite process killed")
-                except (ProcessLookupError, AttributeError, OSError) as e:
-                    print(f"  [Monitor] Error killing process: {e}")
-                    try:
+                    npm_process.terminate()
+                    time.sleep(1)
+                    if npm_process.poll() is None:
                         npm_process.kill()
-                    except:
-                        pass
+                except:
+                    pass
 
-            # Exit the main process
-            os._exit(0)  # Force exit without cleanup (we already did cleanup above)
+            os._exit(0)
             break
 
 def ensure_backend_running():
@@ -174,13 +172,14 @@ def main():
         if npm_process:
             print("\n\nShutting down Vite dev server...")
             try:
-                # Use SIGKILL to forcefully kill the process group (Vite is resilient to SIGTERM)
-                os.killpg(os.getpgid(npm_process.pid), signal.SIGKILL)
-            except (ProcessLookupError, AttributeError):
-                try:
-                    npm_process.kill()  # SIGKILL instead of terminate()
-                except:
-                    pass
+                # Terminate npm gracefully - the Node.js script will handle Vite shutdown
+                npm_process.terminate()
+                npm_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                # If it doesn't exit in 3 seconds, kill it
+                npm_process.kill()
+            except:
+                pass
         sys.exit(0)
 
     signal.signal(signal.SIGINT, cleanup)
@@ -199,11 +198,9 @@ def main():
     try:
         global npm_process
         npm_process = subprocess.Popen(
-            ['npm', 'run', 'dev'],
+            ['npm', 'run', 'dev:watch'],
             cwd=Path(__file__).parent / 'frontend-vue',
-            env=os.environ.copy(),
-            # Create new process group so we can kill all children
-            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+            env=os.environ.copy()
         )
         npm_process.wait()
     except KeyboardInterrupt:
