@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
 
@@ -162,6 +162,7 @@ const props = defineProps({
 })
 
 const appStore = useAppStore()
+const fileOperations = inject('fileOperations', null)
 
 // Reactive state
 const refreshHover = ref(false)
@@ -421,12 +422,14 @@ function handleFileContextMenu(index, event) {
   if (!isSelected(index)) {
     appStore.setPaneSelection(props.pane, [index])
   }
-  // TODO: Show context menu
+  appStore.setLastFocusedPane(props.pane)
+  // TODO: Show context menu with file operations
   console.log('Context menu for', paneState.value.selectedIndexes.map(i => files.value[i].Name))
 }
 
 function handleParentContextMenu(event) {
   appStore.setPaneSelection(props.pane, [])
+  appStore.setLastFocusedPane(props.pane)
   // TODO: Show context menu
   console.log('Context menu on parent directory')
 }
@@ -437,6 +440,7 @@ function handleContainerClick(event) {
       event.target.classList.contains('file-list') ||
       event.target.tagName === 'TABLE') {
     appStore.setPaneSelection(props.pane, [])
+    appStore.setLastFocusedPane(props.pane)
   }
 }
 
@@ -446,6 +450,7 @@ function handleContainerContextMenu(event) {
       event.target.tagName === 'TABLE') {
     event.preventDefault()
     appStore.setPaneSelection(props.pane, [])
+    appStore.setLastFocusedPane(props.pane)
     // TODO: Show context menu
     console.log('Context menu on empty space')
   }
@@ -488,9 +493,10 @@ function handleDrop(event) {
     return // Can't drop on same pane
   }
 
-  // TODO: Show confirmation modal and execute copy
-  console.log('Internal drag-drop from', data.pane, 'to', props.pane)
-  console.log('Files:', data.indexes)
+  // Use file operations to handle drag-drop
+  if (fileOperations) {
+    fileOperations.handleDragDrop(data.pane, props.pane, data.indexes)
+  }
 }
 
 // Initialize
@@ -507,6 +513,11 @@ onMounted(async () => {
   } catch (error) {
     console.warn('Backend not available:', error.message)
   }
+})
+
+// Expose methods to parent
+defineExpose({
+  refresh
 })
 </script>
 
