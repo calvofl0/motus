@@ -36,24 +36,29 @@ def ensure_backend_running():
 
     print("Starting backend...")
     print("=" * 70)
+    print()
 
-    # Start backend in background
-    subprocess.Popen(
+    # Start backend in background (don't suppress output for debugging)
+    backend_process = subprocess.Popen(
         [sys.executable, 'run.py', '--no-browser'],
-        cwd=Path(__file__).parent,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        cwd=Path(__file__).parent
     )
 
-    # Wait for backend to start
+    # Wait for backend to start with progress indicator
+    print("Waiting for backend to initialize", end='', flush=True)
     for i in range(30):  # 30 seconds max
         time.sleep(1)
+        print('.', end='', flush=True)
         conn = get_connection_info()
         if conn:
+            print()  # New line after dots
             print(f"✓ Backend started on port {conn['port']}")
+            print()
             return conn
 
+    print()
     print("✗ Backend failed to start within 30 seconds", file=sys.stderr)
+    print("  Check the error messages above for details", file=sys.stderr)
     sys.exit(1)
 
 def main():
