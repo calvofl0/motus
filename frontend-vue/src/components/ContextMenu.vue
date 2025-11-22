@@ -5,6 +5,7 @@
       ref="menuRef"
       class="context-menu"
       :style="{
+        display: 'block',
         position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
