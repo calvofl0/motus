@@ -454,6 +454,7 @@ type = s3
         import { OAuthManager } from '/js/modules/oauth-manager.js';
         import { UploadManager } from '/js/modules/upload-manager.js';
         import { ExpertModeManager } from '/js/modules/expert-mode.js';
+        import { JobManager } from '/js/modules/job-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -487,7 +488,7 @@ type = s3
         const uploadManager = new UploadManager(apiCall, getAuthToken, {
             onUploadComplete: async (pane) => {
                 await refreshPane(pane);
-                await updateJobs();
+                await jobManager.updateJobs();
             }
         });
 
@@ -513,6 +514,41 @@ type = s3
         });
 
         const expertModeManager = new ExpertModeManager(apiCall, setAuthToken, formatFileSize);
+
+        const jobManager = new JobManager(apiCall, {
+            onRefreshPane: async (dstPath) => {
+                // Determine which pane to refresh based on destination
+                let refreshLeft = false;
+                let refreshRight = false;
+
+                if (dstPath.includes(':')) {
+                    // Remote path
+                    const [remote, path] = dstPath.split(':', 2);
+                    if (leftPaneState.remote === remote && path.startsWith(leftPaneState.path)) {
+                        refreshLeft = true;
+                    }
+                    if (rightPaneState.remote === remote && path.startsWith(rightPaneState.path)) {
+                        refreshRight = true;
+                    }
+                } else {
+                    // Local path
+                    if (!leftPaneState.remote && dstPath.startsWith(leftPaneState.path)) {
+                        refreshLeft = true;
+                    }
+                    if (!rightPaneState.remote && dstPath.startsWith(rightPaneState.path)) {
+                        refreshRight = true;
+                    }
+                }
+
+                // Refresh destination pane(s) with selection preservation
+                if (refreshLeft) {
+                    await refreshPane('left', true);
+                }
+                if (refreshRight) {
+                    await refreshPane('right', true);
+                }
+            }
+        });
 
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
@@ -564,13 +600,13 @@ type = s3
             rightFiles.addEventListener('dragleave', (e) => handleDragLeave(e, 'right'));
 
             // Job panel toggles
-            document.getElementById('job-panel-header').addEventListener('click', toggleJobPanel);
-            document.getElementById('interrupted-jobs-header').addEventListener('click', toggleInterruptedJobsDropdown);
-            document.getElementById('failed-jobs-header').addEventListener('click', toggleFailedJobsDropdown);
+            document.getElementById('job-panel-header').addEventListener('click', () => jobManager.toggleJobPanel());
+            document.getElementById('interrupted-jobs-header').addEventListener('click', () => jobManager.toggleInterruptedJobsDropdown());
+            document.getElementById('failed-jobs-header').addEventListener('click', () => jobManager.toggleFailedJobsDropdown());
 
             // Modal buttons - Interrupted Jobs Modal
-            document.getElementById('interrupted-jobs-skip-btn').addEventListener('click', closeInterruptedJobsModal);
-            document.getElementById('interrupted-jobs-resume-all-btn').addEventListener('click', resumeAllInterruptedJobs);
+            document.getElementById('interrupted-jobs-skip-btn').addEventListener('click', () => jobManager.closeInterruptedJobsModal());
+            document.getElementById('interrupted-jobs-resume-all-btn').addEventListener('click', () => jobManager.resumeAllInterruptedJobs());
 
             // Modal buttons - Rename Modal
             document.getElementById('rename-input').addEventListener('keypress', (e) => {
@@ -735,7 +771,7 @@ type = s3
                 const jobId = parseInt(button.getAttribute('data-job-id'));
 
                 if (action === 'cancel-job') {
-                    cancelJob(jobId);
+                    jobManager.cancelJob(jobId);
                 }
             });
 
@@ -748,9 +784,9 @@ type = s3
                 const jobId = parseInt(button.getAttribute('data-job-id'));
 
                 if (action === 'resume-interrupted') {
-                    resumeInterruptedJobFromDropdown(jobId);
+                    jobManager.resumeInterruptedJobFromDropdown(jobId);
                 } else if (action === 'cancel-interrupted') {
-                    cancelInterruptedJob(jobId);
+                    jobManager.cancelInterruptedJob(jobId);
                 }
             });
 
@@ -763,9 +799,9 @@ type = s3
                 const jobId = parseInt(button.getAttribute('data-job-id'));
 
                 if (action === 'resume-failed') {
-                    resumeFailedJobFromDropdown(jobId);
+                    jobManager.resumeFailedJobFromDropdown(jobId);
                 } else if (action === 'cancel-failed') {
-                    cancelFailedJob(jobId);
+                    jobManager.cancelFailedJob(jobId);
                 }
             });
         }
@@ -830,13 +866,11 @@ type = s3
                 }
                 await refreshPane('left');
                 await refreshPane('right');
-                startJobUpdates();
-                startInterruptedJobsUpdates();
-                startFailedJobsUpdates();
+                jobManager.start();  // Start all job update intervals
             }
 
             // Check for interrupted jobs modal (only on startup)
-            checkInterruptedJobs();
+            jobManager.checkInterruptedJobs();
 
             // Hide context menu and view dropdown on click outside
             document.addEventListener('click', () => {
@@ -1151,25 +1185,17 @@ type = s3
                 document.getElementById('easy-mode').classList.remove('hidden');
                 document.getElementById('expert-mode').classList.add('hidden');
                 document.getElementById('mode-button-text').textContent = 'Expert Mode';
-                if (!jobUpdateInterval) {
+                if (jobManager.getRunningCount() === 0) {
                     loadRemotes();
                     refreshPane('left');
                     refreshPane('right');
-                    startJobUpdates();
-                    startInterruptedJobsUpdates();
+                    jobManager.start();
                 }
             } else {
                 document.getElementById('easy-mode').classList.add('hidden');
                 document.getElementById('expert-mode').classList.remove('hidden');
                 document.getElementById('mode-button-text').textContent = 'Easy Mode';
-                if (jobUpdateInterval) {
-                    clearInterval(jobUpdateInterval);
-                    jobUpdateInterval = null;
-                }
-                if (interruptedJobsInterval) {
-                    clearInterval(interruptedJobsInterval);
-                    interruptedJobsInterval = null;
-                }
+                jobManager.stop();
             }
         }
 
@@ -2003,7 +2029,7 @@ type = s3
 
             // Refresh target pane and update jobs
             refreshPane(targetPane);
-            updateJobs();
+            jobManager.updateJobs();
         }
 
         // Context menu
@@ -2334,430 +2360,10 @@ type = s3
             }
         }
 
-        // Job panel
-        function toggleJobPanel() {
-            const panel = document.getElementById('job-panel');
-            panel.classList.toggle('collapsed');
-            // Mark that user manually toggled the panel
-            jobPanelManuallyToggled = !panel.classList.contains('collapsed');
-        }
-
-        function startJobUpdates() {
-            updateJobs();
-            jobUpdateInterval = setInterval(updateJobs, 2000);
-        }
-
-        async function updateJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=running');
-                const oldCount = jobsData.jobs.length;
-                const previousJobs = new Set(jobsData.jobs.map(j => j.job_id));
-                jobsData.jobs = data.jobs || [];
-                const newCount = jobsData.jobs.length;
-                const currentJobs = new Set(jobsData.jobs.map(j => j.job_id));
-
-                // Detect completed jobs (were tracked, now not in running list)
-                const completedJobs = [...trackedJobs].filter(id => !currentJobs.has(id));
-
-                // Auto-refresh destination pane for completed jobs
-                for (const jobId of completedJobs) {
-                    // Fetch job details to get destination path
-                    try {
-                        const jobDetails = await apiCall(`/api/jobs/${jobId}`);
-                        if (jobDetails && jobDetails.status === 'completed') {
-                            // Determine which pane to refresh based on destination
-                            const dstPath = jobDetails.dst_path;
-
-                            // Check if destination matches either pane
-                            let refreshLeft = false;
-                            let refreshRight = false;
-
-                            if (dstPath.includes(':')) {
-                                // Remote path
-                                const [remote, path] = dstPath.split(':', 2);
-                                if (leftPaneState.remote === remote && path.startsWith(leftPaneState.path)) {
-                                    refreshLeft = true;
-                                }
-                                if (rightPaneState.remote === remote && path.startsWith(rightPaneState.path)) {
-                                    refreshRight = true;
-                                }
-                            } else {
-                                // Local path
-                                if (!leftPaneState.remote && dstPath.startsWith(leftPaneState.path)) {
-                                    refreshLeft = true;
-                                }
-                                if (!rightPaneState.remote && dstPath.startsWith(rightPaneState.path)) {
-                                    refreshRight = true;
-                                }
-                            }
-
-                            // Refresh destination pane(s) with selection preservation
-                            if (refreshLeft) {
-                                await refreshPane('left', true);
-                            }
-                            if (refreshRight) {
-                                await refreshPane('right', true);
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Failed to auto-refresh after job ${jobId}:`, err);
-                    }
-                }
-
-                // Update tracked jobs
-                trackedJobs = currentJobs;
-
-                // State-based auto-expand/collapse: only change on state transitions
-                const panel = document.getElementById('job-panel');
-                const isCollapsed = panel.classList.contains('collapsed');
-                const currentState = newCount === 0 ? 'empty' : 'non-empty';
-
-                // Only auto-open/close on state transitions (empty ↔ non-empty)
-                if (!jobPanelManuallyToggled) {
-                    // Transition from empty to non-empty: auto-open
-                    if (previousJobState === 'empty' && currentState === 'non-empty') {
-                        panel.classList.remove('collapsed');
-                    }
-                    // Transition from non-empty to empty: auto-close
-                    else if (previousJobState === 'non-empty' && currentState === 'empty') {
-                        panel.classList.add('collapsed');
-                    }
-                    // No state change: keep panel as is
-                }
-
-                previousJobState = currentState;
-                renderJobs();
-            } catch (error) {
-                console.error('Failed to update jobs:', error);
-            }
-        }
-
-        async function cancelJob(jobId) {
-            try {
-                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
-                updateJobs();
-            } catch (error) {
-                alert(`Failed to cancel job: ${error.message}`);
-            }
-        }
-
-        function renderJobs() {
-            const container = document.getElementById('job-list');
-            const count = document.getElementById('job-count');
-            count.textContent = jobsData.jobs.length;
-
-            if (jobsData.jobs.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #999;">No active jobs</p>';
-                return;
-            }
-
-            // Helper function to format time as "1h23min22s" or "10min5s" or "10s"
-            // No unnecessary zeros
-            function formatTime(seconds) {
-                // Ensure we have a valid positive number
-                if (!seconds || seconds < 0) return '0s';
-
-                const hours = Math.floor(seconds / 3600);
-                const minutes = Math.floor((seconds % 3600) / 60);
-                const secs = seconds % 60;
-
-                if (hours > 0) {
-                    return `${hours}h${minutes}min${secs}s`;
-                } else if (minutes > 0) {
-                    return `${minutes}min${secs}s`;
-                } else {
-                    return `${secs}s`;
-                }
-            }
-
-            // Helper function to parse transfer info from rclone text output
-            // Text format: "Transferred (bytes):   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
-            // or legacy: "Transferred:   123.45 MiB / 500 MiB, 25%, 10.5 MiB/s, ETA 35s"
-            function parseTransferInfo(text) {
-                if (!text) return null;
-
-                // Look for "Transferred (bytes):" or "Transferred:" line with byte-based progress
-                const transferMatch = text.match(/Transferred(?:\s+\(bytes\))?:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+)s.*?ETA\s+(.+?)$/m);
-                if (transferMatch) {
-                    const transferred = transferMatch[1];
-                    const transferredUnit = transferMatch[2];
-                    const total = transferMatch[3];
-                    const totalUnit = transferMatch[4];
-                    const speed = transferMatch[5];
-                    const speedUnit = transferMatch[6];
-                    const eta = transferMatch[7].trim();
-
-                    return {
-                        transferred: `${transferred} ${transferredUnit}`,
-                        total: `${total} ${totalUnit}`,
-                        speed: `${speed} ${speedUnit}/s`,
-                        eta: eta
-                    };
-                }
-
-                return null;
-            }
-
-            container.innerHTML = jobsData.jobs.map(job => {
-                // Calculate elapsed time with proper timestamp parsing
-                let elapsedSec = 0;
-                try {
-                    // SQLite CURRENT_TIMESTAMP returns UTC time as "YYYY-MM-DD HH:MM:SS"
-                    // We need to tell JavaScript it's UTC by adding 'Z' suffix
-                    const timestampStr = job.created_at;
-
-                    let createdAt;
-                    if (timestampStr.includes('T')) {
-                        // Already ISO format, might have 'Z'
-                        createdAt = new Date(timestampStr);
-                    } else {
-                        // SQLite format: "YYYY-MM-DD HH:MM:SS" (UTC)
-                        // Convert to ISO format and add 'Z' to indicate UTC
-                        createdAt = new Date(timestampStr.replace(' ', 'T') + 'Z');
-                    }
-
-                    const now = new Date();
-
-                    // Validate the date is valid
-                    if (!isNaN(createdAt.getTime())) {
-                        elapsedSec = Math.floor((now - createdAt) / 1000);
-                        // Sanity check: if elapsed time is negative or absurdly large, use 0
-                        if (elapsedSec < 0 || elapsedSec > 86400 * 365) {
-                            console.warn(`Job ${job.job_id}: Invalid elapsed time ${elapsedSec}s from timestamp ${timestampStr}`);
-                            elapsedSec = 0;
-                        }
-                    } else {
-                        console.error(`Job ${job.job_id}: Invalid timestamp ${timestampStr}`);
-                    }
-                } catch (e) {
-                    console.error('Error parsing job timestamp:', job.created_at, e);
-                    elapsedSec = 0;
-                }
-
-                const elapsedStr = formatTime(elapsedSec);
-
-                // Parse transfer information from job text
-                const transferInfo = parseTransferInfo(job.text);
-                const progress = job.progress || 0;
-
-                // Build transfer status string
-                let transferStatus = '';
-                if (transferInfo) {
-                    // We have detailed transfer info from rclone
-                    transferStatus = `${transferInfo.eta} left - ${transferInfo.transferred} out of ${transferInfo.total} (${transferInfo.speed})`;
-                } else {
-                    // Fallback: calculate ETA from progress or show progress percentage
-                    if (progress >= 100) {
-                        transferStatus = 'Done';
-                    } else if (progress > 0) {
-                        // Show calculated ETA if we have progress
-                        if (elapsedSec > 1) {
-                            const remainingPercent = 100 - progress;
-                            const etaSec = Math.floor((elapsedSec / progress) * remainingPercent);
-                            const etaStr = formatTime(etaSec);
-                            transferStatus = `${etaStr} left (${progress}%)`;
-                        } else {
-                            transferStatus = `${progress}% - Starting...`;
-                        }
-                    } else {
-                        // No progress yet
-                        transferStatus = 'Starting...';
-                    }
-                }
-
-                return `
-                    <div class="job-item ${job.status}">
-                        <span class="job-id">Job #${job.job_id} - ${job.operation}</span>
-                        <span class="job-path">${job.src_path} → ${job.dst_path} (${elapsedStr})</span>
-                        <span class="job-time-info">${transferStatus}</span>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar" style="width: ${progress}%">
-                                ${progress}%
-                            </div>
-                        </div>
-                        <span class="job-status">${job.status}</span>
-                        <button class="job-icon-btn cancel" data-action="cancel-job" data-job-id="${job.job_id}" title="Cancel job">×</button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Interrupted Jobs Dropdown
-        function toggleInterruptedJobsDropdown() {
-            const list = document.getElementById('interrupted-jobs-list');
-            list.classList.toggle('hidden');
-        }
-
-        function startInterruptedJobsUpdates() {
-            updateInterruptedJobs();
-            interruptedJobsInterval = setInterval(updateInterruptedJobs, 5000);
-        }
-
-        async function updateInterruptedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=interrupted');
-                interruptedJobsData.jobs = data.jobs || [];
-                renderInterruptedJobs();
-            } catch (error) {
-                console.error('Failed to update interrupted jobs:', error);
-            }
-        }
-
-        function renderInterruptedJobs() {
-            const dropdown = document.getElementById('interrupted-jobs-dropdown');
-            const list = document.getElementById('interrupted-jobs-list');
-            const count = document.getElementById('interrupted-count');
-
-            if (interruptedJobsData.jobs.length === 0) {
-                dropdown.classList.add('hidden');
-                return;
-            }
-
-            dropdown.classList.remove('hidden');
-            count.textContent = interruptedJobsData.jobs.length;
-
-            list.innerHTML = interruptedJobsData.jobs.map(job => `
-                <div class="interrupted-job-item">
-                    <div class="interrupted-job-info">
-                        Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
-                    </div>
-                    <div class="interrupted-job-actions">
-                        <button class="job-icon-btn resume" data-action="resume-interrupted" data-job-id="${job.job_id}" title="Resume this job">▶</button>
-                        <button class="job-icon-btn cancel" data-action="cancel-interrupted" data-job-id="${job.job_id}" title="Cancel this job">×</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        async function cancelInterruptedJob(jobId) {
-            try {
-                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
-                updateInterruptedJobs();
-            } catch (error) {
-                alert(`Failed to cancel job: ${error.message}`);
-            }
-        }
-
-        async function resumeInterruptedJobFromDropdown(jobId) {
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
-                updateInterruptedJobs();
-                updateJobs();  // Refresh active jobs too
-            } catch (error) {
-                alert(`Failed to resume job: ${error.message}`);
-            }
-        }
-
-        // Interrupted jobs modal (startup)
-        async function checkInterruptedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=resumable');
-                if (data.jobs && data.jobs.length > 0) {
-                    showInterruptedJobsModal(data.jobs);
-                }
-            } catch (error) {
-                console.error('Failed to check interrupted jobs:', error);
-            }
-        }
-
-        function showInterruptedJobsModal(jobs) {
-            const list = document.getElementById('interrupted-jobs-list');
-            list.innerHTML = jobs.map(job => `
-                <div style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 4px;">
-                    Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
-                </div>
-            `).join('');
-            document.getElementById('interrupted-jobs-modal').style.display = 'flex';
-        }
-
-        function closeInterruptedJobsModal() {
-            document.getElementById('interrupted-jobs-modal').style.display = 'none';
-        }
-
-        async function resumeAllInterruptedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=resumable');
-                for (const job of data.jobs) {
-                    await apiCall(`/api/jobs/${job.job_id}/resume`, 'POST');
-                }
-                closeInterruptedJobsModal();
-                updateInterruptedJobs();
-                updateJobs();
-            } catch (error) {
-                alert(`Failed to resume jobs: ${error.message}`);
-            }
-        }
-
-        // Failed Jobs Dropdown
-        function toggleFailedJobsDropdown() {
-            const list = document.getElementById('failed-jobs-list');
-            list.classList.toggle('hidden');
-        }
-
-        function startFailedJobsUpdates() {
-            updateFailedJobs();
-            failedJobsInterval = setInterval(updateFailedJobs, 5000);
-        }
-
-        async function updateFailedJobs() {
-            try {
-                const data = await apiCall('/api/jobs?status=failed');
-                failedJobsData.jobs = data.jobs || [];
-                renderFailedJobs();
-            } catch (error) {
-                console.error('Failed to update failed jobs:', error);
-            }
-        }
-
-        function renderFailedJobs() {
-            const dropdown = document.getElementById('failed-jobs-dropdown');
-            const list = document.getElementById('failed-jobs-list');
-            const count = document.getElementById('failed-count');
-
-            if (failedJobsData.jobs.length === 0) {
-                dropdown.classList.add('hidden');
-                return;
-            }
-
-            dropdown.classList.remove('hidden');
-            count.textContent = failedJobsData.jobs.length;
-
-            list.innerHTML = failedJobsData.jobs.map(job => `
-                <div class="failed-job-item">
-                    <div class="failed-job-info">
-                        Job #${job.job_id}: ${job.src_path} → ${job.dst_path}
-                        ${job.error_text ? '<br><span style="color: #dc3545; font-size: 11px;">' + job.error_text.substring(0, 100) + '...</span>' : ''}
-                    </div>
-                    <div class="failed-job-actions">
-                        <button class="job-icon-btn resume" data-action="resume-failed" data-job-id="${job.job_id}" title="Resume this job">▶</button>
-                        <button class="job-icon-btn cancel" data-action="cancel-failed" data-job-id="${job.job_id}" title="Cancel this job">×</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        async function cancelFailedJob(jobId) {
-            try {
-                await apiCall(`/api/jobs/${jobId}/stop`, 'POST');
-                updateFailedJobs();
-            } catch (error) {
-                alert(`Failed to cancel job: ${error.message}`);
-            }
-        }
-
-        async function resumeFailedJobFromDropdown(jobId) {
-            try {
-                const data = await apiCall(`/api/jobs/${jobId}/resume`, 'POST');
-                updateFailedJobs();
-                updateJobs();  // Refresh active jobs too
-            } catch (error) {
-                alert(`Failed to resume job: ${error.message}`);
-            }
-        }
 
         // Quit server
         async function quitServer() {
-            const runningCount = jobsData.jobs ? jobsData.jobs.length : 0;
+            const runningCount = jobManager.getRunningCount();
             if (runningCount > 0) {
                 const confirmed = confirm(
                     `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
