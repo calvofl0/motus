@@ -267,7 +267,8 @@ def create_app(config: Config = None):
     # Flask config
     app.config['SECRET_KEY'] = config.secret_key
     app.config['MOTUS_TOKEN'] = config.token
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
+    # Set max upload size (None = unlimited)
+    app.config['MAX_CONTENT_LENGTH'] = config.max_upload_size if config.max_upload_size > 0 else None
 
     # Enable CORS if configured (for development)
     if config.allow_cors:
