@@ -6,11 +6,15 @@ Ensures backend is running and opens Vue dev server with token
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
 import webbrowser
 from pathlib import Path
+
+# Global reference to npm process for cleanup
+npm_process = None
 
 def get_connection_info():
     """Read connection info from existing backend instance"""
@@ -122,16 +126,38 @@ def main():
     print("=" * 70)
     print()
 
+    # Setup signal handler for cleanup
+    def cleanup(signum=None, frame=None):
+        """Clean up npm process on exit"""
+        global npm_process
+        if npm_process:
+            print("\n\nShutting down Vite dev server...")
+            try:
+                # Kill the process group to ensure all child processes are killed
+                os.killpg(os.getpgid(npm_process.pid), signal.SIGTERM)
+            except (ProcessLookupError, AttributeError):
+                try:
+                    npm_process.terminate()
+                except:
+                    pass
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+
     # Start Vite dev server
     try:
-        subprocess.run(
+        global npm_process
+        npm_process = subprocess.Popen(
             ['npm', 'run', 'dev'],
             cwd=Path(__file__).parent / 'frontend-vue',
-            env=os.environ.copy()
+            env=os.environ.copy(),
+            # Create new process group so we can kill all children
+            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
         )
+        npm_process.wait()
     except KeyboardInterrupt:
-        print("\n\nShutting down Vue dev server...")
-        sys.exit(0)
+        cleanup()
 
 if __name__ == '__main__':
     main()
