@@ -451,6 +451,7 @@ type = s3
         import { savePreferences as savePrefs, loadPreferences as loadPrefs } from '/js/utils/preferences.js';
         import { JobProgressWatcher } from '/js/lib/sse.js';
         import { RemoteManager } from '/js/modules/remote-manager.js';
+        import { OAuthManager } from '/js/modules/oauth-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -481,6 +482,14 @@ type = s3
         let maxUploadSize = state.upload.maxSize;
 
         // Initialize modules
+        const oauthManager = new OAuthManager(apiCall, ModalManager, {
+            onTokenRefreshed: async () => {
+                await loadRemotes();
+                await refreshPane('left');
+                await refreshPane('right');
+            }
+        });
+
         const remoteManager = new RemoteManager(apiCall, ModalManager, {
             onRemotesChanged: async () => {
                 await loadRemotes();
@@ -491,7 +500,7 @@ type = s3
                 left: leftPaneState.remote,
                 right: rightPaneState.remote
             }),
-            onOAuthRefresh: (remoteName) => refreshOAuthToken(remoteName)
+            onOAuthRefresh: (remoteName) => oauthManager.refreshToken(remoteName)
         });
 
         // Initialize
@@ -585,6 +594,11 @@ type = s3
             document.getElementById('configure-close-btn').addEventListener('click', () => remoteManager.showRemotesList());
             document.getElementById('configure-back-btn').addEventListener('click', () => remoteManager.showTemplateSelection());
             document.getElementById('create-remote-btn').addEventListener('click', () => remoteManager.createRemote());
+
+            // Modal buttons - OAuth Interactive Modal
+            document.getElementById('oauth-copy-btn').addEventListener('click', () => oauthManager.copyAuthorizeCommand());
+            document.getElementById('oauth-cancel-btn').addEventListener('click', () => oauthManager.closeModal());
+            document.getElementById('oauth-submit-btn').addEventListener('click', () => oauthManager.submitToken());
 
             // Event delegation - Template selection
             document.getElementById('templates-list-container').addEventListener('click', (e) => {
@@ -2542,181 +2556,7 @@ type = s3
             }
         }
 
-        // Remote Manager functions are now handled by the RemoteManager module
-
-        // OAuth Management
-        let currentOAuthRemote = null;
-
-        async function refreshOAuthToken(remoteName) {
-            try {
-                currentOAuthRemote = remoteName;
-
-                // Call API to start OAuth refresh
-                const response = await apiCall(`/api/remotes/${remoteName}/oauth/refresh`, 'POST');
-
-                if (response.status === 'needs_token') {
-                    // Populate modal with authorize command
-                    document.getElementById('oauth-authorize-command').textContent = response.authorize_command;
-                    document.getElementById('oauth-token-input').value = '';
-                    document.getElementById('oauth-status-message').style.display = 'none';
-                    document.getElementById('oauth-submit-btn').disabled = false;
-
-                    // Open modal using ModalManager
-                    ModalManager.open('oauth-interactive-modal', {
-                        onEscape: closeOAuthModal,
-                        onEnter: submitOAuthToken,
-                        onClose: () => {
-                            // Cleanup when modal closes
-                            currentOAuthRemote = null;
-                        }
-                    });
-                } else if (response.status === 'complete') {
-                    // Token refresh completed immediately (shouldn't normally happen, but handle it)
-                    alert(`OAuth token successfully refreshed for "${remoteName}"`);
-                    await loadRemotesList();
-                    currentOAuthRemote = null;
-                } else if (response.status === 'error') {
-                    // Error occurred
-                    alert(`Failed to refresh OAuth token: ${response.message || 'Unknown error'}`);
-                    currentOAuthRemote = null;
-                } else {
-                    // Unexpected response
-                    alert(`Unexpected response from server: ${response.status}`);
-                    currentOAuthRemote = null;
-                }
-            } catch (error) {
-                currentOAuthRemote = null;
-                alert(`Failed to refresh OAuth token: ${error.message}`);
-            }
-        }
-
-        async function submitOAuthToken() {
-            if (!currentOAuthRemote) {
-                alert('No OAuth session active');
-                return;
-            }
-
-            const token = document.getElementById('oauth-token-input').value.trim();
-            if (!token) {
-                showOAuthStatus('Please paste the token before submitting', 'error');
-                return;
-            }
-
-            // Disable submit button during submission
-            const submitBtn = document.getElementById('oauth-submit-btn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
-
-            try {
-                showOAuthStatus('Submitting token...', 'info');
-
-                // Submit token to API
-                const response = await apiCall(
-                    `/api/remotes/${currentOAuthRemote}/oauth/submit-token`,
-                    'POST',
-                    { token: token }
-                );
-
-                if (response.status === 'complete') {
-                    // Success!
-                    showOAuthStatus('✓ Token successfully submitted! OAuth refresh complete.', 'success');
-
-                    // Wait a moment before closing
-                    setTimeout(async () => {
-                        closeOAuthModal();
-                        await loadRemotesList();
-                        // Success - no alert needed, just close and refresh
-                    }, 1500);
-                } else if (response.status === 'error') {
-                    // Error
-                    showOAuthStatus(`Error: ${response.message || 'Unknown error'}`, 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit Token';
-                } else {
-                    // Unexpected status
-                    showOAuthStatus(`Unexpected response: ${response.status}`, 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit Token';
-                }
-            } catch (error) {
-                showOAuthStatus(`Failed to submit token: ${error.message}`, 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit Token';
-            }
-        }
-
-        function showOAuthStatus(message, type) {
-            const statusDiv = document.getElementById('oauth-status-message');
-            statusDiv.textContent = message;
-            statusDiv.style.display = 'block';
-
-            // Set background color based on type
-            if (type === 'success') {
-                statusDiv.style.background = '#d4edda';
-                statusDiv.style.color = '#155724';
-                statusDiv.style.border = '1px solid #c3e6cb';
-            } else if (type === 'error') {
-                statusDiv.style.background = '#f8d7da';
-                statusDiv.style.color = '#721c24';
-                statusDiv.style.border = '1px solid #f5c6cb';
-            } else {
-                // info
-                statusDiv.style.background = '#d1ecf1';
-                statusDiv.style.color = '#0c5460';
-                statusDiv.style.border = '1px solid #bee5eb';
-            }
-        }
-
-        async function copyAuthorizeCommand() {
-            const commandText = document.getElementById('oauth-authorize-command').textContent;
-
-            try {
-                await navigator.clipboard.writeText(commandText);
-
-                // Show tooltip
-                const tooltip = document.getElementById('oauth-copy-tooltip');
-                tooltip.style.display = 'inline';
-
-                // Hide after 1 second
-                setTimeout(() => {
-                    tooltip.style.display = 'none';
-                }, 1000);
-            } catch (error) {
-                console.error('Failed to copy to clipboard:', error);
-
-                // Fallback for older browsers or when clipboard API fails
-                try {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = commandText;
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-999999px';
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-
-                    // Show tooltip even with fallback
-                    const tooltip = document.getElementById('oauth-copy-tooltip');
-                    tooltip.style.display = 'inline';
-                    setTimeout(() => {
-                        tooltip.style.display = 'none';
-                    }, 1000);
-                } catch (err) {
-                    alert('Failed to copy to clipboard. Please copy manually.');
-                }
-            }
-        }
-
-        function closeOAuthModal() {
-            // Clean up modal UI
-            document.getElementById('oauth-token-input').value = '';
-            document.getElementById('oauth-status-message').style.display = 'none';
-            document.getElementById('oauth-submit-btn').disabled = false;
-            document.getElementById('oauth-submit-btn').textContent = 'Submit Token';
-
-            // Close via ModalManager (will trigger onClose handler which sets currentOAuthRemote = null)
-            ModalManager.close('oauth-interactive-modal');
-        }
+        // Remote Manager and OAuth Manager functions are now handled by their respective modules
 
         async function createRemote() {
             const template = manageRemotesState.selectedTemplate;
@@ -3759,7 +3599,7 @@ ${data.text || '(no output yet)'}
                     <div style="background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 13px; word-break: break-all;">
                         <div id="oauth-authorize-command" style="white-space: pre-wrap;">Loading...</div>
                     </div>
-                    <button onclick="copyAuthorizeCommand()" style="background: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-size: 14px; position: relative;">
+                    <button id="oauth-copy-btn" style="background: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-size: 14px; position: relative;">
                         📋 Copy to Clipboard
                         <span id="oauth-copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
                     </button>
@@ -3782,10 +3622,10 @@ ${data.text || '(no output yet)'}
                 <div id="oauth-status-message" style="display: none; padding: 12px; border-radius: 4px; margin-bottom: 15px;"></div>
             </div>
             <div class="modal-buttons">
-                <button onclick="closeOAuthModal()" style="background: #6c757d;">
+                <button id="oauth-cancel-btn" style="background: #6c757d;">
                     Cancel
                 </button>
-                <button id="oauth-submit-btn" onclick="submitOAuthToken()" style="background: #28a745;">
+                <button id="oauth-submit-btn" style="background: #28a745;">
                     Submit Token
                 </button>
             </div>
