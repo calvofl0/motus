@@ -1201,6 +1201,42 @@ type = s3
             setMode(currentMode === 'easy' ? 'expert' : 'easy');
         }
 
+        async function quitServer() {
+            const runningCount = jobManager.getRunningCount();
+            if (runningCount > 0) {
+                const confirmed = confirm(
+                    `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
+                    `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
+                    `Are you sure you want to quit?`
+                );
+                if (!confirmed) return;
+            }
+
+            try {
+                const data = await apiCall('/api/shutdown', 'POST');
+
+                // Replace page content with shutdown message
+                document.body.innerHTML = `
+                    <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                        <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
+                        <p style="font-size:18px; color:#666; margin-bottom:30px;">
+                            The Motus server has been shut down gracefully.
+                        </p>
+                        ${data.running_jobs_stopped > 0 ?
+                            `<p style="color:#666; margin-bottom:20px;">
+                                ${data.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
+                                You can resume them next time you start the server.
+                            </p>` : ''}
+                        <p style="color:#999; font-size:14px;">
+                            You can close this window now.
+                        </p>
+                    </div>
+                `;
+            } catch (error) {
+                alert(`Failed to shutdown server: ${error.message}`);
+            }
+        }
+
         function setMode(mode) {
             currentMode = mode;
             if (mode === 'easy') {
