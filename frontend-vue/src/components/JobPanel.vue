@@ -63,16 +63,10 @@ const activeJobsCollapsed = ref(true)
 const interruptedJobsCollapsed = ref(true)
 const failedJobsCollapsed = ref(true)
 
-// Job lists (with placeholder data for testing - will be replaced with real data from SSE)
+// Job lists - will be populated via SSE when job management is implemented
 const activeJobs = ref([])
-const interruptedJobs = ref([
-  // Placeholder for testing - remove when SSE is implemented
-  { id: 'test-interrupted-1', path: '/test/path' }
-])
-const failedJobs = ref([
-  // Placeholder for testing - remove when SSE is implemented
-  { id: 'test-failed-1', path: '/test/path' }
-])
+const interruptedJobs = ref([])
+const failedJobs = ref([])
 
 // Toggle functions
 function toggleActiveJobs() {
