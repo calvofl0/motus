@@ -112,6 +112,9 @@ def ensure_backend_running(backend_args=''):
     sys.exit(1)
 
 def main():
+    # Automatically reap zombie child processes (prevents defunct processes)
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
     parser = argparse.ArgumentParser(
         description='Development helper for Vue frontend'
     )
