@@ -1,0 +1,8 @@
+/* Import all CSS files */
+@import url('/css/base.css');
+@import url('/css/header.css');
+@import url('/css/easy-mode-layout.css');
+@import url('/css/expert-mode.css');
+@import url('/css/context-menu.css');
+@import url('/css/jobs.css');
+@import url('/css/modals.css');

@@ -1,0 +1,154 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { apiCall, setAuthToken, getAuthToken } from '../services/api'
+import { loadPreferences, savePreferences } from '../services/preferences'
+
+export const useAppStore = defineStore('app', () => {
+  // State
+  const currentMode = ref('easy')
+  const authToken = ref('')
+  const viewMode = ref('grid')
+  const showHiddenFiles = ref(false)
+  const lastFocusedPane = ref('left')
+  const maxUploadSize = ref(0)
+
+  // Left pane state
+  const leftPane = ref({
+    remote: '',
+    path: '~/',
+    files: [],
+    selectedIndexes: [],
+    sortBy: 'name',
+    sortAsc: true
+  })
+
+  // Right pane state
+  const rightPane = ref({
+    remote: '',
+    path: '~/',
+    files: [],
+    selectedIndexes: [],
+    sortBy: 'name',
+    sortAsc: true
+  })
+
+  // Context menu state
+  const contextMenu = ref({
+    pane: null,
+    items: []
+  })
+
+  // Computed
+  const isEasyMode = computed(() => currentMode.value === 'easy')
+  const isExpertMode = computed(() => currentMode.value === 'expert')
+
+  // Actions
+  async function initialize() {
+    // Try to load token from URL or cookie
+    const urlParams = new URLSearchParams(window.location.search)
+    const tokenFromUrl = urlParams.get('token')
+
+    if (tokenFromUrl) {
+      authToken.value = tokenFromUrl
+      setAuthToken(tokenFromUrl)
+      document.cookie = `motus_token=${tokenFromUrl}; path=/; max-age=31536000; SameSite=Lax`
+    } else {
+      // Try to load from cookie
+      const cookies = document.cookie.split(';')
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=')
+        if (name === 'motus_token') {
+          authToken.value = value
+          setAuthToken(value)
+          break
+        }
+      }
+    }
+
+    // Load config
+    try {
+      const config = await apiCall('/api/config')
+      currentMode.value = config.default_mode || 'easy'
+      maxUploadSize.value = config.max_upload_size || 0
+    } catch (e) {
+      console.error('Failed to load config:', e)
+      currentMode.value = 'easy'
+    }
+
+    // Load user preferences
+    const prefs = await loadPreferences(apiCall)
+    if (prefs.view_mode) {
+      viewMode.value = prefs.view_mode
+    }
+    if (prefs.show_hidden_files !== undefined) {
+      showHiddenFiles.value = prefs.show_hidden_files
+    }
+  }
+
+  function setMode(mode) {
+    currentMode.value = mode
+  }
+
+  function toggleViewMode() {
+    viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
+    savePreferences(apiCall, {
+      view_mode: viewMode.value,
+      show_hidden_files: showHiddenFiles.value
+    })
+  }
+
+  function toggleHiddenFiles() {
+    showHiddenFiles.value = !showHiddenFiles.value
+    savePreferences(apiCall, {
+      view_mode: viewMode.value,
+      show_hidden_files: showHiddenFiles.value
+    })
+  }
+
+  function clearPaneSelection(pane) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.selectedIndexes = []
+  }
+
+  function setPaneFiles(pane, files) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.files = files
+  }
+
+  function setPanePath(pane, path) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.path = path
+  }
+
+  function setPaneRemote(pane, remote) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.remote = remote
+  }
+
+  return {
+    // State
+    currentMode,
+    authToken,
+    viewMode,
+    showHiddenFiles,
+    lastFocusedPane,
+    maxUploadSize,
+    leftPane,
+    rightPane,
+    contextMenu,
+
+    // Computed
+    isEasyMode,
+    isExpertMode,
+
+    // Actions
+    initialize,
+    setMode,
+    toggleViewMode,
+    toggleHiddenFiles,
+    clearPaneSelection,
+    setPaneFiles,
+    setPanePath,
+    setPaneRemote
+  }
+})

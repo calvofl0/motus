@@ -1,0 +1,109 @@
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 2px solid #007bff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-left h1 {
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-toggle-button, .quit-button, .view-toggle-button, .manage-remotes-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .manage-remotes-button {
+            background: #6f42c1;
+            color: white;
+        }
+
+        .manage-remotes-button:hover {
+            background: #5a32a3;
+        }
+
+        .view-dropdown-container {
+            position: relative;
+        }
+
+        .view-toggle-button {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        .view-toggle-button:hover {
+            background: #218838;
+        }
+
+        .view-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 5px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 180px;
+            z-index: 1000;
+        }
+
+        .view-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .view-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .view-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .mode-toggle-button {
+            background: #007bff;
+            color: white;
+        }
+
+        .mode-toggle-button:hover {
+            background: #0056b3;
+        }
+
+        .quit-button {
+            background: #dc3545;
+            color: white;
+        }
+
+        .quit-button:hover {
+            background: #c82333;
+        }
+
