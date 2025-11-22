@@ -9,6 +9,7 @@ import { state } from '/js/config.js';
 import { apiCall, setAuthToken, getAuthToken } from '/js/lib/api.js';
 import { buildPath, sortFiles, formatFileSize, formatFileDate, expandTildePath, resolveRelativePath } from '/js/utils/helpers.js';
 import { savePreferences as savePrefs, loadPreferences as loadPrefs } from '/js/utils/preferences.js';
+import { loadTemplates } from '/js/utils/template-loader.js';
 import { RemoteManager } from '/js/modules/remote-manager.js';
 import { OAuthManager } from '/js/modules/oauth-manager.js';
 import { UploadManager } from '/js/modules/upload-manager.js';
@@ -638,9 +639,35 @@ async function confirmDragDrop() {
 }
 
 /**
+ * Load all HTML templates
+ */
+async function loadAllTemplates() {
+    await loadTemplates([
+        // Load mode interfaces
+        { path: '/templates/easy-mode.html', target: '#easy-mode-container' },
+        { path: '/templates/expert-mode.html', target: '#expert-mode-container' },
+
+        // Load all modals
+        { path: '/templates/modals/interrupted-jobs-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/rename-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/create-folder-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/delete-confirm-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/drag-drop-confirm-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/upload-progress-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/manage-remotes-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/view-remote-config-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/edit-remote-config-modal.html', target: '#modals-container' },
+        { path: '/templates/modals/oauth-interactive-modal.html', target: '#modals-container' }
+    ]);
+}
+
+/**
  * Main initialization function
  */
 async function init() {
+    // Load HTML templates first
+    await loadAllTemplates();
+
     // Initialize modal manager
     initModalManager();
 

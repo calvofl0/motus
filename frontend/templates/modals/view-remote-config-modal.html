@@ -1,0 +1,16 @@
+    <div class="modal" id="view-remote-config-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="position: relative;">
+                📄 Remote Configuration
+                <button id="view-remote-close-btn" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" title="Close">×</button>
+            </div>
+            <div id="remote-config-content" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;">
+                <!-- Config will be populated here -->
+            </div>
+            <div class="modal-buttons">
+                <button id="copy-remote-config-btn" style="background: #28a745; position: relative;">
+                    📋 Copy to Clipboard
+                    <span id="copy-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;">Copied!</span>
+                </button>
+            </div>
+        </div>
