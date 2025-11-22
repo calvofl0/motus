@@ -41,7 +41,7 @@ def is_process_running(pid):
     except (OSError, ProcessLookupError):
         return False
 
-def monitor_backend(backend_pid, cleanup_callback):
+def monitor_backend(backend_pid):
     """Monitor backend process and trigger cleanup when it stops"""
     print(f"  [Monitor] Watching backend process (PID: {backend_pid})")
 
@@ -51,7 +51,8 @@ def monitor_backend(backend_pid, cleanup_callback):
         if not is_process_running(backend_pid):
             print("\n\n  [Monitor] Backend has stopped")
             print("  [Monitor] Auto-shutting down Vite dev server...")
-            cleanup_callback()
+            # Send SIGTERM to our own process to trigger cleanup
+            os.kill(os.getpid(), signal.SIGTERM)
             break
 
 def ensure_backend_running():
@@ -174,7 +175,7 @@ def main():
     global backend_monitor_thread
     backend_monitor_thread = threading.Thread(
         target=monitor_backend,
-        args=(conn['pid'], cleanup),
+        args=(conn['pid'],),
         daemon=True
     )
     backend_monitor_thread.start()
