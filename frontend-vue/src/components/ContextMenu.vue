@@ -139,6 +139,10 @@ function handleKeyDown(event) {
 
 // Adjust position if menu would go off-screen
 watch(() => props.visible, async (isVisible) => {
+  console.log('[ContextMenu] Visibility changed:', isVisible)
+  console.log('[ContextMenu] Position:', props.position)
+  console.log('[ContextMenu] Selected count:', props.selectedCount)
+
   if (isVisible) {
     // Prevent immediate closing on the same click that opened the menu
     justOpened.value = true
@@ -147,8 +151,10 @@ watch(() => props.visible, async (isVisible) => {
     }, 100)
 
     await nextTick()
+    console.log('[ContextMenu] menuRef:', menuRef.value)
     if (menuRef.value) {
       const rect = menuRef.value.getBoundingClientRect()
+      console.log('[ContextMenu] Menu rect:', rect)
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
 
@@ -163,6 +169,8 @@ watch(() => props.visible, async (isVisible) => {
         const adjustedY = viewportHeight - rect.height - 10
         menuRef.value.style.top = `${Math.max(10, adjustedY)}px`
       }
+    } else {
+      console.error('[ContextMenu] menuRef is null!')
     }
   }
 })

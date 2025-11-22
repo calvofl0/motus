@@ -447,6 +447,7 @@ function handleMouseDown(index, event) {
 
 // Context menu
 function handleFileContextMenu(index, event) {
+  console.log('[FilePane] handleFileContextMenu called', index, props.pane)
   event.preventDefault()
   event.stopPropagation()
 
@@ -455,8 +456,12 @@ function handleFileContextMenu(index, event) {
   }
   appStore.setLastFocusedPane(props.pane)
 
+  console.log('[FilePane] contextMenuHandler:', contextMenuHandler)
   if (contextMenuHandler) {
+    console.log('[FilePane] Calling contextMenuHandler.show')
     contextMenuHandler.show(props.pane, event)
+  } else {
+    console.error('[FilePane] contextMenuHandler is null!')
   }
 }
 
