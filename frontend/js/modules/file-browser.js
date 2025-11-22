@@ -134,8 +134,6 @@ export class FileBrowser {
             state.selectedIndexes.map(idx => state.files[idx]?.Name).filter(n => n) :
             [];
 
-        console.log(`refreshPane(${pane}, preserveSelection=${preserveSelection}), saving ${selectedFileNames.length} selected files:`, selectedFileNames);
-
         try {
             const data = await this.apiCall('/api/files/ls', 'POST', { path: fullPath });
             state.files = data.files || [];
@@ -147,12 +145,8 @@ export class FileBrowser {
                     const idx = state.files.findIndex(f => f.Name === name);
                     if (idx !== -1) {
                         state.selectedIndexes.push(idx);
-                        console.log(`Restored selection: ${name} at index ${idx}`);
-                    } else {
-                        console.log(`Could not restore selection: ${name} not found`);
                     }
                 });
-                console.log(`Selection preservation: restored ${state.selectedIndexes.length} of ${selectedFileNames.length} files`);
             } else {
                 state.selectedIndexes = [];
             }
@@ -607,8 +601,6 @@ export class FileBrowser {
     handleDragStart(event, pane, index) {
         const state = pane === 'left' ? this.leftPaneState : this.rightPaneState;
 
-        console.log(`handleDragStart: pane=${pane}, index=${index}, selected=${JSON.stringify(state.selectedIndexes)}`);
-
         // Note: Selection already happened in mousedown handler
         // This ensures the file is visually selected before drag starts
 
@@ -703,8 +695,6 @@ export class FileBrowser {
     async handleExternalDropWithFolders(items, targetPane) {
         const targetState = targetPane === 'left' ? this.leftPaneState : this.rightPaneState;
 
-        console.log('Processing drop with folder support...');
-
         try {
             // Collect all files (including from folders recursively)
             const filesWithPaths = [];
@@ -729,8 +719,6 @@ export class FileBrowser {
                 alert('No files found to upload');
                 return;
             }
-
-            console.log(`Found ${filesWithPaths.length} files (including in folders)`);
 
             // Check size limit
             const sizeCheck = this.uploadManager.checkUploadSizeLimit(filesWithPaths);
