@@ -220,7 +220,17 @@ export class UploadManager {
                             reject(new Error('Invalid response from server'));
                         }
                     } else {
-                        reject(new Error('Upload failed: ' + xhr.statusText));
+                        // Try to parse error message from response
+                        let errorMsg = xhr.statusText;
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            if (errorData.error) {
+                                errorMsg = errorData.error;
+                            }
+                        } catch (e) {
+                            // Keep default error message
+                        }
+                        reject(new Error('Upload failed: ' + errorMsg));
                     }
                 });
 
@@ -233,7 +243,9 @@ export class UploadManager {
                 });
 
                 xhr.open('POST', '/api/upload');
-                xhr.setRequestHeader('Authorization', `token ${this.getAuthToken()}`);
+                const authToken = this.getAuthToken();
+                console.log('Upload auth token:', authToken ? 'present' : 'MISSING');
+                xhr.setRequestHeader('Authorization', `token ${authToken}`);
 
                 // Wire up abort controller
                 if (this.abortController) {
@@ -356,7 +368,17 @@ export class UploadManager {
                             reject(new Error('Invalid response from server'));
                         }
                     } else {
-                        reject(new Error('Upload failed: ' + xhr.statusText));
+                        // Try to parse error message from response
+                        let errorMsg = xhr.statusText;
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            if (errorData.error) {
+                                errorMsg = errorData.error;
+                            }
+                        } catch (e) {
+                            // Keep default error message
+                        }
+                        reject(new Error('Upload failed: ' + errorMsg));
                     }
                 });
 
@@ -369,7 +391,9 @@ export class UploadManager {
                 });
 
                 xhr.open('POST', '/api/upload');
-                xhr.setRequestHeader('Authorization', `token ${this.getAuthToken()}`);
+                const authToken = this.getAuthToken();
+                console.log('Upload auth token:', authToken ? 'present' : 'MISSING');
+                xhr.setRequestHeader('Authorization', `token ${authToken}`);
 
                 // Wire up abort controller
                 if (this.abortController) {
