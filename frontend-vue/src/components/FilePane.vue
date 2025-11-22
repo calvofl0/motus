@@ -447,18 +447,13 @@ function handleMouseDown(index, event) {
 
 // Context menu
 function handleFileContextMenu(index, event) {
-  console.log('[FilePane] Right-click on file', index, 'pane:', props.pane)
   if (!isSelected(index)) {
     appStore.setPaneSelection(props.pane, [index])
   }
   appStore.setLastFocusedPane(props.pane)
 
-  console.log('[FilePane] contextMenuHandler:', contextMenuHandler)
   if (contextMenuHandler) {
-    console.log('[FilePane] Showing context menu')
     contextMenuHandler.show(props.pane, event)
-  } else {
-    console.error('[FilePane] ERROR: contextMenuHandler not available!')
   }
 }
 

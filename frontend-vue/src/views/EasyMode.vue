@@ -45,9 +45,9 @@
 
     <!-- Context Menu -->
     <ContextMenu
-      :visible="contextMenu.visible"
-      :position="contextMenu.position"
-      :selected-count="contextMenu.selectedCount"
+      :visible="contextMenuVisible"
+      :position="contextMenuPosition"
+      :selected-count="contextMenuSelectedCount"
       @close="closeContextMenu"
       @action="handleContextMenuAction"
       @sort="handleContextMenuSort"
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, provide } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
 import { useAppStore } from '../stores/app'
 import { useFileOperations } from '../composables/useFileOperations'
 import FilePane from '../components/FilePane.vue'
@@ -74,13 +74,11 @@ const fileOps = useFileOperations()
 const leftPaneRef = ref(null)
 const rightPaneRef = ref(null)
 
-// Context menu state - using reactive() for better nested property tracking
-const contextMenu = reactive({
-  visible: false,
-  position: { x: 0, y: 0 },
-  pane: null,
-  selectedCount: 0
-})
+// Context menu state - using separate refs for reliable reactivity
+const contextMenuVisible = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuPane = ref(null)
+const contextMenuSelectedCount = ref(0)
 
 // Computed
 const canCopyRight = computed(() =>
@@ -104,24 +102,21 @@ function copyToLeft() {
 
 // Context menu functions
 function showContextMenu(pane, event) {
-  console.log('[EasyMode] showContextMenu called', pane, event.clientX, event.clientY)
   const paneState = appStore[`${pane}Pane`]
 
-  // Update reactive properties directly
-  contextMenu.visible = true
-  contextMenu.position = { x: event.clientX, y: event.clientY }
-  contextMenu.pane = pane
-  contextMenu.selectedCount = paneState.selectedIndexes.length
-
-  console.log('[EasyMode] contextMenu updated:', contextMenu)
+  // Update refs directly
+  contextMenuVisible.value = true
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  contextMenuPane.value = pane
+  contextMenuSelectedCount.value = paneState.selectedIndexes.length
 }
 
 function closeContextMenu() {
-  contextMenu.visible = false
+  contextMenuVisible.value = false
 }
 
 function handleContextMenuAction(action) {
-  const pane = contextMenu.pane
+  const pane = contextMenuPane.value
   if (!pane) return
 
   const paneState = appStore[`${pane}Pane`]
@@ -145,7 +140,7 @@ function handleContextMenuAction(action) {
 }
 
 function handleContextMenuSort({ field, asc }) {
-  const pane = contextMenu.pane
+  const pane = contextMenuPane.value
   if (!pane) return
 
   // Trigger sort on the pane

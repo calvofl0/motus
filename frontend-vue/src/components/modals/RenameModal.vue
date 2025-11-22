@@ -6,16 +6,14 @@
     @close="handleClose"
     @confirm="handleConfirm"
   >
-    <div class="modal-content">
-      <p>Enter new name:</p>
-      <input
-        ref="inputRef"
-        type="text"
-        v-model="newName"
-        class="rename-input"
-        placeholder="New name..."
-      />
-    </div>
+    <p class="label-text">Enter new name:</p>
+    <input
+      ref="inputRef"
+      type="text"
+      v-model="newName"
+      class="rename-input"
+      placeholder="New name..."
+    />
 
     <template #footer>
       <button class="modal-button modal-button-secondary" @click="handleClose">
@@ -86,14 +84,8 @@ export default {
 </script>
 
 <style scoped>
-.modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.modal-content p {
-  margin: 0;
+.label-text {
+  margin: 0 0 10px 0;
   color: #555;
   font-size: 14px;
 }

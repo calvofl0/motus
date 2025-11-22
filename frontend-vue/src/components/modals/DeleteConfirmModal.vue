@@ -6,15 +6,13 @@
     @close="handleClose"
     @confirm="handleConfirm"
   >
-    <div class="modal-content">
-      <p class="warning-text">
-        <strong>⚠️ Warning:</strong> This action cannot be undone!
-      </p>
-      <p>Are you sure you want to delete the following {{ items.length }} item(s)?</p>
-      <div class="file-list">
-        <div v-for="(item, index) in items" :key="index" class="file-item">
-          • {{ item }}
-        </div>
+    <p class="warning-text">
+      <strong>⚠️ Warning:</strong> This action cannot be undone!
+    </p>
+    <p class="confirm-text">Are you sure you want to delete the following {{ items.length }} item(s)?</p>
+    <div class="file-list">
+      <div v-for="(item, index) in items" :key="index" class="file-item">
+        • {{ item }}
       </div>
     </div>
 
@@ -69,14 +67,8 @@ export default {
 </script>
 
 <style scoped>
-.modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.modal-content p {
-  margin: 0;
+.confirm-text {
+  margin: 0 0 15px 0;
   color: #555;
   font-size: 14px;
 }

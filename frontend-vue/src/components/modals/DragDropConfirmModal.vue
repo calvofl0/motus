@@ -6,24 +6,22 @@
     @close="handleClose"
     @confirm="handleConfirm"
   >
-    <div class="modal-content">
-      <p>Copy the following {{ files.length }} file(s)?</p>
+    <p class="confirm-text">Copy the following {{ files.length }} file(s)?</p>
 
-      <div class="file-list">
-        <div v-for="(file, index) in files" :key="index" class="file-item">
-          • {{ file }}
-        </div>
+    <div class="file-list">
+      <div v-for="(file, index) in files" :key="index" class="file-item">
+        • {{ file }}
       </div>
+    </div>
 
-      <div class="path-info">
-        <div class="path-row">
-          <span class="path-label">From:</span>
-          <span class="path-value">{{ sourcePath }}</span>
-        </div>
-        <div class="path-row">
-          <span class="path-label">To:</span>
-          <span class="path-value">{{ destPath }}</span>
-        </div>
+    <div class="path-info">
+      <div class="path-row">
+        <span class="path-label">From:</span>
+        <span class="path-value">{{ sourcePath }}</span>
+      </div>
+      <div class="path-row">
+        <span class="path-label">To:</span>
+        <span class="path-value">{{ destPath }}</span>
       </div>
     </div>
 
@@ -86,14 +84,8 @@ export default {
 </script>
 
 <style scoped>
-.modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.modal-content > p {
-  margin: 0;
+.confirm-text {
+  margin: 0 0 15px 0;
   color: #555;
   font-size: 14px;
   font-weight: 500;
