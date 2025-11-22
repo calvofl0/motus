@@ -915,7 +915,6 @@ type = s3
                 currentMode = config.default_mode || 'easy';
                 maxUploadSize = config.max_upload_size || 0;
                 uploadManager.setMaxUploadSize(maxUploadSize);
-                console.log('Max upload size:', maxUploadSize === 0 ? 'unlimited' : config.max_upload_size_formatted);
                 uiManager.setMode(currentMode);
             } catch (e) {
                 console.error('Failed to load config:', e);
