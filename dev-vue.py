@@ -159,11 +159,11 @@ def main():
         if npm_process:
             print("\n\nShutting down Vite dev server...")
             try:
-                # Kill the process group to ensure all child processes are killed
-                os.killpg(os.getpgid(npm_process.pid), signal.SIGTERM)
+                # Use SIGKILL to forcefully kill the process group (Vite is resilient to SIGTERM)
+                os.killpg(os.getpgid(npm_process.pid), signal.SIGKILL)
             except (ProcessLookupError, AttributeError):
                 try:
-                    npm_process.terminate()
+                    npm_process.kill()  # SIGKILL instead of terminate()
                 except:
                     pass
         sys.exit(0)
