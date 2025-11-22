@@ -308,7 +308,14 @@ async function refresh(preserveSelection = false) {
     }
   } catch (error) {
     console.error('Failed to refresh pane:', error)
-    alert(`Error: ${error.message}`)
+    console.error('Full error details:', {
+      message: error.message,
+      path: fullPath,
+      remote: selectedRemote.value,
+      currentPath: currentPath.value,
+      error: error
+    })
+    alert(`Failed to list files: ${error.message}`)
   } finally {
     loading.value = false
   }
