@@ -14,8 +14,9 @@ import time
 import webbrowser
 from pathlib import Path
 
-# Global reference to npm process for cleanup
+# Global references for cleanup
 npm_process = None
+backend_process = None  # Popen object (if we started the backend)
 backend_monitor_thread = None
 
 def get_connection_info():
@@ -32,16 +33,25 @@ def get_connection_info():
 
     return None
 
-def is_process_running(pid):
-    """Check if a process with given PID is running"""
-    try:
-        # Send signal 0 - doesn't actually send a signal, just checks if process exists
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+def is_process_running(pid, popen_obj=None):
+    """
+    Check if a process with given PID is running (cross-platform)
 
-def monitor_backend(backend_pid):
+    If popen_obj is provided (we started the process), use .poll() to properly
+    reap zombies. Otherwise fall back to os.kill signal check.
+    """
+    if popen_obj is not None:
+        # We have the Popen object - use .poll() to reap zombies (cross-platform)
+        return popen_obj.poll() is None
+    else:
+        # Backend was already running - use signal check
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
+
+def monitor_backend(backend_pid, backend_popen=None):
     """Monitor backend process and trigger cleanup when it stops"""
     # Note: The Node.js dev-server.js now handles backend monitoring
     # This is kept as a backup in case the Node.js monitoring fails
@@ -50,7 +60,8 @@ def monitor_backend(backend_pid):
     while True:
         time.sleep(5)  # Check less frequently since Node handles primary monitoring
 
-        if not is_process_running(backend_pid):
+        # Pass the Popen object to properly reap zombies (cross-platform)
+        if not is_process_running(backend_pid, backend_popen):
             print("\n\n  [Python Monitor] Backend has stopped (Node monitor may have missed it)")
             print("  [Python Monitor] Terminating npm process...")
 
@@ -70,10 +81,14 @@ def monitor_backend(backend_pid):
 
 def ensure_backend_running(backend_args=''):
     """Ensure backend is running, start if needed"""
+    global backend_process
+
     conn = get_connection_info()
 
     if conn:
         print(f"✓ Backend already running on port {conn['port']}")
+        # Backend was already running - we don't have a Popen object
+        backend_process = None
         return conn
 
     print("Starting backend...")
@@ -112,9 +127,6 @@ def ensure_backend_running(backend_args=''):
     sys.exit(1)
 
 def main():
-    # Automatically reap zombie child processes (prevents defunct processes)
-    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
     parser = argparse.ArgumentParser(
         description='Development helper for Vue frontend'
     )
@@ -203,10 +215,10 @@ def main():
     signal.signal(signal.SIGTERM, cleanup)
 
     # Start backend monitoring thread
-    global backend_monitor_thread
+    global backend_monitor_thread, backend_process
     backend_monitor_thread = threading.Thread(
         target=monitor_backend,
-        args=(conn['pid'],),
+        args=(conn['pid'], backend_process),
         daemon=True
     )
     backend_monitor_thread.start()
