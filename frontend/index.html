@@ -547,9 +547,9 @@ type = s3
             savePrefs,
             jobManager
         }, {
-            onRenderFiles: renderFiles,
-            onRefreshPane: refreshPane,
-            onLoadRemotes: loadRemotes
+            onRenderFiles: (pane) => fileBrowser.renderFiles(pane),
+            onRefreshPane: (pane) => fileBrowser.refreshPane(pane),
+            onLoadRemotes: async () => await loadRemotes()
         });
 
         const fileOperations = new FileOperations({
@@ -606,10 +606,7 @@ type = s3
 
         // Initialize uiManager with state references
         uiManager.init({
-            state,
-            viewMode: { value: viewMode },
-            showHiddenFiles: { value: showHiddenFiles },
-            currentMode: { value: currentMode }
+            state
         });
 
         // Initialize

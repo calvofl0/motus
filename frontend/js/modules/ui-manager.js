@@ -34,9 +34,6 @@ export class UIManager {
      */
     init(stateRefs) {
         this.state = stateRefs.state;
-        this.viewMode = stateRefs.viewMode;
-        this.showHiddenFiles = stateRefs.showHiddenFiles;
-        this.currentMode = stateRefs.currentMode;
     }
 
     /**
@@ -58,25 +55,24 @@ export class UIManager {
     updateViewMenuItems() {
         // Update view mode text
         const viewModeText = document.getElementById('view-mode-text');
-        viewModeText.textContent = this.viewMode.value === 'grid' ? 'List View' : 'Grid View';
+        viewModeText.textContent = this.state.ui.viewMode === 'grid' ? 'List View' : 'Grid View';
 
         // Update hidden files text
         const hiddenText = document.getElementById('hidden-files-text');
-        hiddenText.textContent = this.showHiddenFiles.value ? "Don't show hidden files" : "Show hidden files";
+        hiddenText.textContent = this.state.ui.showHiddenFiles ? "Don't show hidden files" : "Show hidden files";
     }
 
     /**
      * Switch between grid and list view
      */
     switchViewMode() {
-        this.viewMode.value = this.viewMode.value === 'grid' ? 'list' : 'grid';
-        this.state.ui.viewMode = this.viewMode.value;  // Update state
+        this.state.ui.viewMode = this.state.ui.viewMode === 'grid' ? 'list' : 'grid';
         document.getElementById('view-dropdown').classList.add('hidden');
 
         // Save preference to backend
         this.savePrefs(this.apiCall, {
-            view_mode: this.viewMode.value,
-            show_hidden_files: this.showHiddenFiles.value
+            view_mode: this.state.ui.viewMode,
+            show_hidden_files: this.state.ui.showHiddenFiles
         });
 
         // Re-render both panes
@@ -88,14 +84,13 @@ export class UIManager {
      * Toggle hidden files visibility
      */
     toggleHiddenFilesOption() {
-        this.showHiddenFiles.value = !this.showHiddenFiles.value;
-        this.state.ui.showHiddenFiles = this.showHiddenFiles.value;  // Update state
+        this.state.ui.showHiddenFiles = !this.state.ui.showHiddenFiles;
         document.getElementById('view-dropdown').classList.add('hidden');
 
         // Save preference to backend
         this.savePrefs(this.apiCall, {
-            view_mode: this.viewMode.value,
-            show_hidden_files: this.showHiddenFiles.value
+            view_mode: this.state.ui.viewMode,
+            show_hidden_files: this.state.ui.showHiddenFiles
         });
 
         // Re-render both panes
@@ -107,14 +102,13 @@ export class UIManager {
      * Toggle between easy and expert mode
      */
     toggleMode() {
-        this.setMode(this.currentMode.value === 'easy' ? 'expert' : 'easy');
+        this.setMode(this.state.currentMode === 'easy' ? 'expert' : 'easy');
     }
 
     /**
      * Set the current mode (easy or expert)
      */
     setMode(mode) {
-        this.currentMode.value = mode;
         this.state.currentMode = mode;
 
         if (mode === 'easy') {
