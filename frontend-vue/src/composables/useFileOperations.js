@@ -271,11 +271,21 @@ export function useFileOperations() {
           ? `${targetState.remote}:${targetState.path}/`
           : `${targetState.path}/`
 
-        await apiCall('/api/jobs/copy', 'POST', {
+        console.log('Copy operation:', {
+          srcPath,
+          dstPath,
+          file: file.Name,
+          sourceRemote: sourceState.remote,
+          targetRemote: targetState.remote
+        })
+
+        const response = await apiCall('/api/jobs/copy', 'POST', {
           src_path: srcPath,
           dst_path: dstPath,
           copy_links: false
         })
+
+        console.log('Copy response:', response)
       }
 
       // Clear source selection
@@ -288,6 +298,10 @@ export function useFileOperations() {
       window.dispatchEvent(new CustomEvent('update-jobs'))
     } catch (error) {
       console.error('Copy failed:', error)
+      console.error('Error details:', {
+        message: error.message,
+        error: error
+      })
       alert(`Failed to copy: ${error.message}`)
     }
   }
