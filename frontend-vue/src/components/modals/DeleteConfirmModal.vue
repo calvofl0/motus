@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     v-model="isOpen"
-    title="Confirm Delete"
+    title="🗑️ Confirm Delete Operation"
     size="small"
     @close="handleClose"
     @confirm="handleConfirm"

@@ -20,10 +20,16 @@ onMounted(async () => {
 
 <style>
 /* Global app styles */
+html, body {
+  overflow: hidden;
+  height: 100vh;
+}
+
 #app {
   width: 100%;
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 </style>

@@ -447,6 +447,9 @@ function handleMouseDown(index, event) {
 
 // Context menu
 function handleFileContextMenu(index, event) {
+  event.preventDefault()
+  event.stopPropagation()
+
   if (!isSelected(index)) {
     appStore.setPaneSelection(props.pane, [index])
   }
@@ -458,6 +461,9 @@ function handleFileContextMenu(index, event) {
 }
 
 function handleParentContextMenu(event) {
+  event.preventDefault()
+  event.stopPropagation()
+
   appStore.setPaneSelection(props.pane, [])
   appStore.setLastFocusedPane(props.pane)
 

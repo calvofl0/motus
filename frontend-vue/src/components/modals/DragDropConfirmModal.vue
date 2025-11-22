@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     v-model="isOpen"
-    title="Confirm Copy"
+    title="📋 Confirm Copy Operation"
     size="medium"
     @close="handleClose"
     @confirm="handleConfirm"
@@ -15,11 +15,11 @@
     </div>
 
     <div class="path-info">
-      <div class="path-row">
+      <div class="path-row source-path">
         <span class="path-label">From:</span>
         <span class="path-value">{{ sourcePath }}</span>
       </div>
-      <div class="path-row">
+      <div class="path-row dest-path">
         <span class="path-label">To:</span>
         <span class="path-value">{{ destPath }}</span>
       </div>
@@ -118,6 +118,19 @@ export default {
   display: flex;
   gap: 10px;
   font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.path-row.source-path {
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+}
+
+.path-row.dest-path {
+  background: #e8f5e9;
+  border-left: 3px solid #4caf50;
 }
 
 .path-label {
@@ -130,6 +143,7 @@ export default {
   font-family: monospace;
   color: #333;
   word-break: break-all;
+  flex: 1;
 }
 
 .modal-button {

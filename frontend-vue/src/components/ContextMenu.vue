@@ -83,6 +83,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'action', 'sort'])
 
 const menuRef = ref(null)
+const justOpened = ref(false)
 
 // Computed
 const canCreateFolder = computed(() => true) // Always available
@@ -119,6 +120,11 @@ function close() {
 
 // Close on click outside
 function handleClickOutside(event) {
+  // Don't close immediately after opening
+  if (justOpened.value) {
+    return
+  }
+
   if (props.visible && menuRef.value && !menuRef.value.contains(event.target)) {
     close()
   }
@@ -134,6 +140,12 @@ function handleKeyDown(event) {
 // Adjust position if menu would go off-screen
 watch(() => props.visible, async (isVisible) => {
   if (isVisible) {
+    // Prevent immediate closing on the same click that opened the menu
+    justOpened.value = true
+    setTimeout(() => {
+      justOpened.value = false
+    }, 100)
+
     await nextTick()
     if (menuRef.value) {
       const rect = menuRef.value.getBoundingClientRect()
