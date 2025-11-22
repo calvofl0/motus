@@ -44,23 +44,33 @@ export const useAppStore = defineStore('app', () => {
 
   // Actions
   async function initialize() {
-    // Try to load token from URL or cookie
+    // Try to load token from URL, localStorage, or cookie
     const urlParams = new URLSearchParams(window.location.search)
     const tokenFromUrl = urlParams.get('token')
 
     if (tokenFromUrl) {
+      // Token from URL - save to localStorage and cookie for persistence
       authToken.value = tokenFromUrl
       setAuthToken(tokenFromUrl)
+      localStorage.setItem('motus_token', tokenFromUrl)
       document.cookie = `motus_token=${tokenFromUrl}; path=/; max-age=31536000; SameSite=Lax`
     } else {
-      // Try to load from cookie
-      const cookies = document.cookie.split(';')
-      for (let cookie of cookies) {
-        const [name, value] = cookie.trim().split('=')
-        if (name === 'motus_token') {
-          authToken.value = value
-          setAuthToken(value)
-          break
+      // Try localStorage first (works across dev/prod ports)
+      const tokenFromStorage = localStorage.getItem('motus_token')
+      if (tokenFromStorage) {
+        authToken.value = tokenFromStorage
+        setAuthToken(tokenFromStorage)
+      } else {
+        // Fallback to cookie (for compatibility)
+        const cookies = document.cookie.split(';')
+        for (let cookie of cookies) {
+          const [name, value] = cookie.trim().split('=')
+          if (name === 'motus_token') {
+            authToken.value = value
+            setAuthToken(value)
+            localStorage.setItem('motus_token', value) // Sync to localStorage
+            break
+          }
         }
       }
     }
