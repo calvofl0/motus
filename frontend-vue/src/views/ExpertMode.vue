@@ -35,38 +35,43 @@
         <h2>📁 File Operations</h2>
 
         <div class="form-group">
-          <label>List Files (ls):</label>
+          <label>Path:</label>
           <input
             type="text"
             v-model="lsPath"
-            placeholder="Path (e.g., /home/user or remote:path)"
+            placeholder="/path or remote:/path"
           />
-          <button @click="listFiles">List Files</button>
+          <div class="hint">Example: /tmp or myS3:/bucket/folder</div>
         </div>
+        <button @click="listFiles">List Files</button>
         <div v-if="lsOutput" class="output">{{ lsOutput }}</div>
 
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
         <div class="form-group">
-          <label>Create Directory (mkdir):</label>
+          <label>Create Directory:</label>
           <input
             type="text"
             v-model="mkdirPath"
-            placeholder="Path to create"
+            placeholder="/path/to/newdir or remote:/path/newdir"
           />
-          <button @click="createDirectory">Create Directory</button>
         </div>
+        <button @click="createDirectory">Create Directory</button>
         <div v-if="mkdirOutput" :class="['status', mkdirOutput.type]">
           {{ mkdirOutput.message }}
         </div>
 
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
         <div class="form-group">
-          <label>Delete File/Directory:</label>
+          <label>Delete Path:</label>
           <input
             type="text"
             v-model="deletePath"
-            placeholder="Path to delete"
+            placeholder="/path or remote:/path"
           />
-          <button @click="deleteFile" style="background: #dc3545;">Delete</button>
         </div>
+        <button @click="deleteFile" style="background: #dc3545;">Delete</button>
         <div v-if="deleteOutput" :class="['status', deleteOutput.type]">
           {{ deleteOutput.message }}
         </div>
@@ -74,94 +79,43 @@
 
       <!-- Job Management Section -->
       <div class="section">
-        <h2>⚙️ Job Management</h2>
+        <h2>📦 Job Management</h2>
 
         <div class="form-group">
-          <label>Copy:</label>
+          <label>Source Path:</label>
           <input
+            ref="srcPathInput"
             type="text"
             v-model="copySource"
-            placeholder="Source path"
+            placeholder="/source or remote:/source"
+            @keydown="handleJobPathKeypress($event, 'src')"
           />
+        </div>
+        <div class="form-group">
+          <label>Destination Path:</label>
           <input
+            ref="dstPathInput"
             type="text"
             v-model="copyDest"
-            placeholder="Destination path"
-            style="margin-top: 5px;"
+            placeholder="/destination or remote:/destination"
+            @keydown="handleJobPathKeypress($event, 'dst')"
           />
-          <div style="margin-top: 10px;">
-            <label style="display: inline-flex; align-items: center; font-weight: normal;">
-              <input type="checkbox" v-model="copyLinks" style="width: auto; margin-right: 5px;">
-              Copy symlinks as symlinks
-            </label>
-          </div>
-          <button @click="startCopy">Start Copy Job</button>
         </div>
-        <div v-if="copyOutput" :class="['status', copyOutput.type]">
-          {{ copyOutput.message }}
-        </div>
-
         <div class="form-group">
-          <label>Move:</label>
-          <input
-            type="text"
-            v-model="moveSource"
-            placeholder="Source path"
-          />
-          <input
-            type="text"
-            v-model="moveDest"
-            placeholder="Destination path"
-            style="margin-top: 5px;"
-          />
-          <button @click="startMove">Start Move Job</button>
+          <label style="display: inline-flex; align-items: center; font-weight: normal;">
+            <input type="checkbox" v-model="copyLinks" style="width: auto; margin-right: 5px;">
+            Follow Symlinks
+          </label>
         </div>
-        <div v-if="moveOutput" :class="['status', moveOutput.type]">
-          {{ moveOutput.message }}
+        <button @click="startCopy">Copy</button>
+        <button @click="startMove" style="background: #ffc107; color: #000;">Move</button>
+        <button @click="startCheck" style="background: #17a2b8;">Check Integrity</button>
+        <button @click="startSync" style="background: #dc3545;">Sync (Destructive)</button>
+        <div v-if="jobStartOutput" :class="['status', jobStartOutput.type]">
+          {{ jobStartOutput.message }}
         </div>
 
-        <div class="form-group">
-          <label>Check (Integrity Verification):</label>
-          <input
-            type="text"
-            v-model="checkSource"
-            placeholder="Source path"
-          />
-          <input
-            type="text"
-            v-model="checkDest"
-            placeholder="Destination path"
-            style="margin-top: 5px;"
-          />
-          <button @click="startCheck">Start Check Job</button>
-        </div>
-        <div v-if="checkOutput" :class="['status', checkOutput.type]">
-          {{ checkOutput.message }}
-        </div>
-
-        <div class="form-group">
-          <label>Sync (⚠️ Destructive - makes destination identical to source):</label>
-          <input
-            type="text"
-            v-model="syncSource"
-            placeholder="Source path"
-          />
-          <input
-            type="text"
-            v-model="syncDest"
-            placeholder="Destination path"
-            style="margin-top: 5px;"
-          />
-          <button @click="startSync" style="background: #ff6b6b;">Start Sync Job</button>
-        </div>
-        <div v-if="syncOutput" :class="['status', syncOutput.type]">
-          {{ syncOutput.message }}
-        </div>
-      </div>
-
-      <!-- Job Status/Control Section -->
-      <div class="section">
-        <h2>📊 Job Status & Control</h2>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
         <div class="form-group">
           <label>Job ID:</label>
@@ -169,31 +123,26 @@
             type="number"
             v-model.number="statusJobId"
             placeholder="Enter job ID"
+            @keydown.enter="getJobStatus"
           />
-          <button @click="getJobStatus">Get Status</button>
-          <button @click="watchJob" :disabled="isWatching">
-            {{ isWatching ? 'Watching...' : 'Watch (SSE)' }}
-          </button>
-          <button @click="stopWatching" v-if="isWatching">Stop Watching</button>
-          <button @click="showJobLog">Show Log</button>
-          <button @click="resumeJob">Resume</button>
-          <button @click="stopJob" style="background: #dc3545;">Stop Job</button>
+          <div class="hint">Press ENTER to get status</div>
         </div>
+        <button @click="getJobStatus">Get Status</button>
+        <button @click="watchJob" :disabled="isWatching" style="background: #17a2b8;">
+          {{ isWatching ? 'Watching...' : 'Watch Progress (SSE)' }}
+        </button>
+        <button @click="stopWatching" v-if="isWatching" style="background: #6c757d;">Stop Watching</button>
+        <button @click="showJobLog" style="background: #6c757d;">Show Log</button>
+        <button @click="resumeJob" style="background: #28a745;">Resume</button>
+        <button @click="stopJob" style="background: #dc3545;">Stop Job</button>
         <div v-if="statusOutput" class="output">{{ statusOutput }}</div>
-      </div>
 
-      <!-- Job Listing Section -->
-      <div class="section">
-        <h2>📋 Job Listing</h2>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
-        <div class="form-group">
-          <button @click="listAllJobs">List All Jobs</button>
-          <button @click="listRunningJobs">List Running Jobs</button>
-          <button @click="listAbortedJobs">List Aborted Jobs</button>
-          <button @click="clearStoppedJobs" style="background: #ffc107; color: #000;">
-            Clear Stopped Jobs
-          </button>
-        </div>
+        <button @click="listAllJobs">List All Jobs</button>
+        <button @click="listRunningJobs" style="background: #28a745;">List Running</button>
+        <button @click="listAbortedJobs" style="background: #ffc107; color: #000;">List Aborted</button>
+        <button @click="clearStoppedJobs" style="background: #6c757d;">Clear All Stopped Jobs</button>
         <div v-if="jobListOutput" class="output">{{ jobListOutput }}</div>
       </div>
     </div>
@@ -225,19 +174,9 @@ const deleteOutput = ref(null)
 const copySource = ref('')
 const copyDest = ref('')
 const copyLinks = ref(false)
-const copyOutput = ref(null)
-
-const moveSource = ref('')
-const moveDest = ref('')
-const moveOutput = ref(null)
-
-const checkSource = ref('')
-const checkDest = ref('')
-const checkOutput = ref(null)
-
-const syncSource = ref('')
-const syncDest = ref('')
-const syncOutput = ref(null)
+const jobStartOutput = ref(null)
+const srcPathInput = ref(null)
+const dstPathInput = ref(null)
 
 // Job Status/Control
 const statusJobId = ref(null)
@@ -365,11 +304,39 @@ async function deleteFile() {
 }
 
 /**
+ * Handle ENTER key in job path fields
+ */
+function handleJobPathKeypress(event, field) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    const srcValue = copySource.value.trim()
+    const dstValue = copyDest.value.trim()
+
+    if (field === 'src') {
+      // If in source field
+      if (srcValue && !dstValue) {
+        // Move to destination field
+        dstPathInput.value?.focus()
+      } else if (srcValue && dstValue) {
+        // Both filled, start copy
+        startCopy()
+      }
+    } else if (field === 'dst') {
+      // If in destination field
+      if (srcValue && dstValue) {
+        // Both filled, start copy
+        startCopy()
+      }
+    }
+  }
+}
+
+/**
  * Start copy job
  */
 async function startCopy() {
   if (!copySource.value.trim() || !copyDest.value.trim()) {
-    copyOutput.value = { type: 'error', message: 'Please enter both source and destination' }
+    jobStartOutput.value = { type: 'error', message: 'Please enter both source and destination' }
     return
   }
 
@@ -379,14 +346,15 @@ async function startCopy() {
       dst_path: copyDest.value,
       copy_links: copyLinks.value
     })
-    copyOutput.value = {
+    statusJobId.value = data.job_id
+    jobStartOutput.value = {
       type: 'success',
-      message: `✓ Copy job started: Job #${data.job_id}`
+      message: `✓ Copy job started (ID: ${data.job_id})`
     }
   } catch (error) {
-    copyOutput.value = {
+    jobStartOutput.value = {
       type: 'error',
-      message: `Failed: ${error.message}`
+      message: `✗ Error: ${error.message}`
     }
   }
 }
@@ -395,24 +363,25 @@ async function startCopy() {
  * Start move job
  */
 async function startMove() {
-  if (!moveSource.value.trim() || !moveDest.value.trim()) {
-    moveOutput.value = { type: 'error', message: 'Please enter both source and destination' }
+  if (!copySource.value.trim() || !copyDest.value.trim()) {
+    jobStartOutput.value = { type: 'error', message: 'Please enter both source and destination' }
     return
   }
 
   try {
     const data = await apiCall('/api/jobs/move', 'POST', {
-      src_path: moveSource.value,
-      dst_path: moveDest.value
+      src_path: copySource.value,
+      dst_path: copyDest.value
     })
-    moveOutput.value = {
+    statusJobId.value = data.job_id
+    jobStartOutput.value = {
       type: 'success',
-      message: `✓ Move job started: Job #${data.job_id}`
+      message: `✓ Move job started (ID: ${data.job_id})`
     }
   } catch (error) {
-    moveOutput.value = {
+    jobStartOutput.value = {
       type: 'error',
-      message: `Failed: ${error.message}`
+      message: `✗ Error: ${error.message}`
     }
   }
 }
@@ -421,24 +390,25 @@ async function startMove() {
  * Start check job
  */
 async function startCheck() {
-  if (!checkSource.value.trim() || !checkDest.value.trim()) {
-    checkOutput.value = { type: 'error', message: 'Please enter both source and destination' }
+  if (!copySource.value.trim() || !copyDest.value.trim()) {
+    jobStartOutput.value = { type: 'error', message: 'Please enter both source and destination' }
     return
   }
 
   try {
     const data = await apiCall('/api/jobs/check', 'POST', {
-      src_path: checkSource.value,
-      dst_path: checkDest.value
+      src_path: copySource.value,
+      dst_path: copyDest.value
     })
-    checkOutput.value = {
+    statusJobId.value = data.job_id
+    jobStartOutput.value = {
       type: 'success',
-      message: `✓ Check job started: Job #${data.job_id}`
+      message: `✓ Integrity check started (ID: ${data.job_id})`
     }
   } catch (error) {
-    checkOutput.value = {
+    jobStartOutput.value = {
       type: 'error',
-      message: `Failed: ${error.message}`
+      message: `✗ Error: ${error.message}`
     }
   }
 }
@@ -447,28 +417,33 @@ async function startCheck() {
  * Start sync job
  */
 async function startSync() {
-  if (!syncSource.value.trim() || !syncDest.value.trim()) {
-    syncOutput.value = { type: 'error', message: 'Please enter both source and destination' }
+  if (!copySource.value.trim() || !copyDest.value.trim()) {
+    jobStartOutput.value = { type: 'error', message: 'Please enter both source and destination' }
     return
   }
 
-  if (!confirm('⚠️ WARNING: Sync is destructive! It will make destination identical to source. Continue?')) {
+  if (!confirm(
+    '⚠️ WARNING: Sync is a DESTRUCTIVE operation!\n\n' +
+    'Files in the destination that don\'t exist in the source will be DELETED.\n\n' +
+    'Are you sure you want to continue?'
+  )) {
     return
   }
 
   try {
     const data = await apiCall('/api/jobs/sync', 'POST', {
-      src_path: syncSource.value,
-      dst_path: syncDest.value
+      src_path: copySource.value,
+      dst_path: copyDest.value
     })
-    syncOutput.value = {
+    statusJobId.value = data.job_id
+    jobStartOutput.value = {
       type: 'success',
-      message: `✓ Sync job started: Job #${data.job_id}`
+      message: `✓ Sync job started (ID: ${data.job_id})`
     }
   } catch (error) {
-    syncOutput.value = {
+    jobStartOutput.value = {
       type: 'error',
-      message: `Failed: ${error.message}`
+      message: `✗ Error: ${error.message}`
     }
   }
 }
@@ -483,8 +458,22 @@ async function getJobStatus() {
   }
 
   try {
-    const data = await apiCall(`/api/jobs/${statusJobId.value}`)
-    statusOutput.value = JSON.stringify(data, null, 2)
+    const job = await apiCall(`/api/jobs/${statusJobId.value}`)
+    const output = `
+Job ID: ${job.job_id}
+Operation: ${job.operation}
+Status: ${job.status}
+Progress: ${job.progress}%
+Source: ${job.src_path}
+Destination: ${job.dst_path}
+Created: ${job.created_at}
+${job.finished_at ? 'Finished: ' + job.finished_at : ''}
+${job.error_text ? 'Error: ' + job.error_text : ''}
+
+Output:
+${job.text || '(no output yet)'}
+    `.trim()
+    statusOutput.value = output
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
   }
@@ -503,7 +492,7 @@ function watchJob() {
   stopWatching()
 
   const apiUrl = window.location.origin
-  const url = `${apiUrl}/api/stream/job/${statusJobId.value}?token=${appStore.authToken}`
+  const url = `${apiUrl}/api/stream/jobs/${statusJobId.value}?token=${appStore.authToken}`
 
   eventSource = new EventSource(url)
   isWatching.value = true
@@ -512,15 +501,35 @@ function watchJob() {
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
-      const timestamp = new Date().toLocaleTimeString()
-      statusOutput.value += `[${timestamp}] ${JSON.stringify(data, null, 2)}\n\n`
+
+      if (data.error) {
+        statusOutput.value += `\n\nError: ${data.error}`
+        stopWatching()
+        return
+      }
+
+      // Update progress
+      let output = `Job ${statusJobId.value} - ${data.status}\n`
+      output += `Progress: ${data.progress}%\n`
+      if (data.text) {
+        output += `\nOutput:\n${data.text}`
+      }
+      statusOutput.value = output
+
+      // Auto-stop when finished
+      if (data.finished) {
+        setTimeout(() => {
+          statusOutput.value += '\n\n[Watching stopped - job finished]'
+          stopWatching()
+        }, 1000)
+      }
     } catch (error) {
-      statusOutput.value += `[Parse Error] ${event.data}\n\n`
+      statusOutput.value += `\n\nError parsing SSE data: ${error.message}`
     }
   }
 
   eventSource.onerror = (error) => {
-    statusOutput.value += `\n[Connection Error] SSE connection failed\n`
+    statusOutput.value += '\n\n[Connection Error] SSE connection failed'
     stopWatching()
   }
 }
@@ -532,6 +541,9 @@ function stopWatching() {
   if (eventSource) {
     eventSource.close()
     eventSource = null
+  }
+  if (isWatching.value) {
+    statusOutput.value += '\n\n[Watching stopped by user]'
   }
   isWatching.value = false
 }
@@ -547,7 +559,8 @@ async function showJobLog() {
 
   try {
     const data = await apiCall(`/api/jobs/${statusJobId.value}/log`)
-    statusOutput.value = data.log || '(no log available)'
+    const logText = data.log_text || '(no log available)'
+    statusOutput.value = `=== Job ${statusJobId.value} Log ===\n\n${logText}`
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
   }
@@ -564,9 +577,16 @@ async function resumeJob() {
 
   try {
     const data = await apiCall(`/api/jobs/${statusJobId.value}/resume`, 'POST')
-    statusOutput.value = `✓ Job #${statusJobId.value} resumed\n\n${JSON.stringify(data, null, 2)}`
+    statusJobId.value = data.job_id
+    jobStartOutput.value = {
+      type: 'success',
+      message: `✓ Job resumed (New ID: ${data.job_id})`
+    }
   } catch (error) {
-    statusOutput.value = `Error: ${error.message}`
+    jobStartOutput.value = {
+      type: 'error',
+      message: `✗ Error: ${error.message}`
+    }
   }
 }
 
@@ -580,8 +600,8 @@ async function stopJob() {
   }
 
   try {
-    const data = await apiCall(`/api/jobs/${statusJobId.value}/stop`, 'POST')
-    statusOutput.value = `✓ Job #${statusJobId.value} stopped\n\n${JSON.stringify(data, null, 2)}`
+    await apiCall(`/api/jobs/${statusJobId.value}/stop`, 'POST')
+    statusOutput.value = `Job ${statusJobId.value} stopped`
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
   }
@@ -652,7 +672,7 @@ async function clearStoppedJobs() {
 
   try {
     const data = await apiCall('/api/jobs/clear_stopped', 'POST')
-    jobListOutput.value = `✓ Cleared ${data.cleared || 0} stopped jobs`
+    jobListOutput.value = `✓ Cleared ${data.count || 0} stopped job(s)`
   } catch (error) {
     jobListOutput.value = `Error: ${error.message}`
   }
