@@ -452,6 +452,7 @@ type = s3
         import { JobProgressWatcher } from '/js/lib/sse.js';
         import { RemoteManager } from '/js/modules/remote-manager.js';
         import { OAuthManager } from '/js/modules/oauth-manager.js';
+        import { UploadManager } from '/js/modules/upload-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -482,6 +483,13 @@ type = s3
         let maxUploadSize = state.upload.maxSize;
 
         // Initialize modules
+        const uploadManager = new UploadManager(apiCall, {
+            onUploadComplete: async (pane) => {
+                await refreshPane(pane);
+                await updateJobs();
+            }
+        });
+
         const oauthManager = new OAuthManager(apiCall, ModalManager, {
             onTokenRefreshed: async () => {
                 await loadRemotes();
@@ -584,7 +592,7 @@ type = s3
             document.getElementById('drag-drop-confirm-btn').addEventListener('click', confirmDragDrop);
 
             // Modal buttons - Upload Progress Modal
-            document.getElementById('upload-cancel-btn').addEventListener('click', cancelUpload);
+            document.getElementById('upload-cancel-btn').addEventListener('click', () => uploadManager.cancelUpload());
 
             // Modal buttons - Manage Remotes Modal
             document.getElementById('manage-remotes-close-btn').addEventListener('click', () => remoteManager.close());
@@ -794,6 +802,7 @@ type = s3
                 const config = await apiCall('/api/config');
                 currentMode = config.default_mode || 'easy';
                 maxUploadSize = config.max_upload_size || 0;
+                uploadManager.setMaxUploadSize(maxUploadSize);
                 console.log('Max upload size:', maxUploadSize === 0 ? 'unlimited' : config.max_upload_size_formatted);
                 setMode(currentMode);
             } catch (e) {
@@ -1817,7 +1826,7 @@ type = s3
                 console.log(`Found ${filesWithPaths.length} files (including in folders)`);
 
                 // Check size limit
-                const sizeCheck = checkUploadSizeLimit(filesWithPaths);
+                const sizeCheck = uploadManager.checkUploadSizeLimit(filesWithPaths);
                 if (!sizeCheck.valid) {
                     alert(sizeCheck.error);
                     return;
@@ -1901,7 +1910,7 @@ type = s3
             const filesArray = Array.from(files);
 
             // Check size limit
-            const sizeCheck = checkUploadSizeLimit(filesArray);
+            const sizeCheck = uploadManager.checkUploadSizeLimit(filesArray);
             if (!sizeCheck.valid) {
                 alert(sizeCheck.error);
                 return;
@@ -1945,86 +1954,7 @@ type = s3
             pendingDragDrop = null;
         }
 
-        function showUploadProgressModal(fileCount) {
-            // Reset progress
-            uploadAbortController = new AbortController();
-            uploadStartTime = Date.now();
-
-            document.getElementById('upload-progress-message').textContent =
-                `Uploading ${fileCount} file${fileCount !== 1 ? 's' : ''}...`;
-            document.getElementById('upload-progress-bar').style.width = '0%';
-            document.getElementById('upload-progress-percent').textContent = '0%';
-            document.getElementById('upload-progress-details').textContent = '';
-            document.getElementById('upload-cancel-btn').disabled = false;
-
-            document.getElementById('upload-progress-modal').style.display = 'flex';
-        }
-
-        function updateUploadProgress(loaded, total) {
-            const percent = Math.round((loaded / total) * 100);
-            const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
-            const speedMBps = (loaded / 1024 / 1024) / elapsedSeconds;
-
-            document.getElementById('upload-progress-bar').style.width = percent + '%';
-            document.getElementById('upload-progress-percent').textContent = percent + '%';
-
-            const loadedMB = (loaded / 1024 / 1024).toFixed(1);
-            const totalMB = (total / 1024 / 1024).toFixed(1);
-            document.getElementById('upload-progress-details').textContent =
-                `${loadedMB} MB / ${totalMB} MB (${speedMBps.toFixed(1)} MB/s)`;
-        }
-
-        function closeUploadProgressModal() {
-            document.getElementById('upload-progress-modal').style.display = 'none';
-            uploadAbortController = null;
-            uploadStartTime = null;
-        }
-
-        function cancelUpload() {
-            if (uploadAbortController) {
-                uploadAbortController.abort();
-                document.getElementById('upload-cancel-btn').disabled = true;
-                document.getElementById('upload-progress-message').textContent = 'Canceling upload...';
-            }
-        }
-
-        function formatSize(bytes) {
-            if (bytes === 0) return 'unlimited';
-            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-            let size = bytes;
-            let unitIndex = 0;
-            while (size >= 1024 && unitIndex < units.length - 1) {
-                size /= 1024;
-                unitIndex++;
-            }
-            return `${size.toFixed(1)} ${units[unitIndex]}`;
-        }
-
-        function checkUploadSizeLimit(files) {
-            // Skip check if no limit configured (0 = unlimited)
-            if (maxUploadSize === 0) {
-                return { valid: true, totalSize: 0 };
-            }
-
-            // Calculate total size
-            let totalSize = 0;
-            for (const item of files) {
-                // Handle both File objects and {file, path} objects
-                const file = item.file || item;
-                totalSize += file.size;
-            }
-
-            // Check if exceeds limit
-            if (totalSize > maxUploadSize) {
-                return {
-                    valid: false,
-                    totalSize,
-                    error: `Total upload size (${formatSize(totalSize)}) exceeds maximum allowed (${formatSize(maxUploadSize)})`
-                };
-            }
-
-            return { valid: true, totalSize };
-        }
+        // Upload Manager functions are now handled by the UploadManager module
 
         async function confirmDragDrop() {
             if (!pendingDragDrop) return;
@@ -2037,10 +1967,8 @@ type = s3
 
             // Handle external file drop
             if (operation.isExternal) {
-                // Restore pendingDragDrop for handleExternalFileUploadAndCopy
-                pendingDragDrop = operation;
-                await handleExternalFileUploadAndCopy();
-                pendingDragDrop = null;
+                const { externalFiles, targetState, targetPane, hasDirectories } = operation;
+                await uploadManager.handleExternalFileUpload(externalFiles, targetState, targetPane, hasDirectories);
                 return;
             }
 
@@ -2073,279 +2001,6 @@ type = s3
             // Refresh target pane and update jobs
             refreshPane(targetPane);
             updateJobs();
-        }
-
-        async function handleExternalFileUploadAndCopy() {
-            const { externalFiles, targetState, targetPane, hasDirectories } = pendingDragDrop;
-
-            console.log('Starting external file upload. Files:', externalFiles);
-            console.log('Target state:', targetState);
-            console.log('Number of files:', externalFiles.length);
-            console.log('Has directories:', hasDirectories);
-
-            // Check if destination is local (no remote) - if so, upload directly
-            const isLocalDestination = !targetState.remote;
-
-            if (isLocalDestination) {
-                console.log('Uploading directly to local filesystem:', targetState.path);
-                // Direct upload to local filesystem (no cache needed)
-                await handleDirectLocalUpload(externalFiles, targetState, targetPane, hasDirectories);
-                return;
-            }
-
-            // Remote destination - use cache approach
-            console.log('Uploading to remote via cache:', targetState.remote);
-            // Generate unique job ID
-            const jobId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-            console.log('Generated job ID:', jobId);
-
-            // Show progress modal
-            showUploadProgressModal(externalFiles.length);
-
-            try {
-                // Step 1: Upload files to cache
-                const formData = new FormData();
-
-                // Handle both formats: array of Files or array of {file, path} objects
-                if (hasDirectories) {
-                    // filesWithPaths format: [{file: File, path: "folder/file.txt"}, ...]
-                    for (const item of externalFiles) {
-                        formData.append('files[]', item.file);
-                        formData.append('paths[]', item.path);  // Relative path including folders
-                    }
-                } else {
-                    // Simple File array format
-                    for (const file of externalFiles) {
-                        formData.append('files[]', file);
-                    }
-                }
-
-                formData.append('job_id', jobId);
-                formData.append('has_directories', hasDirectories ? 'true' : 'false');
-
-                // Destination path
-                const destPath = `${targetState.remote}:${targetState.path}`;
-                formData.append('destination', destPath);
-
-                // Upload files with progress tracking using XMLHttpRequest
-                const uploadData = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-
-                    // Track upload progress
-                    xhr.upload.addEventListener('progress', (e) => {
-                        if (e.lengthComputable) {
-                            updateUploadProgress(e.loaded, e.total);
-                        }
-                    });
-
-                    xhr.addEventListener('load', () => {
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch (e) {
-                                reject(new Error('Invalid response from server'));
-                            }
-                        } else {
-                            reject(new Error('Upload failed: ' + xhr.statusText));
-                        }
-                    });
-
-                    xhr.addEventListener('error', () => {
-                        reject(new Error('Network error during upload'));
-                    });
-
-                    xhr.addEventListener('abort', () => {
-                        reject(new Error('Upload canceled'));
-                    });
-
-                    xhr.open('POST', '/api/upload');
-                    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
-
-                    // Wire up abort controller
-                    if (uploadAbortController) {
-                        uploadAbortController.signal.addEventListener('abort', () => {
-                            xhr.abort();
-                        });
-                    }
-
-                    xhr.send(formData);
-                });
-
-                console.log('Files uploaded to cache:', uploadData);
-
-                // Update progress message
-                document.getElementById('upload-progress-message').textContent = 'Upload complete! Starting transfer to destination...';
-                document.getElementById('upload-cancel-btn').disabled = true;
-
-                // Step 2: Copy from cache to destination
-                const cachePath = uploadData.cache_path;
-                const dstPath = `${targetState.remote}:${targetState.path}/`;
-
-                const copyResult = await apiCall('/api/jobs/copy', 'POST', {
-                    src_path: cachePath + '/',  // Copy all files from cache directory
-                    dst_path: dstPath,
-                    copy_links: false
-                });
-
-                console.log('Copy job started:', copyResult);
-
-                // Step 3: Schedule cache cleanup after job completes
-                // This will be monitored by watching the job status
-                monitorUploadJobForCleanup(copyResult.job_id, jobId);
-
-                // Close progress modal
-                setTimeout(() => {
-                    closeUploadProgressModal();
-                }, 1000);  // Keep modal visible for 1 second to show completion
-
-                // Refresh target pane and update jobs
-                refreshPane(targetPane);
-                updateJobs();
-
-            } catch (error) {
-                console.error('External file upload/copy failed:', error);
-                closeUploadProgressModal();
-                alert(`Failed to upload files: ${error.message}`);
-
-                // Clean up cache on error
-                try {
-                    await fetch(`/api/upload/cleanup/${jobId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                        }
-                    });
-                } catch (cleanupError) {
-                    console.error('Cache cleanup failed:', cleanupError);
-                }
-            }
-        }
-
-        async function handleDirectLocalUpload(files, targetState, targetPane, hasDirectories) {
-            // Upload directly to local filesystem
-            console.log('handleDirectLocalUpload called with', files.length, 'files');
-            console.log('Destination:', targetState.path);
-            console.log('Has directories:', hasDirectories);
-
-            // Show progress modal
-            showUploadProgressModal(files.length);
-
-            try {
-                const formData = new FormData();
-
-                // Handle both formats: array of Files or array of {file, path} objects
-                if (hasDirectories) {
-                    // filesWithPaths format: [{file: File, path: "folder/file.txt"}, ...]
-                    for (const item of files) {
-                        console.log('Adding file to FormData:', item.path, 'size:', item.file.size);
-                        formData.append('files[]', item.file);
-                        formData.append('paths[]', item.path);  // Relative path including folders
-                    }
-                } else {
-                    // Simple File array format
-                    for (const file of files) {
-                        console.log('Adding file to FormData:', file.name, 'size:', file.size);
-                        formData.append('files[]', file);
-                    }
-                }
-
-                // Use a placeholder job_id (not actually used for direct upload)
-                formData.append('job_id', 'direct-' + Date.now());
-                formData.append('destination', targetState.path);
-                formData.append('direct_upload', 'true');  // Flag for direct upload
-                formData.append('has_directories', hasDirectories ? 'true' : 'false');
-
-                console.log('Sending upload request...');
-
-                // Upload with progress tracking using XMLHttpRequest
-                const uploadData = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-
-                    // Track upload progress
-                    xhr.upload.addEventListener('progress', (e) => {
-                        if (e.lengthComputable) {
-                            updateUploadProgress(e.loaded, e.total);
-                        }
-                    });
-
-                    xhr.addEventListener('load', () => {
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch (e) {
-                                reject(new Error('Invalid response from server'));
-                            }
-                        } else {
-                            reject(new Error('Upload failed: ' + xhr.statusText));
-                        }
-                    });
-
-                    xhr.addEventListener('error', () => {
-                        reject(new Error('Network error during upload'));
-                    });
-
-                    xhr.addEventListener('abort', () => {
-                        reject(new Error('Upload canceled'));
-                    });
-
-                    xhr.open('POST', '/api/upload');
-                    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
-
-                    // Wire up abort controller
-                    if (uploadAbortController) {
-                        uploadAbortController.signal.addEventListener('abort', () => {
-                            xhr.abort();
-                        });
-                    }
-
-                    xhr.send(formData);
-                });
-
-                console.log('Files uploaded directly to local filesystem:', uploadData);
-
-                // Update progress message
-                document.getElementById('upload-progress-message').textContent = 'Upload complete!';
-                document.getElementById('upload-cancel-btn').disabled = true;
-
-                // Close progress modal after a short delay
-                setTimeout(() => {
-                    closeUploadProgressModal();
-                }, 1000);
-
-                // Refresh target pane
-                refreshPane(targetPane);
-
-            } catch (error) {
-                console.error('Direct local upload failed:', error);
-                closeUploadProgressModal();
-                alert(`Failed to upload files: ${error.message}`);
-            }
-        }
-
-        async function monitorUploadJobForCleanup(copyJobId, uploadJobId) {
-            // Poll job status until completion
-            const checkInterval = setInterval(async () => {
-                try {
-                    const job = await apiCall(`/api/jobs/${copyJobId}`);
-
-                    if (job.status === 'completed' || job.status === 'failed') {
-                        clearInterval(checkInterval);
-
-                        // Clean up cache
-                        await fetch(`/api/upload/cleanup/${uploadJobId}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Authorization': `Bearer ${localStorage.getItem('token')}`
-                            }
-                        });
-
-                        console.log(`Cleaned up cache for upload job ${uploadJobId}`);
-                    }
-                } catch (error) {
-                    console.error('Error monitoring upload job:', error);
-                    clearInterval(checkInterval);
-                }
-            }, 5000);  // Check every 5 seconds
         }
 
         // Context menu
