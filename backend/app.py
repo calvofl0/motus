@@ -455,9 +455,18 @@ def register_routes(app: Flask, config: Config):
             print("\n[Shutdown] Thread started, waiting 0.5s...", file=sys.stderr, flush=True)
             time.sleep(0.5)  # Give time for response to be sent
             print("[Shutdown] Calling perform_shutdown()...", file=sys.stderr, flush=True)
-            perform_shutdown(app.rclone, app.db, app.motus_config)
-            print("[Shutdown] Calling os._exit(0)...", file=sys.stderr, flush=True)
-            os._exit(0)  # Force exit
+            try:
+                perform_shutdown(app.rclone, app.db, app.motus_config)
+                print("[Shutdown] perform_shutdown() completed", file=sys.stderr, flush=True)
+            except Exception as e:
+                print(f"[Shutdown] ERROR in perform_shutdown: {e}", file=sys.stderr, flush=True)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+
+            print("[Shutdown] About to call os._exit(0) - process should die NOW", file=sys.stderr, flush=True)
+            sys.stderr.flush()
+            os._exit(0)  # Force exit - this should KILL the process immediately
+            print("[Shutdown] THIS SHOULD NEVER PRINT", file=sys.stderr, flush=True)
 
         threading.Thread(target=shutdown_delayed, daemon=True).start()
         print("[Shutdown] Background thread spawned", flush=True)
