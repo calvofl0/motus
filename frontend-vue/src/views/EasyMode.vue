@@ -42,6 +42,16 @@
       :dest-path="fileOps.dragDropData.value.destPath"
       @confirm="fileOps.confirmCopy"
     />
+
+    <!-- Context Menu -->
+    <ContextMenu
+      :visible="contextMenu.visible"
+      :position="contextMenu.position"
+      :selected-count="contextMenu.selectedCount"
+      @close="closeContextMenu"
+      @action="handleContextMenuAction"
+      @sort="handleContextMenuSort"
+    />
   </div>
 </template>
 
@@ -55,6 +65,7 @@ import RenameModal from '../components/modals/RenameModal.vue'
 import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 const appStore = useAppStore()
 const fileOps = useFileOperations()
@@ -62,6 +73,14 @@ const fileOps = useFileOperations()
 // Refs to FilePane components
 const leftPaneRef = ref(null)
 const rightPaneRef = ref(null)
+
+// Context menu state
+const contextMenu = ref({
+  visible: false,
+  position: { x: 0, y: 0 },
+  pane: null,
+  selectedCount: 0
+})
 
 // Computed
 const canCopyRight = computed(() =>
@@ -83,8 +102,59 @@ function copyToLeft() {
   fileOps.copyToPane('right', 'left')
 }
 
-// Provide file operations to child components
+// Context menu functions
+function showContextMenu(pane, event) {
+  const paneState = appStore[`${pane}Pane`]
+  contextMenu.value = {
+    visible: true,
+    position: { x: event.clientX, y: event.clientY },
+    pane,
+    selectedCount: paneState.selectedIndexes.length
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value.visible = false
+}
+
+function handleContextMenuAction(action) {
+  const pane = contextMenu.value.pane
+  if (!pane) return
+
+  const paneState = appStore[`${pane}Pane`]
+
+  switch (action) {
+    case 'newfolder':
+      fileOps.openCreateFolderModal(pane)
+      break
+    case 'rename':
+      if (paneState.selectedIndexes.length === 1) {
+        const file = paneState.files[paneState.selectedIndexes[0]]
+        fileOps.openRenameModal(pane, file)
+      }
+      break
+    case 'delete':
+      if (paneState.selectedIndexes.length > 0) {
+        fileOps.openDeleteModal(pane)
+      }
+      break
+  }
+}
+
+function handleContextMenuSort({ field, asc }) {
+  const pane = contextMenu.value.pane
+  if (!pane) return
+
+  // Trigger sort on the pane
+  const paneRef = pane === 'left' ? leftPaneRef.value : rightPaneRef.value
+  if (paneRef && paneRef.setSortBy) {
+    paneRef.setSortBy(field, asc)
+  }
+}
+
+// Provide file operations and context menu to child components
 provide('fileOperations', fileOps)
+provide('contextMenu', { show: showContextMenu })
 
 // Handle refresh pane events
 function handleRefreshPane(event) {
@@ -95,13 +165,39 @@ function handleRefreshPane(event) {
   }
 }
 
+// Keyboard shortcuts
+function handleKeyDown(event) {
+  // Only handle shortcuts when not typing in an input
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+    return
+  }
+
+  const lastPane = appStore.lastFocusedPane
+  const paneState = appStore[`${lastPane}Pane`]
+
+  // F2 - Rename selected file
+  if (event.key === 'F2' && paneState.selectedIndexes.length === 1) {
+    event.preventDefault()
+    const file = paneState.files[paneState.selectedIndexes[0]]
+    fileOps.openRenameModal(lastPane, file)
+  }
+
+  // Delete - Delete selected files
+  if (event.key === 'Delete' && paneState.selectedIndexes.length > 0) {
+    event.preventDefault()
+    fileOps.openDeleteModal(lastPane)
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   window.addEventListener('refresh-pane', handleRefreshPane)
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('refresh-pane', handleRefreshPane)
+  window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 

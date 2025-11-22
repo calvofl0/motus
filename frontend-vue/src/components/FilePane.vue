@@ -163,6 +163,7 @@ const props = defineProps({
 
 const appStore = useAppStore()
 const fileOperations = inject('fileOperations', null)
+const contextMenuHandler = inject('contextMenu', null)
 
 // Reactive state
 const refreshHover = ref(false)
@@ -310,10 +311,16 @@ function browsePath() {
   refresh()
 }
 
-function setSortBy(field) {
-  if (sortBy.value === field) {
+function setSortBy(field, asc = null) {
+  if (asc !== null) {
+    // Explicit sort direction from context menu
+    sortBy.value = field
+    sortAsc.value = asc
+  } else if (sortBy.value === field) {
+    // Toggle if clicking same column
     sortAsc.value = !sortAsc.value
   } else {
+    // New column, default to ascending
     sortBy.value = field
     sortAsc.value = true
   }
@@ -423,15 +430,19 @@ function handleFileContextMenu(index, event) {
     appStore.setPaneSelection(props.pane, [index])
   }
   appStore.setLastFocusedPane(props.pane)
-  // TODO: Show context menu with file operations
-  console.log('Context menu for', paneState.value.selectedIndexes.map(i => files.value[i].Name))
+
+  if (contextMenuHandler) {
+    contextMenuHandler.show(props.pane, event)
+  }
 }
 
 function handleParentContextMenu(event) {
   appStore.setPaneSelection(props.pane, [])
   appStore.setLastFocusedPane(props.pane)
-  // TODO: Show context menu
-  console.log('Context menu on parent directory')
+
+  if (contextMenuHandler) {
+    contextMenuHandler.show(props.pane, event)
+  }
 }
 
 function handleContainerClick(event) {
@@ -451,8 +462,10 @@ function handleContainerContextMenu(event) {
     event.preventDefault()
     appStore.setPaneSelection(props.pane, [])
     appStore.setLastFocusedPane(props.pane)
-    // TODO: Show context menu
-    console.log('Context menu on empty space')
+
+    if (contextMenuHandler) {
+      contextMenuHandler.show(props.pane, event)
+    }
   }
 }
 
@@ -517,7 +530,8 @@ onMounted(async () => {
 
 // Expose methods to parent
 defineExpose({
-  refresh
+  refresh,
+  setSortBy
 })
 </script>
 

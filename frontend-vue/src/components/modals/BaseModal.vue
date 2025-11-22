@@ -75,16 +75,17 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  overflow-y: auto;
 }
 
 .modal-dialog {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   max-height: 90vh;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  margin: 20px;
 }
 
 .modal-small {
@@ -108,6 +109,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -139,8 +141,9 @@ export default {
 
 .modal-body {
   padding: 20px;
-  flex: 1;
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -149,6 +152,8 @@ export default {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  flex-shrink: 0;
+  background: white;
 }
 
 /* Transition */
