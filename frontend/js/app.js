@@ -647,6 +647,9 @@ async function loadAllTemplates() {
         { path: '/templates/easy-mode.html', target: '#easy-mode-container' },
         { path: '/templates/expert-mode.html', target: '#expert-mode-container' },
 
+        // Load context menu
+        { path: '/templates/context-menu.html', target: '#context-menu-container' },
+
         // Load all modals
         { path: '/templates/modals/interrupted-jobs-modal.html', target: '#modals-container' },
         { path: '/templates/modals/rename-modal.html', target: '#modals-container' },
