@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, provide } from 'vue'
 import { useAppStore } from '../stores/app'
 import { useFileOperations } from '../composables/useFileOperations'
 import FilePane from '../components/FilePane.vue'
@@ -74,8 +74,8 @@ const fileOps = useFileOperations()
 const leftPaneRef = ref(null)
 const rightPaneRef = ref(null)
 
-// Context menu state
-const contextMenu = ref({
+// Context menu state - using reactive() for better nested property tracking
+const contextMenu = reactive({
   visible: false,
   position: { x: 0, y: 0 },
   pane: null,
@@ -106,21 +106,22 @@ function copyToLeft() {
 function showContextMenu(pane, event) {
   console.log('[EasyMode] showContextMenu called', pane, event.clientX, event.clientY)
   const paneState = appStore[`${pane}Pane`]
-  contextMenu.value = {
-    visible: true,
-    position: { x: event.clientX, y: event.clientY },
-    pane,
-    selectedCount: paneState.selectedIndexes.length
-  }
-  console.log('[EasyMode] contextMenu.value:', contextMenu.value)
+
+  // Update reactive properties directly
+  contextMenu.visible = true
+  contextMenu.position = { x: event.clientX, y: event.clientY }
+  contextMenu.pane = pane
+  contextMenu.selectedCount = paneState.selectedIndexes.length
+
+  console.log('[EasyMode] contextMenu updated:', contextMenu)
 }
 
 function closeContextMenu() {
-  contextMenu.value.visible = false
+  contextMenu.visible = false
 }
 
 function handleContextMenuAction(action) {
-  const pane = contextMenu.value.pane
+  const pane = contextMenu.pane
   if (!pane) return
 
   const paneState = appStore[`${pane}Pane`]
@@ -144,7 +145,7 @@ function handleContextMenuAction(action) {
 }
 
 function handleContextMenuSort({ field, asc }) {
-  const pane = contextMenu.value.pane
+  const pane = contextMenu.pane
   if (!pane) return
 
   // Trigger sort on the pane

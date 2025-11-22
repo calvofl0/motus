@@ -181,6 +181,9 @@ const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : app
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
 
+// Visual order mapping for range selection
+const visualOrder = ref({})
+
 // Sorted and filtered files
 const sortedFiles = computed(() => {
   let filesToShow = files.value
@@ -197,7 +200,16 @@ const sortedFiles = computed(() => {
   }))
 
   // Sort
-  return sortFiles(filesWithIndex, sortBy.value, sortAsc.value)
+  const sorted = sortFiles(filesWithIndex, sortBy.value, sortAsc.value)
+
+  // Build visual order mapping: originalIndex -> visualPosition
+  const orderMap = {}
+  sorted.forEach((file, visualPos) => {
+    orderMap[file._originalIndex] = visualPos
+  })
+  visualOrder.value = orderMap
+
+  return sorted
 })
 
 // Helper functions
@@ -387,16 +399,25 @@ function handleFileClick(index, event) {
       newSelection.push(index)
     }
   } else if (event.shiftKey && newSelection.length > 0) {
-    // Range selection
+    // Range selection using visual order
     const lastIndex = newSelection[newSelection.length - 1]
-    const start = Math.min(lastIndex, index)
-    const end = Math.max(lastIndex, index)
+
+    // Convert original indexes to visual positions
+    const lastVisual = visualOrder.value[lastIndex] ?? lastIndex
+    const currentVisual = visualOrder.value[index] ?? index
+
+    // Calculate range in visual space
+    const visualStart = Math.min(lastVisual, currentVisual)
+    const visualEnd = Math.max(lastVisual, currentVisual)
+
+    // Convert visual positions back to original indexes
     newSelection = []
-    for (let i = start; i <= end; i++) {
-      if (i < files.value.length) {
-        newSelection.push(i)
+    Object.keys(visualOrder.value).forEach(origIndex => {
+      const visualPos = visualOrder.value[origIndex]
+      if (visualPos >= visualStart && visualPos <= visualEnd) {
+        newSelection.push(parseInt(origIndex))
       }
-    }
+    })
   } else {
     // Single selection
     newSelection = [index]
