@@ -9,12 +9,14 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 import webbrowser
 from pathlib import Path
 
 # Global reference to npm process for cleanup
 npm_process = None
+backend_monitor_thread = None
 
 def get_connection_info():
     """Read connection info from existing backend instance"""
@@ -29,6 +31,28 @@ def get_connection_info():
             pass
 
     return None
+
+def is_process_running(pid):
+    """Check if a process with given PID is running"""
+    try:
+        # Send signal 0 - doesn't actually send a signal, just checks if process exists
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+def monitor_backend(backend_pid, cleanup_callback):
+    """Monitor backend process and trigger cleanup when it stops"""
+    print(f"  [Monitor] Watching backend process (PID: {backend_pid})")
+
+    while True:
+        time.sleep(2)  # Check every 2 seconds
+
+        if not is_process_running(backend_pid):
+            print("\n\n  [Monitor] Backend has stopped")
+            print("  [Monitor] Auto-shutting down Vite dev server...")
+            cleanup_callback()
+            break
 
 def ensure_backend_running():
     """Ensure backend is running, start if needed"""
@@ -108,13 +132,13 @@ def main():
             except:
                 pass
 
-        import threading
         threading.Thread(target=open_browser, daemon=True).start()
 
     print()
     print("  Backend Info:")
     print(f"    URL: {conn['url']}")
     print(f"    Token: {conn['token']}")
+    print(f"    PID: {conn['pid']}")
     print()
     print(f"  Vue Dev Server:")
     print(f"    Port: {args.port}")
@@ -122,6 +146,7 @@ def main():
     print()
     print("  Starting Vite dev server...")
     print("  (Token will be saved automatically on first visit)")
+    print("  (Will auto-shutdown when backend quits)")
     print()
     print("=" * 70)
     print()
@@ -144,6 +169,15 @@ def main():
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
+
+    # Start backend monitoring thread
+    global backend_monitor_thread
+    backend_monitor_thread = threading.Thread(
+        target=monitor_backend,
+        args=(conn['pid'], cleanup),
+        daemon=True
+    )
+    backend_monitor_thread.start()
 
     # Start Vite dev server
     try:
