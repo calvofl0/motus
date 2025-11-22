@@ -51,8 +51,23 @@ def monitor_backend(backend_pid):
         if not is_process_running(backend_pid):
             print("\n\n  [Monitor] Backend has stopped")
             print("  [Monitor] Auto-shutting down Vite dev server...")
-            # Send SIGTERM to our own process to trigger cleanup
-            os.kill(os.getpid(), signal.SIGTERM)
+
+            # Directly kill the npm process group
+            global npm_process
+            if npm_process:
+                try:
+                    # Kill the entire process group forcefully
+                    os.killpg(os.getpgid(npm_process.pid), signal.SIGKILL)
+                    print("  [Monitor] Vite process killed")
+                except (ProcessLookupError, AttributeError, OSError) as e:
+                    print(f"  [Monitor] Error killing process: {e}")
+                    try:
+                        npm_process.kill()
+                    except:
+                        pass
+
+            # Exit the main process
+            os._exit(0)  # Force exit without cleanup (we already did cleanup above)
             break
 
 def ensure_backend_running():
