@@ -1,7 +1,15 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="modal-overlay" @click.self="handleOverlayClick">
+      <div
+        v-if="modelValue"
+        class="modal-overlay"
+        @click.self="handleOverlayClick"
+        @keydown.esc="close"
+        @keydown.enter="handleEnter"
+        tabindex="-1"
+        ref="overlayRef"
+      >
         <div class="modal-dialog" :class="sizeClass">
           <div class="modal-header">
             <h3>{{ title }}</h3>
@@ -20,6 +28,8 @@
 </template>
 
 <script setup>
+import { ref, computed, watch, nextTick } from 'vue'
+
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -40,8 +50,9 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'close'])
+const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
 
+const overlayRef = ref(null)
 const sizeClass = computed(() => `modal-${props.size}`)
 
 function close() {
@@ -54,13 +65,25 @@ function handleOverlayClick() {
     close()
   }
 }
-</script>
 
-<script>
-import { computed } from 'vue'
-export default {
-  name: 'BaseModal'
+function handleEnter(event) {
+  // Don't trigger if focus is on a textarea
+  if (event.target.tagName === 'TEXTAREA') {
+    return
+  }
+  // Emit confirm event for parent to handle
+  emit('confirm')
 }
+
+// Focus overlay when modal opens for keyboard events
+watch(() => props.modelValue, async (isOpen) => {
+  if (isOpen) {
+    await nextTick()
+    if (overlayRef.value) {
+      overlayRef.value.focus()
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -76,6 +99,7 @@ export default {
   justify-content: center;
   z-index: 1000;
   overflow-y: auto;
+  outline: none;
 }
 
 .modal-dialog {

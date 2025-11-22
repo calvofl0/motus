@@ -4,6 +4,7 @@
     title="Rename"
     size="small"
     @close="handleClose"
+    @confirm="handleConfirm"
   >
     <div class="modal-content">
       <p>Enter new name:</p>
@@ -11,8 +12,6 @@
         ref="inputRef"
         type="text"
         v-model="newName"
-        @keypress.enter="handleConfirm"
-        @keydown.esc="handleClose"
         class="rename-input"
         placeholder="New name..."
       />

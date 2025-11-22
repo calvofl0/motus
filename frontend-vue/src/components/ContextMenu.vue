@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   visible: {
@@ -164,13 +164,6 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleKeyDown)
 })
-</script>
-
-<script>
-import { nextTick } from 'vue'
-export default {
-  name: 'ContextMenu'
-}
 </script>
 
 <style scoped>

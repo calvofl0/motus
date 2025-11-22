@@ -4,6 +4,7 @@
     title="Confirm Delete"
     size="small"
     @close="handleClose"
+    @confirm="handleConfirm"
   >
     <div class="modal-content">
       <p class="warning-text">

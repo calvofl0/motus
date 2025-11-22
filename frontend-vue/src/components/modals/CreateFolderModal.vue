@@ -4,6 +4,7 @@
     title="Create Folder"
     size="small"
     @close="handleClose"
+    @confirm="handleConfirm"
   >
     <div class="modal-content">
       <p>Enter folder name:</p>
@@ -11,8 +12,6 @@
         ref="inputRef"
         type="text"
         v-model="folderName"
-        @keypress.enter="handleConfirm"
-        @keydown.esc="handleClose"
         class="folder-input"
         placeholder="Folder name..."
       />

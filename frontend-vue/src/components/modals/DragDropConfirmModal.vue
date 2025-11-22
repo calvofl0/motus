@@ -4,6 +4,7 @@
     title="Confirm Copy"
     size="medium"
     @close="handleClose"
+    @confirm="handleConfirm"
   >
     <div class="modal-content">
       <p>Copy the following {{ files.length }} file(s)?</p>
@@ -119,9 +120,10 @@ export default {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #e3f2fd;
+  background: #f8f9fa;
   border-radius: 4px;
-  border: 1px solid #90caf9;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #007bff;
 }
 
 .path-row {
@@ -132,7 +134,7 @@ export default {
 
 .path-label {
   font-weight: 600;
-  color: #1976d2;
+  color: #555;
   min-width: 50px;
 }
 
