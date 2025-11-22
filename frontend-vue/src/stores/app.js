@@ -135,6 +135,15 @@ export const useAppStore = defineStore('app', () => {
     state.remote = remote
   }
 
+  function setPaneSelection(pane, selectedIndexes) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.selectedIndexes = selectedIndexes
+  }
+
+  function setLastFocusedPane(pane) {
+    lastFocusedPane.value = pane
+  }
+
   return {
     // State
     currentMode,
@@ -159,6 +168,8 @@ export const useAppStore = defineStore('app', () => {
     clearPaneSelection,
     setPaneFiles,
     setPanePath,
-    setPaneRemote
+    setPaneRemote,
+    setPaneSelection,
+    setLastFocusedPane
   }
 })

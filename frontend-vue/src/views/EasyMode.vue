@@ -49,6 +49,22 @@ function copyToLeft() {
 </script>
 
 <style scoped>
+#easy-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panes-container {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  padding: 15px;
+  overflow: hidden;
+}
+
 .arrow-buttons {
   display: flex;
   flex-direction: column;
