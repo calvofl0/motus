@@ -483,7 +483,7 @@ type = s3
         let maxUploadSize = state.upload.maxSize;
 
         // Initialize modules
-        const uploadManager = new UploadManager(apiCall, {
+        const uploadManager = new UploadManager(apiCall, getAuthToken, {
             onUploadComplete: async (pane) => {
                 await refreshPane(pane);
                 await updateJobs();
@@ -627,7 +627,7 @@ type = s3
                     const remoteName = actionBtn.dataset.remoteName;
 
                     if (action === 'refresh-oauth') {
-                        refreshOAuthToken(remoteName);
+                        oauthManager.refreshToken(remoteName);
                     } else if (action === 'edit') {
                         remoteManager.editRemoteConfig(remoteName);
                     } else if (action === 'delete') {
@@ -2326,7 +2326,7 @@ type = s3
             if (remote.is_oauth && remote.config && remote.config.token === '') {
                 // Wait a moment for the UI to settle, then trigger OAuth refresh
                 setTimeout(() => {
-                    refreshOAuthToken(remoteName);
+                    oauthManager.refreshToken(remoteName);
                 }, 500);
             }
         }

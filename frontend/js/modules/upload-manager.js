@@ -6,8 +6,9 @@
  */
 
 export class UploadManager {
-    constructor(apiCall, callbacks = {}) {
+    constructor(apiCall, getAuthToken, callbacks = {}) {
         this.apiCall = apiCall;
+        this.getAuthToken = getAuthToken;
 
         // Callbacks
         this.onUploadComplete = callbacks.onUploadComplete || (() => {});
@@ -232,7 +233,7 @@ export class UploadManager {
                 });
 
                 xhr.open('POST', '/api/upload');
-                xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+                xhr.setRequestHeader('Authorization', `token ${this.getAuthToken()}`);
 
                 // Wire up abort controller
                 if (this.abortController) {
@@ -284,7 +285,7 @@ export class UploadManager {
                 await fetch(`/api/upload/cleanup/${jobId}`, {
                     method: 'DELETE',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `token ${this.getAuthToken()}`
                     }
                 });
             } catch (cleanupError) {
@@ -368,7 +369,7 @@ export class UploadManager {
                 });
 
                 xhr.open('POST', '/api/upload');
-                xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+                xhr.setRequestHeader('Authorization', `token ${this.getAuthToken()}`);
 
                 // Wire up abort controller
                 if (this.abortController) {
@@ -419,7 +420,7 @@ export class UploadManager {
                     await fetch(`/api/upload/cleanup/${uploadJobId}`, {
                         method: 'DELETE',
                         headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            'Authorization': `token ${this.getAuthToken()}`
                         }
                     });
 
