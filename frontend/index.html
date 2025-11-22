@@ -471,19 +471,8 @@ type = s3
         let showHiddenFiles = state.ui.showHiddenFiles;
         let lastFocusedPane = state.ui.lastFocusedPane;
         let contextMenuState = state.contextMenu;
-        let jobsData = state.jobs.active;
-        let interruptedJobsData = state.jobs.interrupted;
-        let failedJobsData = state.jobs.failed;
-        let jobUpdateInterval = state.jobs.updateInterval;
-        let interruptedJobsInterval = state.jobs.interruptedInterval;
-        let failedJobsInterval = state.jobs.failedInterval;
         let createFolderPane = state.createFolder.pane;
-        let jobPanelManuallyToggled = state.jobs.panelManuallyToggled;
-        let previousJobState = state.jobs.previousState;
-        let trackedJobs = state.jobs.tracked;
         let pendingDragDrop = state.dragDrop.pending;
-        let uploadAbortController = state.upload.abortController;
-        let uploadStartTime = state.upload.startTime;
         let maxUploadSize = state.upload.maxSize;
 
         // Initialize modules
@@ -1098,7 +1087,10 @@ type = s3
             document.getElementById('view-dropdown').classList.add('hidden');
 
             // Save preference to backend
-            savePreferences();
+            savePrefs(apiCall, {
+                view_mode: viewMode,
+                show_hidden_files: showHiddenFiles
+            });
 
             // Re-render both panes
             renderFiles('left');
@@ -1111,19 +1103,14 @@ type = s3
             document.getElementById('view-dropdown').classList.add('hidden');
 
             // Save preference to backend
-            savePreferences();
+            savePrefs(apiCall, {
+                view_mode: viewMode,
+                show_hidden_files: showHiddenFiles
+            });
 
             // Re-render both panes
             renderFiles('left');
             renderFiles('right');
-        }
-
-        // Preferences wrapper functions (now using imported module)
-        async function savePreferences() {
-            await savePrefs(apiCall, {
-                view_mode: viewMode,
-                show_hidden_files: showHiddenFiles
-            });
         }
 
         async function loadPreferences() {
@@ -1141,10 +1128,6 @@ type = s3
         // Helper functions now imported from modules
 
         // File browser wrapper functions (delegate to fileBrowser module)
-        function setSortBy(pane, field) {
-            fileBrowser.setSortBy(pane, field);
-        }
-
         function refreshPane(pane, preserveSelection = false) {
             return fileBrowser.refreshPane(pane, preserveSelection);
         }
@@ -1184,13 +1167,13 @@ type = s3
                         document.getElementById('job-dst').focus();
                     } else if (srcValue && dstValue) {
                         // Both filled, start copy
-                        startCopyJob();
+                        expertModeManager.startCopyJob();
                     }
                 } else if (field === 'dst') {
                     // If in destination field
                     if (srcValue && dstValue) {
                         // Both filled, start copy
-                        startCopyJob();
+                        expertModeManager.startCopyJob();
                     }
                 }
             }
