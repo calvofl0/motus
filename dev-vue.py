@@ -68,7 +68,7 @@ def monitor_backend(backend_pid):
             os._exit(0)
             break
 
-def ensure_backend_running():
+def ensure_backend_running(backend_args=''):
     """Ensure backend is running, start if needed"""
     conn = get_connection_info()
 
@@ -77,12 +77,20 @@ def ensure_backend_running():
         return conn
 
     print("Starting backend...")
+    if backend_args:
+        print(f"  (with args: {backend_args})")
     print("=" * 70)
     print()
 
     # Start backend in background (don't suppress output for debugging)
+    backend_cmd = [sys.executable, 'run.py', '--no-browser']
+    if backend_args:
+        # Split backend_args by spaces, respecting quotes
+        import shlex
+        backend_cmd.extend(shlex.split(backend_args))
+
     backend_process = subprocess.Popen(
-        [sys.executable, 'run.py', '--no-browser'],
+        backend_cmd,
         cwd=Path(__file__).parent
     )
 
@@ -118,6 +126,12 @@ def main():
         default=3000,
         help='Vue dev server port (default: 3000)'
     )
+    parser.add_argument(
+        '--backend-args',
+        type=str,
+        default='',
+        help='Additional arguments to pass to backend (e.g., "--log-level DEBUG --data-dir /tmp/motus")'
+    )
 
     args = parser.parse_args()
 
@@ -128,7 +142,7 @@ def main():
     print()
 
     # Ensure backend is running
-    conn = ensure_backend_running()
+    conn = ensure_backend_running(args.backend_args)
 
     # Set environment variable for Vite proxy
     os.environ['MOTUS_PORT'] = str(conn['port'])
