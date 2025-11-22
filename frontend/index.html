@@ -559,8 +559,8 @@ type = s3
             resolveRelativePath,
             ModalManager
         }, {
-            onRefreshPane: refreshPane,
-            onRenderFiles: renderFiles,
+            onRefreshPane: (pane, preserveSelection = false) => fileBrowser.refreshPane(pane, preserveSelection),
+            onRenderFiles: (pane) => fileBrowser.renderFiles(pane),
             onShowDragDropConfirm: (operation) => {
                 // Store the pending operation
                 pendingDragDrop = operation;
