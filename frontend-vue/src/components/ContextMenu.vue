@@ -4,7 +4,17 @@
       v-if="visible"
       ref="menuRef"
       class="context-menu"
-      :style="{ left: `${position.x}px`, top: `${position.y}px` }"
+      :style="{
+        position: 'fixed',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        background: 'white',
+        border: '1px solid #ccc',
+        borderRadius: '6px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        zIndex: 10000,
+        minWidth: '180px'
+      }"
       @click="handleMenuClick"
     >
       <!-- Create Folder (only when no files selected or on empty space) -->
