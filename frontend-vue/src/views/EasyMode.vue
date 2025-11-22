@@ -104,6 +104,7 @@ function copyToLeft() {
 
 // Context menu functions
 function showContextMenu(pane, event) {
+  console.log('[EasyMode] showContextMenu called', pane, event.clientX, event.clientY)
   const paneState = appStore[`${pane}Pane`]
   contextMenu.value = {
     visible: true,
@@ -111,6 +112,7 @@ function showContextMenu(pane, event) {
     pane,
     selectedCount: paneState.selectedIndexes.length
   }
+  console.log('[EasyMode] contextMenu.value:', contextMenu.value)
 }
 
 function closeContextMenu() {

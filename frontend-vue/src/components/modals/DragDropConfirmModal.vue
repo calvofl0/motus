@@ -102,28 +102,24 @@ export default {
 .file-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
+  padding: 8px 0;
+  margin: 8px 0;
 }
 
 .file-item {
-  padding: 4px 0;
+  padding: 4px 8px;
   font-family: monospace;
   font-size: 13px;
-  color: #333;
+  color: #555;
 }
 
 .path-info {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
-  border-left: 3px solid #007bff;
+  padding: 12px 0;
+  margin-top: 8px;
+  border-top: 1px solid #e9ecef;
 }
 
 .path-row {
