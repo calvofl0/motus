@@ -68,23 +68,49 @@ export function useFileOperations() {
     const { pane, file } = renameData.value
     if (!pane || !file) return
 
+    const trimmedName = newName.trim()
+    if (!trimmedName) {
+      alert('Please enter a name')
+      return
+    }
+
+    // Skip if name hasn't changed
+    if (trimmedName === file.Name) {
+      showRenameModal.value = false
+      return
+    }
+
     try {
       const state = appStore[`${pane}Pane`]
+
+      // Check if destination already exists
+      const existingFile = state.files.find(f => f.Name === trimmedName)
+      if (existingFile) {
+        alert(`A file or folder named "${trimmedName}" already exists in this directory`)
+        return
+      }
+
       const oldPath = state.remote
         ? `${state.remote}:${buildPath(state.path, file.Name)}`
         : buildPath(state.path, file.Name)
 
       const newPath = state.remote
-        ? `${state.remote}:${buildPath(state.path, newName)}`
-        : buildPath(state.path, newName)
+        ? `${state.remote}:${buildPath(state.path, trimmedName)}`
+        : buildPath(state.path, trimmedName)
 
-      await apiCall('/api/files/rename', 'POST', {
-        old_path: oldPath,
-        new_path: newPath
+      // Use move API for rename operation
+      await apiCall('/api/jobs/move', 'POST', {
+        src_path: oldPath,
+        dst_path: newPath
       })
+
+      showRenameModal.value = false
 
       // Refresh pane
       await refreshPane(pane, true)
+
+      // Trigger job update
+      window.dispatchEvent(new CustomEvent('update-jobs'))
     } catch (error) {
       console.error('Rename failed:', error)
       alert(`Failed to rename: ${error.message}`)
@@ -100,19 +126,44 @@ export function useFileOperations() {
   }
 
   /**
+   * Resolve relative path against base path
+   */
+  function resolveRelativePath(basePath, relativePath) {
+    // If relative path starts with /, it's absolute
+    if (relativePath.startsWith('/') || relativePath.startsWith('~')) {
+      return relativePath
+    }
+    // Otherwise, join with base path
+    const base = basePath.endsWith('/') ? basePath : basePath + '/'
+    return base + relativePath
+  }
+
+  /**
    * Confirm create folder
    */
   async function confirmCreateFolder(folderName) {
     const pane = createFolderPane.value
     if (!pane) return
 
+    const trimmedName = folderName.trim()
+    if (!trimmedName) {
+      alert('Please enter a folder name')
+      return
+    }
+
     try {
       const state = appStore[`${pane}Pane`]
+
+      // Support relative paths - resolve against current directory
+      const resolvedPath = resolveRelativePath(state.path, trimmedName)
+
       const path = state.remote
-        ? `${state.remote}:${buildPath(state.path, folderName)}`
-        : buildPath(state.path, folderName)
+        ? `${state.remote}:${resolvedPath}`
+        : resolvedPath
 
       await apiCall('/api/files/mkdir', 'POST', { path })
+
+      showCreateFolderModal.value = false
 
       // Refresh pane
       await refreshPane(pane)
@@ -144,6 +195,9 @@ export function useFileOperations() {
   async function confirmDelete() {
     const { pane, files } = deleteData.value
     if (!pane || files.length === 0) return
+
+    // Close modal immediately for better UX
+    showDeleteModal.value = false
 
     try {
       const state = appStore[`${pane}Pane`]
@@ -197,6 +251,9 @@ export function useFileOperations() {
     const { sourcePane, targetPane, files } = dragDropData.value
     if (!sourcePane || !targetPane || files.length === 0) return
 
+    // Close modal immediately for better UX
+    showDragDropModal.value = false
+
     try {
       const sourceState = appStore[`${sourcePane}Pane`]
       const targetState = appStore[`${targetPane}Pane`]
@@ -220,6 +277,9 @@ export function useFileOperations() {
           copy_links: false
         })
       }
+
+      // Clear source selection
+      appStore.setPaneSelection(sourcePane, [])
 
       // Refresh target pane
       await refreshPane(targetPane)
