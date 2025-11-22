@@ -457,6 +457,7 @@ type = s3
         import { JobManager } from '/js/modules/job-manager.js';
         import { FileBrowser } from '/js/modules/file-browser.js';
         import { FileOperations } from '/js/modules/file-operations.js';
+        import { UIManager } from '/js/modules/ui-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -541,6 +542,16 @@ type = s3
             }
         });
 
+        const uiManager = new UIManager({
+            apiCall,
+            savePrefs,
+            jobManager
+        }, {
+            onRenderFiles: renderFiles,
+            onRefreshPane: refreshPane,
+            onLoadRemotes: loadRemotes
+        });
+
         const fileOperations = new FileOperations({
             apiCall,
             buildPath,
@@ -593,16 +604,24 @@ type = s3
             rightPaneState
         });
 
+        // Initialize uiManager with state references
+        uiManager.init({
+            state,
+            viewMode: { value: viewMode },
+            showHiddenFiles: { value: showHiddenFiles },
+            currentMode: { value: currentMode }
+        });
+
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
         function setupEventListeners() {
             // Header buttons
             document.getElementById('manage-remotes-btn').addEventListener('click', () => remoteManager.open());
-            document.getElementById('view-menu-btn').addEventListener('click', toggleViewMenu);
-            document.getElementById('view-mode-option').addEventListener('click', switchViewMode);
-            document.getElementById('hidden-files-option').addEventListener('click', toggleHiddenFilesOption);
-            document.getElementById('mode-toggle-btn').addEventListener('click', toggleMode);
-            document.getElementById('quit-btn').addEventListener('click', quitServer);
+            document.getElementById('view-menu-btn').addEventListener('click', (e) => uiManager.toggleViewMenu(e));
+            document.getElementById('view-mode-option').addEventListener('click', () => uiManager.switchViewMode());
+            document.getElementById('hidden-files-option').addEventListener('click', () => uiManager.toggleHiddenFilesOption());
+            document.getElementById('mode-toggle-btn').addEventListener('click', () => uiManager.toggleMode());
+            document.getElementById('quit-btn').addEventListener('click', () => uiManager.quitServer());
 
             // Left pane controls
             document.getElementById('left-remote').addEventListener('change', () => onRemoteChange('left'));
@@ -886,10 +905,10 @@ type = s3
                 maxUploadSize = config.max_upload_size || 0;
                 uploadManager.setMaxUploadSize(maxUploadSize);
                 console.log('Max upload size:', maxUploadSize === 0 ? 'unlimited' : config.max_upload_size_formatted);
-                setMode(currentMode);
+                uiManager.setMode(currentMode);
             } catch (e) {
                 console.error('Failed to load config:', e);
-                setMode('easy');
+                uiManager.setMode('easy');
             }
 
             // Load user preferences from backend
@@ -1057,188 +1076,6 @@ type = s3
         });
 
         // View menu toggle
-        function toggleViewMenu(event) {
-            event.stopPropagation();
-            const menu = document.getElementById('view-dropdown');
-            menu.classList.toggle('hidden');
-            updateViewMenuItems();
-        }
-
-        function updateViewMenuItems() {
-            // Update view mode option to show the OPPOSITE of current mode
-            const modeIcon = document.getElementById('view-mode-icon');
-            const modeText = document.getElementById('view-mode-text');
-            if (viewMode === 'grid') {
-                modeIcon.textContent = '☰';
-                modeText.textContent = 'List layout';
-            } else {
-                modeIcon.textContent = '⊞';
-                modeText.textContent = 'Grid layout';
-            }
-
-            // Update hidden files text based on current state
-            const hiddenText = document.getElementById('hidden-files-text');
-            hiddenText.textContent = showHiddenFiles ? "Don't show hidden files" : "Show hidden files";
-        }
-
-        function switchViewMode() {
-            viewMode = viewMode === 'grid' ? 'list' : 'grid';
-            state.ui.viewMode = viewMode;  // Update state for fileBrowser
-            document.getElementById('view-dropdown').classList.add('hidden');
-
-            // Save preference to backend
-            savePrefs(apiCall, {
-                view_mode: viewMode,
-                show_hidden_files: showHiddenFiles
-            });
-
-            // Re-render both panes
-            renderFiles('left');
-            renderFiles('right');
-        }
-
-        function toggleHiddenFilesOption() {
-            showHiddenFiles = !showHiddenFiles;
-            state.ui.showHiddenFiles = showHiddenFiles;  // Update state for fileBrowser
-            document.getElementById('view-dropdown').classList.add('hidden');
-
-            // Save preference to backend
-            savePrefs(apiCall, {
-                view_mode: viewMode,
-                show_hidden_files: showHiddenFiles
-            });
-
-            // Re-render both panes
-            renderFiles('left');
-            renderFiles('right');
-        }
-
-        async function loadPreferences() {
-            const prefs = await loadPrefs(apiCall);
-            if (prefs.view_mode) {
-                viewMode = prefs.view_mode;
-                state.ui.viewMode = prefs.view_mode;
-            }
-            if (prefs.show_hidden_files !== undefined) {
-                showHiddenFiles = prefs.show_hidden_files;
-                state.ui.showHiddenFiles = prefs.show_hidden_files;
-            }
-        }
-
-        // Helper functions now imported from modules
-
-        // File browser wrapper functions (delegate to fileBrowser module)
-        function refreshPane(pane, preserveSelection = false) {
-            return fileBrowser.refreshPane(pane, preserveSelection);
-        }
-
-        function renderFiles(pane) {
-            fileBrowser.renderFiles(pane);
-        }
-
-        // Formatting and API functions now imported from modules
-
-        // ENTER key handlers
-        function handlePathKeypress(event, pane) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                const state = pane === 'left' ? leftPaneState : rightPaneState;
-                const inputPath = document.getElementById(`${pane}-path`).value;
-
-                // Check if path changed
-                if (inputPath !== state.path) {
-                    browsePath(pane);
-                } else {
-                    refreshPane(pane);
-                }
-            }
-        }
-
-        function handleJobPathKeypress(event, field) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                const srcValue = document.getElementById('job-src').value.trim();
-                const dstValue = document.getElementById('job-dst').value.trim();
-
-                if (field === 'src') {
-                    // If in source field
-                    if (srcValue && !dstValue) {
-                        // Move to destination field
-                        document.getElementById('job-dst').focus();
-                    } else if (srcValue && dstValue) {
-                        // Both filled, start copy
-                        expertModeManager.startCopyJob();
-                    }
-                } else if (field === 'dst') {
-                    // If in destination field
-                    if (srcValue && dstValue) {
-                        // Both filled, start copy
-                        expertModeManager.startCopyJob();
-                    }
-                }
-            }
-        }
-
-        // Mode switching
-        function toggleMode() {
-            setMode(currentMode === 'easy' ? 'expert' : 'easy');
-        }
-
-        async function quitServer() {
-            const runningCount = jobManager.getRunningCount();
-            if (runningCount > 0) {
-                const confirmed = confirm(
-                    `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-                    `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
-                    `Are you sure you want to quit?`
-                );
-                if (!confirmed) return;
-            }
-
-            try {
-                const data = await apiCall('/api/shutdown', 'POST');
-
-                // Replace page content with shutdown message
-                document.body.innerHTML = `
-                    <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                        <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
-                        <p style="font-size:18px; color:#666; margin-bottom:30px;">
-                            The Motus server has been shut down gracefully.
-                        </p>
-                        ${data.running_jobs_stopped > 0 ?
-                            `<p style="color:#666; margin-bottom:20px;">
-                                ${data.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
-                                You can resume them next time you start the server.
-                            </p>` : ''}
-                        <p style="color:#999; font-size:14px;">
-                            You can close this window now.
-                        </p>
-                    </div>
-                `;
-            } catch (error) {
-                alert(`Failed to shutdown server: ${error.message}`);
-            }
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            if (mode === 'easy') {
-                document.getElementById('easy-mode').classList.remove('hidden');
-                document.getElementById('expert-mode').classList.add('hidden');
-                document.getElementById('mode-button-text').textContent = 'Expert Mode';
-                if (jobManager.getRunningCount() === 0) {
-                    loadRemotes();
-                    refreshPane('left');
-                    refreshPane('right');
-                    jobManager.start();
-                }
-            } else {
-                document.getElementById('easy-mode').classList.add('hidden');
-                document.getElementById('expert-mode').classList.remove('hidden');
-                document.getElementById('mode-button-text').textContent = 'Easy Mode';
-                jobManager.stop();
-            }
-        }
 
         // Load remotes
         async function loadRemotes() {
