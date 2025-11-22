@@ -458,6 +458,7 @@ type = s3
         import { FileBrowser } from '/js/modules/file-browser.js';
         import { FileOperations } from '/js/modules/file-operations.js';
         import { UIManager } from '/js/modules/ui-manager.js';
+        import { NavigationManager } from '/js/modules/navigation-manager.js';
 
         // Make ModalManager available globally for compatibility
         window.ModalManager = ModalManager;
@@ -479,24 +480,24 @@ type = s3
         // Initialize modules
         const uploadManager = new UploadManager(apiCall, getAuthToken, {
             onUploadComplete: async (pane) => {
-                await refreshPane(pane);
+                await fileBrowser.refreshPane(pane);
                 await jobManager.updateJobs();
             }
         });
 
         const oauthManager = new OAuthManager(apiCall, ModalManager, {
             onTokenRefreshed: async () => {
-                await loadRemotes();
-                await refreshPane('left');
-                await refreshPane('right');
+                await navigationManager.loadRemotes();
+                await fileBrowser.refreshPane('left');
+                await fileBrowser.refreshPane('right');
             }
         });
 
         const remoteManager = new RemoteManager(apiCall, ModalManager, {
             onRemotesChanged: async () => {
-                await loadRemotes();
-                await refreshPane('left');
-                await refreshPane('right');
+                await navigationManager.loadRemotes();
+                await fileBrowser.refreshPane('left');
+                await fileBrowser.refreshPane('right');
             },
             getActivePanes: () => ({
                 left: leftPaneState.remote,
@@ -534,12 +535,19 @@ type = s3
 
                 // Refresh destination pane(s) with selection preservation
                 if (refreshLeft) {
-                    await refreshPane('left', true);
+                    await fileBrowser.refreshPane('left', true);
                 }
                 if (refreshRight) {
-                    await refreshPane('right', true);
+                    await fileBrowser.refreshPane('right', true);
                 }
             }
+        });
+
+        const navigationManager = new NavigationManager({
+            apiCall,
+            expandTildePath
+        }, {
+            onRefreshPane: (pane) => fileBrowser.refreshPane(pane)
         });
 
         const uiManager = new UIManager({
@@ -549,7 +557,7 @@ type = s3
         }, {
             onRenderFiles: (pane) => fileBrowser.renderFiles(pane),
             onRefreshPane: (pane) => fileBrowser.refreshPane(pane),
-            onLoadRemotes: async () => await loadRemotes()
+            onLoadRemotes: async () => await navigationManager.loadRemotes()
         });
 
         const fileOperations = new FileOperations({
@@ -609,6 +617,12 @@ type = s3
             state
         });
 
+        // Initialize navigationManager with state references
+        navigationManager.init({
+            leftPaneState,
+            rightPaneState
+        });
+
         // Initialize
         // Setup all event listeners (proper pattern instead of inline handlers)
         function setupEventListeners() {
@@ -621,9 +635,9 @@ type = s3
             document.getElementById('quit-btn').addEventListener('click', () => uiManager.quitServer());
 
             // Left pane controls
-            document.getElementById('left-remote').addEventListener('change', () => onRemoteChange('left'));
-            document.getElementById('left-path').addEventListener('keypress', (e) => handlePathKeypress(e, 'left'));
-            document.getElementById('left-refresh-btn').addEventListener('click', () => refreshPane('left', true));
+            document.getElementById('left-remote').addEventListener('change', () => navigationManager.onRemoteChange('left'));
+            document.getElementById('left-path').addEventListener('keypress', (e) => navigationManager.handlePathKeypress(e, 'left'));
+            document.getElementById('left-refresh-btn').addEventListener('click', () => fileBrowser.refreshPane('left', true));
             document.getElementById('left-refresh-btn').addEventListener('mouseover', function() {
                 this.style.transform = 'scale(1.2)';
             });
@@ -632,9 +646,9 @@ type = s3
             });
 
             // Right pane controls
-            document.getElementById('right-remote').addEventListener('change', () => onRemoteChange('right'));
-            document.getElementById('right-path').addEventListener('keypress', (e) => handlePathKeypress(e, 'right'));
-            document.getElementById('right-refresh-btn').addEventListener('click', () => refreshPane('right', true));
+            document.getElementById('right-remote').addEventListener('change', () => navigationManager.onRemoteChange('right'));
+            document.getElementById('right-path').addEventListener('keypress', (e) => navigationManager.handlePathKeypress(e, 'right'));
+            document.getElementById('right-refresh-btn').addEventListener('click', () => fileBrowser.refreshPane('right', true));
             document.getElementById('right-refresh-btn').addEventListener('mouseover', function() {
                 this.style.transform = 'scale(1.2)';
             });
@@ -921,7 +935,7 @@ type = s3
 
             // Load remotes for easy mode
             if (currentMode === 'easy') {
-                await loadRemotes();
+                await navigationManager.loadRemotes();
                 // If using Local Filesystem, start in home directory
                 if (leftPaneState.remote === '') {
                     leftPaneState.path = '~/';
@@ -931,8 +945,8 @@ type = s3
                     rightPaneState.path = '~/';
                     document.getElementById('right-path').value = '~/';
                 }
-                await refreshPane('left');
-                await refreshPane('right');
+                await fileBrowser.refreshPane('left');
+                await fileBrowser.refreshPane('right');
                 jobManager.start();  // Start all job update intervals
             }
 
@@ -956,9 +970,9 @@ type = s3
                         // Clear selection when right-clicking on empty space
                         if (state.selectedIndexes.length > 0) {
                             state.selectedIndexes = [];
-                            renderFiles(pane);
+                            fileBrowser.renderFiles(pane);
                         }
-                        showContextMenu(e, pane);
+                        fileOperations.showContextMenu(e, pane, { value: lastFocusedPane });
                     }
                 });
             });
@@ -977,15 +991,15 @@ type = s3
                 if (e.key === 'Escape') {
                     // Close modals
                     if (renameModal.style.display === 'flex') {
-                        closeRenameModal();
+                        fileOperations.closeRenameModal();
                         return;
                     }
                     if (deleteModal.style.display === 'flex') {
-                        closeDeleteConfirmModal();
+                        fileOperations.closeDeleteConfirmModal();
                         return;
                     }
                     if (createFolderModal.style.display === 'flex') {
-                        closeCreateFolderModal();
+                        fileOperations.closeCreateFolderModal();
                         return;
                     }
                     if (dragDropModal.style.display === 'flex') {
@@ -994,12 +1008,12 @@ type = s3
                     }
                     if (editRemoteModal.style.display === 'flex') {
                         e.stopImmediatePropagation(); // Prevent other handlers from running
-                        closeEditRemoteConfigModal();
+                        remoteManager.closeEditRemoteConfigModal();
                         return;
                     }
                     if (viewRemoteModal.style.display === 'flex') {
                         e.stopImmediatePropagation(); // Prevent other handlers from running
-                        closeViewRemoteConfigModal();
+                        remoteManager.closeViewRemoteConfigModal();
                         return;
                     }
                     // Close menus
@@ -1068,88 +1082,17 @@ type = s3
                 lastFocusedPane = 'left';
                 if (e.target.id === 'left-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
                     leftPaneState.selectedIndexes = [];
-                    renderFiles('left');
+                    fileBrowser.renderFiles('left');
                 }
             });
             document.getElementById('right-files').addEventListener('click', (e) => {
                 lastFocusedPane = 'right';
                 if (e.target.id === 'right-files' || e.target.classList.contains('file-grid') || e.target.classList.contains('file-list')) {
                     rightPaneState.selectedIndexes = [];
-                    renderFiles('right');
+                    fileBrowser.renderFiles('right');
                 }
             });
         });
-
-        // View menu toggle
-
-        // Load remotes
-        async function loadRemotes() {
-            try {
-                const data = await apiCall('/api/remotes');
-                const leftSelect = document.getElementById('left-remote');
-                const rightSelect = document.getElementById('right-remote');
-
-                // Clear existing options except first
-                leftSelect.innerHTML = '<option value="">Local Filesystem</option>';
-                rightSelect.innerHTML = '<option value="">Local Filesystem</option>';
-
-                data.remotes.forEach(remote => {
-                    leftSelect.innerHTML += `<option value="${remote.name}">${remote.name}</option>`;
-                    rightSelect.innerHTML += `<option value="${remote.name}">${remote.name}</option>`;
-                });
-            } catch (error) {
-                console.error('Failed to load remotes:', error);
-            }
-        }
-
-        // Remote change handler
-        let isReverting = false;
-
-        async function onRemoteChange(pane) {
-            // Prevent recursion during revert
-            if (isReverting) {
-                isReverting = false;
-                return;
-            }
-
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-            const select = document.getElementById(`${pane}-remote`);
-            const pathInput = document.getElementById(`${pane}-path`);
-            const oldRemote = state.remote;
-            const oldPath = state.path;
-            const newRemote = select.value;
-
-            // When switching to Local Filesystem, go to home
-            const newPath = (newRemote === '') ? '~/' : '/';
-
-            state.remote = newRemote;
-            state.path = newPath;
-            pathInput.value = newPath;
-
-            try {
-                await refreshPane(pane);
-            } catch (error) {
-                // Revert to old remote and path on error
-                isReverting = true;
-                state.remote = oldRemote;
-                state.path = oldPath;
-                select.value = oldRemote;
-                pathInput.value = oldPath;
-
-                alert(`Failed to access remote: ${error.message}`);
-            }
-        }
-
-        // Browse path
-        function browsePath(pane) {
-            const state = pane === 'left' ? leftPaneState : rightPaneState;
-            let path = document.getElementById(`${pane}-path`).value;
-            // Expand tilde
-            path = expandTildePath(path);
-            state.path = path;
-            document.getElementById(`${pane}-path`).value = path;
-            refreshPane(pane);
-        }
 
         // Drag-drop confirmation modal
         function showDragDropConfirmModal(fileNames, sourcePath, destPath) {
@@ -1213,7 +1156,7 @@ type = s3
             }
 
             // Refresh target pane and update jobs
-            refreshPane(targetPane);
+            fileBrowser.refreshPane(targetPane);
             jobManager.updateJobs();
         }
 
