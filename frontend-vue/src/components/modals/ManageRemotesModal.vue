@@ -7,7 +7,7 @@
   >
     <template #header>
       <span v-if="currentStep === 1">🔧 Manage Remotes</span>
-      <span v-else-if="currentStep === 2">📋 Select Template</span>
+      <span v-else-if="currentStep === 2">📋 Add Remote</span>
       <span v-else-if="currentStep === 3">⚙️ Configure Remote</span>
     </template>
 
@@ -150,10 +150,6 @@
       <!-- Step 1 Footer -->
       <template v-if="currentStep === 1">
         <button
-          @click="showCustomRemoteForm"
-          style="background: #6c757d; margin-right: auto;"
-        >Custom Remote</button>
-        <button
           v-if="templatesAvailable"
           @click="showTemplateSelection"
           style="background: #28a745;"
@@ -162,6 +158,10 @@
 
       <!-- Step 2 Footer -->
       <template v-else-if="currentStep === 2">
+        <button
+          @click="showCustomRemoteForm"
+          style="background: #6c757d; margin-right: auto;"
+        >Custom Remote</button>
         <button @click="showRemotesList">Back</button>
         <button
           @click="showRemoteForm"
@@ -186,7 +186,6 @@
   <BaseModal
     v-model="showCustomConfigModal"
     size="medium"
-    @keydown.esc="showCustomConfigModal = false"
   >
     <template #header>⚙️ Custom Remote Configuration</template>
     <template #body>
@@ -212,7 +211,6 @@
   <BaseModal
     v-model="showViewConfigModal"
     size="medium"
-    @keydown.esc="showViewConfigModal = false"
   >
     <template #header>📄 Remote Configuration</template>
     <template #body>
@@ -249,7 +247,6 @@
   <BaseModal
     v-model="showEditConfigModal"
     size="medium"
-    @keydown.esc="showEditConfigModal = false"
   >
     <template #header>✏️ Edit Remote Configuration</template>
     <template #body>
@@ -474,7 +471,7 @@ async function createRemote() {
 // Create custom remote
 async function createCustomRemote() {
   try {
-    await apiCall('/api/remotes', 'POST', {
+    await apiCall('/api/remotes/raw', 'POST', {
       raw_config: customConfig.value
     })
 

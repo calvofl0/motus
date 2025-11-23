@@ -5,7 +5,7 @@
         v-if="modelValue"
         class="modal-overlay"
         @click.self="handleOverlayClick"
-        @keydown.esc="close"
+        @keydown.esc.stop="close"
         @keydown.enter="handleEnter"
         tabindex="-1"
         ref="overlayRef"
@@ -77,20 +77,13 @@ function handleEnter(event) {
   emit('confirm')
 }
 
-// Focus first input or overlay when modal opens
+// Focus overlay when modal opens to capture keyboard events
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     await nextTick()
     if (overlayRef.value) {
-      // Check if there's an input field to focus
-      const firstInput = overlayRef.value.querySelector('input, textarea')
-      if (firstInput) {
-        // Don't focus overlay - let the child modal handle input focus
-        // Just make overlay focusable for keyboard events
-      } else {
-        // No inputs, focus overlay for keyboard events
-        overlayRef.value.focus()
-      }
+      // Always focus overlay to capture ESC and other keyboard events
+      overlayRef.value.focus()
     }
   }
 })
