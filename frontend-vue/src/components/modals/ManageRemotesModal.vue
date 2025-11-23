@@ -292,6 +292,12 @@
     :remote-name="oauthRemoteName"
     @token-refreshed="handleOAuthRefreshed"
   />
+
+  <!-- Custom Remote Method Selection Modal -->
+  <CustomRemoteMethodModal
+    v-model="showCustomMethodModal"
+    @method-selected="handleCustomMethodSelected"
+  />
 </template>
 
 <script setup>
@@ -300,6 +306,7 @@ import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
+import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
 
 const appStore = useAppStore()
 
@@ -319,6 +326,7 @@ const remoteNameInput = ref(null)
 const fieldInputs = ref([])
 
 // Modals
+const showCustomMethodModal = ref(false)
 const showCustomConfigModal = ref(false)
 const showViewConfigModal = ref(false)
 const currentViewedRemote = ref(null)
@@ -382,10 +390,10 @@ watch(currentStep, async (newStep) => {
 })
 
 // Watch child modals closing to refocus parent modal
-watch([showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([custom, view, edit, oauth], [prevCustom, prevView, prevEdit, prevOAuth]) => {
+watch([showCustomMethodModal, showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([method, custom, view, edit, oauth], [prevMethod, prevCustom, prevView, prevEdit, prevOAuth]) => {
   // If any child modal just closed (was true, now false) and main modal is still open
   if (appStore.showManageRemotesModal) {
-    if ((prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
+    if ((prevMethod && !method) || (prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
       // Wait for DOM update, then refocus main modal overlay
       await nextTick()
       const mainOverlay = document.querySelector('.modal-overlay')
@@ -459,10 +467,24 @@ function isActiveRemote(remoteName) {
   return appStore.leftPane.remote === remoteName || appStore.rightPane.remote === remoteName
 }
 
-// Show custom remote form
+// Show custom remote method selection
 function showCustomRemoteForm() {
-  customConfig.value = ''
-  showCustomConfigModal.value = true
+  // Exit wizard and return to main view
+  showRemotesList()
+  // Open method selection modal
+  showCustomMethodModal.value = true
+}
+
+// Handle custom method selection
+function handleCustomMethodSelected(method) {
+  if (method === 'manual') {
+    // Open manual configuration modal
+    customConfig.value = ''
+    showCustomConfigModal.value = true
+  } else if (method === 'wizard') {
+    // Show not implemented message for now
+    alert('Custom remote wizard: Not implemented yet')
+  }
 }
 
 // Start the wizard (fresh start)
