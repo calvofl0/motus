@@ -174,7 +174,7 @@
       <template v-if="currentStep === 1">
         <button
           v-if="templatesAvailable"
-          @click="showTemplateSelection"
+          @click="startWizard"
           style="background: #28a745;"
         >+ Add Remote</button>
       </template>
@@ -465,23 +465,40 @@ function showCustomRemoteForm() {
   showCustomConfigModal.value = true
 }
 
-// Show template selection
-function showTemplateSelection() {
-  currentStep.value = 2
+// Start the wizard (fresh start)
+function startWizard() {
+  // Clear all wizard state for a fresh start
   selectedTemplate.value = null
   formValues.value = {}
+  remoteName.value = ''
+  currentStep.value = 2
 }
 
-// Show remotes list
+// Show template selection (wizard step 1) - used when going back from step 3
+function showTemplateSelection() {
+  // Just go to step 2, don't clear any state - preserve it for navigation
+  currentStep.value = 2
+}
+
+// Show remotes list (exit wizard)
 function showRemotesList() {
+  // Going back to main view - clear wizard state
   currentStep.value = 1
   selectedTemplate.value = null
   formValues.value = {}
   remoteName.value = ''
 }
 
-// Show remote form
+// Show remote form (wizard step 2)
 function showRemoteForm() {
+  // Initialize form values for selected template if not already done
+  if (selectedTemplate.value && Object.keys(formValues.value).length === 0) {
+    const initialValues = {}
+    for (const field of selectedTemplate.value.fields) {
+      initialValues[field.key] = ''
+    }
+    formValues.value = initialValues
+  }
   currentStep.value = 3
 }
 
@@ -489,12 +506,22 @@ function showRemoteForm() {
 function selectTemplate(templateName) {
   const newTemplate = templates.value.find(t => t.name === templateName)
 
-  // Only clear form if selecting a different template
+  // If selecting a different template, clear the form values
   if (selectedTemplate.value?.name !== newTemplate?.name) {
     selectedTemplate.value = newTemplate
-    // Clear form values when changing templates
-    formValues.value = {}
+
+    // Initialize form values for new template
+    const initialValues = {}
+    if (newTemplate?.fields) {
+      for (const field of newTemplate.fields) {
+        initialValues[field.key] = ''
+      }
+    }
+    formValues.value = initialValues
     remoteName.value = ''
+  } else {
+    // Same template selected, just ensure it's set
+    selectedTemplate.value = newTemplate
   }
 }
 
