@@ -298,6 +298,12 @@
     v-model="showCustomMethodModal"
     @method-selected="handleCustomMethodSelected"
   />
+
+  <!-- Custom Remote Wizard Modal -->
+  <CustomRemoteWizardModal
+    v-model="showCustomWizardModal"
+    @remote-created="handleCustomRemoteCreated"
+  />
 </template>
 
 <script setup>
@@ -307,6 +313,7 @@ import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
+import CustomRemoteWizardModal from './CustomRemoteWizardModal.vue'
 
 const appStore = useAppStore()
 
@@ -327,6 +334,7 @@ const fieldInputs = ref([])
 
 // Modals
 const showCustomMethodModal = ref(false)
+const showCustomWizardModal = ref(false)
 const showCustomConfigModal = ref(false)
 const showViewConfigModal = ref(false)
 const currentViewedRemote = ref(null)
@@ -390,10 +398,10 @@ watch(currentStep, async (newStep) => {
 })
 
 // Watch child modals closing to refocus parent modal
-watch([showCustomMethodModal, showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([method, custom, view, edit, oauth], [prevMethod, prevCustom, prevView, prevEdit, prevOAuth]) => {
+watch([showCustomMethodModal, showCustomWizardModal, showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([method, wizard, custom, view, edit, oauth], [prevMethod, prevWizard, prevCustom, prevView, prevEdit, prevOAuth]) => {
   // If any child modal just closed (was true, now false) and main modal is still open
   if (appStore.showManageRemotesModal) {
-    if ((prevMethod && !method) || (prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
+    if ((prevMethod && !method) || (prevWizard && !wizard) || (prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
       // Wait for DOM update, then refocus main modal overlay
       await nextTick()
       const mainOverlay = document.querySelector('.modal-overlay')
@@ -482,9 +490,16 @@ function handleCustomMethodSelected(method) {
     customConfig.value = ''
     showCustomConfigModal.value = true
   } else if (method === 'wizard') {
-    // Show not implemented message for now
-    alert('Custom remote wizard: Not implemented yet')
+    // Open wizard modal
+    showCustomWizardModal.value = true
   }
+}
+
+// Handle custom remote creation completion
+async function handleCustomRemoteCreated(remoteName) {
+  // Reload remotes list
+  await loadRemotesList()
+  console.log(`Custom remote '${remoteName}' created successfully`)
 }
 
 // Start the wizard (fresh start)

@@ -10,6 +10,7 @@ from ..auth import token_required
 from ..rclone.rclone_config import RcloneConfig, RemoteTemplate
 from ..rclone.exceptions import RcloneException
 from ..rclone.oauth import OAuthRefreshManager, is_oauth_remote
+from ..rclone.custom_remote import CustomRemoteCreationManager
 
 remotes_bp = Blueprint('remotes', __name__)
 
@@ -17,6 +18,7 @@ remotes_bp = Blueprint('remotes', __name__)
 rclone_config = None
 remote_template = None
 oauth_manager = None
+custom_remote_manager = None
 
 
 def init_remote_management(config_file: str, template_file: str = None, rclone_path: str = None):
@@ -28,7 +30,7 @@ def init_remote_management(config_file: str, template_file: str = None, rclone_p
         template_file: Optional path to remote templates file
         rclone_path: Path to rclone executable (for OAuth operations)
     """
-    global rclone_config, remote_template, oauth_manager
+    global rclone_config, remote_template, oauth_manager, custom_remote_manager
 
     rclone_config = RcloneConfig(config_file)
 
@@ -44,6 +46,10 @@ def init_remote_management(config_file: str, template_file: str = None, rclone_p
     if rclone_path:
         oauth_manager = OAuthRefreshManager(rclone_path, config_file)
         logging.info("OAuth refresh manager initialized")
+
+        # Initialize custom remote creation manager
+        custom_remote_manager = CustomRemoteCreationManager(rclone_path, config_file)
+        logging.info("Custom remote creation manager initialized")
 
 
 @remotes_bp.route('/api/remotes', methods=['GET'])
@@ -447,6 +453,163 @@ def submit_oauth_token(remote_name):
 
     except Exception as e:
         logging.error(f"OAuth token submission error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/providers', methods=['GET'])
+@token_required
+def list_providers():
+    """
+    List available remote providers from rclone
+
+    Response:
+    {
+        "providers": [
+            {"name": "s3", "description": "Amazon S3"},
+            {"name": "drive", "description": "Google Drive"},
+            ...
+        ],
+        "count": 50
+    }
+    """
+    try:
+        if not custom_remote_manager:
+            return jsonify({'error': 'Custom remote manager not initialized'}), 500
+
+        providers = custom_remote_manager.get_providers()
+
+        return jsonify({
+            'providers': providers,
+            'count': len(providers),
+        })
+
+    except Exception as e:
+        logging.error(f"List providers error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/custom/start', methods=['POST'])
+@token_required
+def start_custom_remote():
+    """
+    Start creating a custom remote with given name and type
+
+    Request JSON:
+    {
+        "name": "my_remote",
+        "type": "s3"
+    }
+
+    Response:
+    {
+        "status": "needs_input" | "complete" | "error",
+        "question": {...},  // if needs_input
+        "session_id": "my_remote",  // if needs_input
+        "message": "Status or error message"
+    }
+    """
+    try:
+        if not custom_remote_manager:
+            return jsonify({'error': 'Custom remote manager not initialized'}), 500
+
+        data = request.get_json()
+        if not data or 'name' not in data or 'type' not in data:
+            return jsonify({'error': 'Missing required fields: name and type'}), 400
+
+        remote_name = data['name']
+        remote_type = data['type']
+
+        # Validate remote name (alphanumeric, underscore, hyphen)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', remote_name):
+            return jsonify({'error': 'Invalid remote name. Use only letters, numbers, underscores, and hyphens.'}), 400
+
+        # Start creation
+        result = custom_remote_manager.start_creation(remote_name, remote_type)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logging.error(f"Start custom remote error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/custom/continue', methods=['POST'])
+@token_required
+def continue_custom_remote():
+    """
+    Continue the custom remote creation flow with an answer
+
+    Request JSON:
+    {
+        "session_id": "my_remote",
+        "answer": "user's answer"
+    }
+
+    Response:
+    {
+        "status": "needs_input" | "complete" | "error",
+        "question": {...},  // if needs_input
+        "session_id": "my_remote",  // if needs_input
+        "message": "Status or error message"
+    }
+    """
+    try:
+        if not custom_remote_manager:
+            return jsonify({'error': 'Custom remote manager not initialized'}), 500
+
+        data = request.get_json()
+        if not data or 'session_id' not in data or 'answer' not in data:
+            return jsonify({'error': 'Missing required fields: session_id and answer'}), 400
+
+        session_id = data['session_id']
+        answer = data['answer']
+
+        # Continue creation
+        result = custom_remote_manager.continue_creation(session_id, answer)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logging.error(f"Continue custom remote error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@remotes_bp.route('/api/remotes/custom/cancel', methods=['POST'])
+@token_required
+def cancel_custom_remote():
+    """
+    Cancel an active custom remote creation session
+
+    Request JSON:
+    {
+        "session_id": "my_remote"
+    }
+
+    Response:
+    {
+        "message": "Session cancelled"
+    }
+    """
+    try:
+        if not custom_remote_manager:
+            return jsonify({'error': 'Custom remote manager not initialized'}), 500
+
+        data = request.get_json()
+        if not data or 'session_id' not in data:
+            return jsonify({'error': 'Missing required field: session_id'}), 400
+
+        session_id = data['session_id']
+
+        # Cancel session
+        custom_remote_manager.cancel_creation(session_id)
+
+        return jsonify({
+            'message': 'Session cancelled'
+        })
+
+    except Exception as e:
+        logging.error(f"Cancel custom remote error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
