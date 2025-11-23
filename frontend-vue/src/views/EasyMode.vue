@@ -1,5 +1,12 @@
 <template>
   <div id="easy-mode">
+    <!-- Toolbar -->
+    <div class="easy-mode-toolbar">
+      <button @click="showManageRemotes = true" class="toolbar-btn" title="Manage Remotes">
+        🔧 Manage Remotes
+      </button>
+    </div>
+
     <div class="panes-container">
       <!-- Left Pane -->
       <FilePane pane="left" ref="leftPaneRef" />
@@ -52,6 +59,12 @@
       @cancel="upload.cancelUpload"
     />
 
+    <ManageRemotesModal
+      v-model="showManageRemotes"
+      :active-remotes="activeRemotes"
+      @remotes-changed="handleRemotesChanged"
+    />
+
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
@@ -76,6 +89,7 @@ import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
+import ManageRemotesModal from '../components/modals/ManageRemotesModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 
 const appStore = useAppStore()
@@ -85,6 +99,9 @@ const upload = useUpload()
 // Refs to FilePane components
 const leftPaneRef = ref(null)
 const rightPaneRef = ref(null)
+
+// Manage Remotes state
+const showManageRemotes = ref(false)
 
 // Context menu state - using separate refs for reliable reactivity
 const contextMenuVisible = ref(false)
@@ -101,6 +118,11 @@ const canCopyLeft = computed(() =>
   appStore.rightPane.selectedIndexes.length > 0
 )
 
+const activeRemotes = computed(() => ({
+  left: appStore.leftPane.remote,
+  right: appStore.rightPane.remote
+}))
+
 // Copy functions
 function copyToRight() {
   if (!canCopyRight.value) return
@@ -110,6 +132,17 @@ function copyToRight() {
 function copyToLeft() {
   if (!canCopyLeft.value) return
   fileOps.copyToPane('right', 'left')
+}
+
+// Manage Remotes functions
+async function handleRemotesChanged() {
+  // Refresh both panes when remotes are changed
+  if (leftPaneRef.value) {
+    await leftPaneRef.value.refresh()
+  }
+  if (rightPaneRef.value) {
+    await rightPaneRef.value.refresh()
+  }
 }
 
 // Context menu functions
@@ -217,6 +250,29 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.easy-mode-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.toolbar-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.toolbar-btn:hover {
+  background: #0056b3;
 }
 
 .panes-container {
