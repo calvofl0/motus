@@ -457,6 +457,9 @@ async function getJobStatus() {
     return
   }
 
+  // Stop watching if currently watching
+  stopWatching()
+
   try {
     const job = await apiCall(`/api/jobs/${statusJobId.value}`)
     const output = `
@@ -541,9 +544,9 @@ function stopWatching() {
   if (eventSource) {
     eventSource.close()
     eventSource = null
-  }
-  if (isWatching.value) {
-    statusOutput.value += '\n\n[Watching stopped by user]'
+    if (isWatching.value) {
+      statusOutput.value += '\n\n[Watching stopped by user]'
+    }
   }
   isWatching.value = false
 }
@@ -556,6 +559,9 @@ async function showJobLog() {
     statusOutput.value = 'Error: Please enter a job ID'
     return
   }
+
+  // Stop watching if currently watching
+  stopWatching()
 
   try {
     const data = await apiCall(`/api/jobs/${statusJobId.value}/log`)
@@ -574,6 +580,9 @@ async function resumeJob() {
     statusOutput.value = 'Error: Please enter a job ID'
     return
   }
+
+  // Stop watching if currently watching
+  stopWatching()
 
   try {
     const data = await apiCall(`/api/jobs/${statusJobId.value}/resume`, 'POST')
@@ -598,6 +607,9 @@ async function stopJob() {
     statusOutput.value = 'Error: Please enter a job ID'
     return
   }
+
+  // Stop watching if currently watching
+  stopWatching()
 
   try {
     await apiCall(`/api/jobs/${statusJobId.value}/stop`, 'POST')

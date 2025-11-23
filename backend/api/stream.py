@@ -55,9 +55,14 @@ def stream_job_progress(job_id):
                     error_text = rclone.job_error_text(job_id)
                     exit_status = rclone.job_exitstatus(job_id)
 
+                    # Get current job status from database
+                    job = db.get_job(job_id)
+                    current_status = job.get('status') if job else 'unknown'
+
                     # Prepare event data
                     event_data = {
                         'job_id': job_id,
+                        'status': current_status,
                         'progress': progress,
                         'text': text,
                         'error_text': error_text,
@@ -79,11 +84,21 @@ def stream_job_progress(job_id):
                         )
                         break
                     else:
-                        db.update_job(
-                            job_id=job_id,
-                            status='running',
-                            progress=progress,
-                        )
+                        # Only update status to 'running' if job is actually running
+                        # Don't change status for stopped/aborted jobs
+                        current_status = job.get('status')
+                        if current_status in ('running', 'pending'):
+                            db.update_job(
+                                job_id=job_id,
+                                status='running',
+                                progress=progress,
+                            )
+                        else:
+                            # Job is stopped/aborted, just update progress without changing status
+                            db.update_job(
+                                job_id=job_id,
+                                progress=progress,
+                            )
 
                     # Wait before next update
                     time.sleep(2)
