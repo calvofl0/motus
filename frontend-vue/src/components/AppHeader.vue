@@ -82,26 +82,49 @@ function toggleMode() {
 }
 
 async function quitServer() {
-  // TODO: Check running jobs
-  if (confirm('Are you sure you want to quit the server?')) {
-    try {
-      await apiCall('/api/shutdown', 'POST')
+  try {
+    // Check for running jobs
+    const jobsData = await apiCall('/api/jobs?status=running')
+    const runningCount = jobsData.jobs ? jobsData.jobs.length : 0
 
-      document.body.innerHTML = `
-        <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
-          <p style="font-size:18px; color:#666; margin-bottom:30px;">
-            The Motus server has been shut down gracefully.
-          </p>
-          <p style="color:#999; font-size:14px;">
-            You can close this window now.
-          </p>
-        </div>
-      `
-    } catch (error) {
-      console.error('[Quit] Shutdown failed:', error)
-      alert(`Failed to shutdown server: ${error.message}`)
+    // Show confirmation with appropriate message
+    let confirmMessage = 'Are you sure you want to quit the server?'
+    if (runningCount > 0) {
+      confirmMessage = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
+        `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
+        `Are you sure you want to quit?`
     }
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    // Shutdown server
+    const shutdownData = await apiCall('/api/shutdown', 'POST')
+
+    // Show success message
+    const jobsStoppedMessage = shutdownData.running_jobs_stopped > 0
+      ? `<p style="color:#666; margin-bottom:20px;">
+          ${shutdownData.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
+          You can resume them next time you start the server.
+        </p>`
+      : ''
+
+    document.body.innerHTML = `
+      <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
+        <p style="font-size:18px; color:#666; margin-bottom:30px;">
+          The Motus server has been shut down gracefully.
+        </p>
+        ${jobsStoppedMessage}
+        <p style="color:#999; font-size:14px;">
+          You can close this window now.
+        </p>
+      </div>
+    `
+  } catch (error) {
+    console.error('[Quit] Shutdown failed:', error)
+    alert(`Failed to shutdown server: ${error.message}`)
   }
 }
 
