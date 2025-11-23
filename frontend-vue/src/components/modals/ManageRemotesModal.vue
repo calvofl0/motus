@@ -40,8 +40,17 @@
                 <button
                   v-if="remote.is_oauth"
                   @click.stop="refreshOAuth(remote.name)"
-                  style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;"
-                  title="Refresh OAuth token"
+                  :disabled="isActiveRemote(remote.name)"
+                  :style="{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '18px',
+                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
+                    color: isActiveRemote(remote.name) ? '#ccc' : '#28a745',
+                    padding: '4px 8px',
+                    marginRight: '4px'
+                  }"
+                  :title="isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token'"
                 >↻</button>
                 <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
 
@@ -113,17 +122,19 @@
             <div>
               <label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>
               <input
+                ref="remoteNameInput"
                 v-model="remoteName"
                 type="text"
                 placeholder="Enter remote name"
                 pattern="[a-zA-Z0-9_-]+"
                 style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                @keydown.enter="handleFieldEnter('remoteName')"
               />
               <small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>
             </div>
 
             <!-- Template fields -->
-            <div v-for="field in selectedTemplate.fields" :key="field.key">
+            <div v-for="(field, index) in selectedTemplate.fields" :key="field.key">
               <label style="display: block; margin-bottom: 4px; font-weight: 500;">
                 {{ field.label }}
                 <span v-if="field.help" class="help-icon" style="display: inline-block; cursor: help; position: relative; margin-left: 4px;">
@@ -136,10 +147,12 @@
               </label>
               <div style="display: flex; gap: 8px; align-items: flex-start;">
                 <input
+                  :ref="el => fieldInputs[index] = el"
                   v-model="formValues[field.key]"
                   :type="isSecretField(field) ? 'password' : 'text'"
                   :placeholder="`Enter ${field.label}`"
                   style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                  @keydown.enter="handleFieldEnter(field.key)"
                 />
                 <button
                   v-if="isTokenField(field) && !formValues[field.key]?.trim()"
@@ -172,7 +185,7 @@
           @click="showCustomRemoteForm"
           style="background: #6c757d; margin-right: auto;"
         >Custom Remote</button>
-        <button @click="showRemotesList">Back</button>
+        <button @click="showRemotesList">Cancel</button>
         <button
           @click="showRemoteForm"
           :disabled="!selectedTemplate"
@@ -300,6 +313,10 @@ const selectedTemplate = ref(null)
 const remoteName = ref('')
 const formValues = ref({})
 const customConfig = ref('')
+
+// Input refs for ENTER key navigation
+const remoteNameInput = ref(null)
+const fieldInputs = ref([])
 
 // Modals
 const showCustomConfigModal = ref(false)
@@ -470,7 +487,59 @@ function showRemoteForm() {
 
 // Select template
 function selectTemplate(templateName) {
-  selectedTemplate.value = templates.value.find(t => t.name === templateName)
+  const newTemplate = templates.value.find(t => t.name === templateName)
+
+  // Only clear form if selecting a different template
+  if (selectedTemplate.value?.name !== newTemplate?.name) {
+    selectedTemplate.value = newTemplate
+    // Clear form values when changing templates
+    formValues.value = {}
+    remoteName.value = ''
+  }
+}
+
+// Handle ENTER key in fields - move to next empty field or create if all filled
+function handleFieldEnter(currentFieldKey) {
+  // Check remote name first
+  if (currentFieldKey === 'remoteName') {
+    if (!remoteName.value.trim()) return
+
+    // Find first empty field
+    if (selectedTemplate.value?.fields) {
+      const firstEmptyIndex = selectedTemplate.value.fields.findIndex(f => !formValues.value[f.key]?.trim())
+      if (firstEmptyIndex >= 0 && fieldInputs.value[firstEmptyIndex]) {
+        fieldInputs.value[firstEmptyIndex].focus()
+        return
+      }
+    }
+
+    // All fields filled, create remote
+    if (isFormValid.value) {
+      createRemote()
+    }
+    return
+  }
+
+  // For template fields, find next empty field
+  const fields = selectedTemplate.value?.fields || []
+  const currentIndex = fields.findIndex(f => f.key === currentFieldKey)
+
+  if (currentIndex >= 0) {
+    // Look for next empty field
+    for (let i = currentIndex + 1; i < fields.length; i++) {
+      if (!formValues.value[fields[i].key]?.trim()) {
+        if (fieldInputs.value[i]) {
+          fieldInputs.value[i].focus()
+        }
+        return
+      }
+    }
+
+    // No more empty fields, create remote if valid
+    if (isFormValid.value) {
+      createRemote()
+    }
+  }
 }
 
 // Is secret field
@@ -495,14 +564,14 @@ function isTokenField(field) {
 // Create remote from template
 async function createRemote() {
   try {
-    const config = { type: selectedTemplate.value.name }
-
     // Track if any token field was empty
     let hasEmptyTokenField = false
 
+    // Build values dictionary using field labels as keys
+    const values = {}
     for (const field of selectedTemplate.value.fields) {
       const value = formValues.value[field.key].trim()
-      config[field.key] = value
+      values[field.label] = value
 
       // Check if this is a token field and it's empty
       if (isTokenField(field) && !value) {
@@ -512,9 +581,11 @@ async function createRemote() {
 
     const newRemoteName = remoteName.value.trim()
 
+    // Send template name and values (labels -> values)
     await apiCall('/api/remotes', 'POST', {
       name: newRemoteName,
-      config: config
+      template: selectedTemplate.value.name,
+      values: values
     })
 
     await loadRemotesList()
