@@ -189,6 +189,9 @@ function showStatus(message, type = 'success') {
 
 // Handle Ctrl+C to copy authorize command
 function handleKeyDown(event) {
+  // Only handle if this modal is actually open
+  if (!props.modelValue) return
+
   if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
     const selection = window.getSelection()
     if (!selection || selection.toString().length === 0) {
