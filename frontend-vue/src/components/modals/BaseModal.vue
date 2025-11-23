@@ -12,11 +12,13 @@
       >
         <div class="modal-dialog" :class="sizeClass">
           <div class="modal-header">
-            <h3>{{ title }}</h3>
+            <h3 v-if="!$slots.header">{{ title }}</h3>
+            <slot v-else name="header"></slot>
             <button class="modal-close" @click="close" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body">
-            <slot></slot>
+            <slot v-if="!$slots.body"></slot>
+            <slot v-else name="body"></slot>
           </div>
           <div class="modal-footer" v-if="$slots.footer">
             <slot name="footer"></slot>
@@ -37,7 +39,7 @@ const props = defineProps({
   },
   title: {
     type: String,
-    required: true
+    default: ''
   },
   size: {
     type: String,

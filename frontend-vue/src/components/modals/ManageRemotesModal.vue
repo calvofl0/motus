@@ -3,8 +3,7 @@
   <BaseModal
     :modelValue="appStore.showManageRemotesModal"
     @update:modelValue="appStore.closeManageRemotes()"
-    :canClose="true"
-    :style="{ maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }"
+    size="large"
   >
     <template #header>
       <span v-if="currentStep === 1">🔧 Manage Remotes</span>
@@ -196,8 +195,7 @@
   <!-- View Remote Config Modal -->
   <BaseModal
     v-model="showViewConfigModal"
-    :canClose="true"
-    :style="{ maxWidth: '600px' }"
+    size="medium"
   >
     <template #header>📄 Remote Configuration</template>
     <template #body>
@@ -233,8 +231,7 @@
   <!-- Edit Remote Config Modal -->
   <BaseModal
     v-model="showEditConfigModal"
-    :canClose="true"
-    :style="{ maxWidth: '600px' }"
+    size="medium"
   >
     <template #header>✏️ Edit Remote Configuration</template>
     <template #body>
