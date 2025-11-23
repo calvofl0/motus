@@ -2,7 +2,7 @@
   <!-- Main Manage Remotes Modal -->
   <BaseModal
     :modelValue="appStore.showManageRemotesModal"
-    @update:modelValue="appStore.closeManageRemotes()"
+    @update:modelValue="handleMainModalClose"
     size="large"
   >
     <template #header>
@@ -100,38 +100,13 @@
               Fields: {{ template.fields.map(f => f.label).join(', ') }}
             </small>
           </div>
-
-          <div
-            @click="selectTemplate('__custom__')"
-            :style="{
-              padding: '12px',
-              border: selectedTemplate?.name === '__custom__' ? '2px solid #007bff' : '1px solid #ddd',
-              background: selectedTemplate?.name === '__custom__' ? '#e7f3ff' : '',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }"
-          >
-            <strong style="display: block; margin-bottom: 4px;">Custom Remote</strong>
-            <small style="color: #666;">Manually enter remote configuration</small>
-          </div>
         </div>
       </div>
 
       <!-- Step 3: Configure Remote -->
       <div v-else-if="currentStep === 3" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
-        <!-- Custom Remote Form -->
-        <div v-if="selectedTemplate?.name === '__custom__'">
-          <p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>
-          <p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
-          <textarea
-            v-model="customConfig"
-            style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
-            placeholder="[myremote]&#10;type = s3&#10;access_key_id = YOUR_ACCESS_KEY&#10;secret_access_key = YOUR_SECRET_KEY&#10;region = us-east-1&#10;..."
-          ></textarea>
-        </div>
-
         <!-- Template Form -->
-        <div v-else-if="selectedTemplate">
+        <div v-if="selectedTemplate">
           <p style="margin-bottom: 15px;"><strong>Template:</strong> {{ selectedTemplate.name }}</p>
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <!-- Remote Name field -->
@@ -149,7 +124,16 @@
 
             <!-- Template fields -->
             <div v-for="field in selectedTemplate.fields" :key="field.key">
-              <label style="display: block; margin-bottom: 4px; font-weight: 500;">{{ field.label }}</label>
+              <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+                {{ field.label }}
+                <span v-if="field.help" class="help-icon" style="display: inline-block; cursor: help; position: relative; margin-left: 4px;">
+                  <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align: middle;">
+                    <circle cx="8" cy="8" r="7" fill="none" stroke="#007bff" stroke-width="1.5"/>
+                    <text x="8" y="11" text-anchor="middle" fill="#007bff" font-size="11" font-weight="bold" font-family="serif">i</text>
+                  </svg>
+                  <span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" v-html="field.help"></span>
+                </span>
+              </label>
               <input
                 v-model="formValues[field.key]"
                 :type="isSecretField(field) ? 'password' : 'text'"
@@ -164,11 +148,17 @@
 
     <template #footer>
       <!-- Step 1 Footer -->
-      <button
-        v-if="currentStep === 1 && templatesAvailable"
-        @click="showTemplateSelection"
-        style="background: #28a745;"
-      >+ Add Remote</button>
+      <template v-if="currentStep === 1">
+        <button
+          @click="showCustomRemoteForm"
+          style="background: #6c757d; margin-right: auto;"
+        >Custom Remote</button>
+        <button
+          v-if="templatesAvailable"
+          @click="showTemplateSelection"
+          style="background: #28a745;"
+        >+ Add Remote</button>
+      </template>
 
       <!-- Step 2 Footer -->
       <template v-else-if="currentStep === 2">
@@ -192,10 +182,37 @@
     </template>
   </BaseModal>
 
+  <!-- Custom Remote Config Modal -->
+  <BaseModal
+    v-model="showCustomConfigModal"
+    size="medium"
+    @keydown.esc="showCustomConfigModal = false"
+  >
+    <template #header>⚙️ Custom Remote Configuration</template>
+    <template #body>
+      <p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>
+      <p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
+      <textarea
+        v-model="customConfig"
+        style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
+        placeholder="[myremote]&#10;type = s3&#10;access_key_id = YOUR_ACCESS_KEY&#10;secret_access_key = YOUR_SECRET_KEY&#10;region = us-east-1&#10;..."
+      ></textarea>
+    </template>
+    <template #footer>
+      <button @click="showCustomConfigModal = false">Cancel</button>
+      <button
+        @click="createCustomRemote"
+        :disabled="!isCustomConfigValid"
+        style="background: #28a745;"
+      >Create Remote</button>
+    </template>
+  </BaseModal>
+
   <!-- View Remote Config Modal -->
   <BaseModal
     v-model="showViewConfigModal"
     size="medium"
+    @keydown.esc="showViewConfigModal = false"
   >
     <template #header>📄 Remote Configuration</template>
     <template #body>
@@ -232,6 +249,7 @@
   <BaseModal
     v-model="showEditConfigModal"
     size="medium"
+    @keydown.esc="showEditConfigModal = false"
   >
     <template #header>✏️ Edit Remote Configuration</template>
     <template #body>
@@ -250,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
@@ -268,12 +286,11 @@ const remoteName = ref('')
 const formValues = ref({})
 const customConfig = ref('')
 
-// View config modal
+// Modals
+const showCustomConfigModal = ref(false)
 const showViewConfigModal = ref(false)
 const currentViewedRemote = ref(null)
 const showCopyTooltip = ref(false)
-
-// Edit config modal
 const showEditConfigModal = ref(false)
 const editConfigText = ref('')
 const editingRemoteName = ref('')
@@ -281,11 +298,6 @@ const editingRemoteName = ref('')
 // Computed
 const isFormValid = computed(() => {
   if (!selectedTemplate.value) return false
-
-  if (selectedTemplate.value.name === '__custom__') {
-    return customConfig.value.trim() && /^\[.+?\]/m.test(customConfig.value)
-  }
-
   if (!remoteName.value.trim()) return false
 
   for (const field of selectedTemplate.value.fields || []) {
@@ -295,6 +307,21 @@ const isFormValid = computed(() => {
   return true
 })
 
+const isCustomConfigValid = computed(() => {
+  return customConfig.value.trim() && /^\[.+?\]/m.test(customConfig.value)
+})
+
+// Handle ESC key for main modal
+function handleMainModalClose() {
+  // If on step 2 or 3, go back to step 1
+  if (currentStep.value === 2 || currentStep.value === 3) {
+    showRemotesList()
+  } else {
+    // Close the modal
+    appStore.closeManageRemotes()
+  }
+}
+
 // Watch modal open/close
 watch(() => appStore.showManageRemotesModal, async (isOpen) => {
   if (isOpen) {
@@ -303,6 +330,46 @@ watch(() => appStore.showManageRemotesModal, async (isOpen) => {
     await loadTemplatesList()
   }
 })
+
+// Watch for step 3 to add tooltip listeners
+watch(currentStep, async (newStep) => {
+  if (newStep === 3) {
+    await nextTick()
+    setupHelpTooltips()
+  }
+})
+
+// Setup help tooltips
+function setupHelpTooltips() {
+  const helpIcons = document.querySelectorAll('.help-icon')
+  helpIcons.forEach(icon => {
+    const tooltip = icon.querySelector('.help-tooltip')
+    if (tooltip) {
+      let hideTimeout
+
+      icon.addEventListener('mouseenter', () => {
+        tooltip.style.display = 'block'
+      })
+
+      icon.addEventListener('mouseleave', () => {
+        hideTimeout = setTimeout(() => {
+          if (!tooltip.matches(':hover')) {
+            tooltip.style.display = 'none'
+          }
+        }, 100)
+      })
+
+      tooltip.addEventListener('mouseenter', () => {
+        clearTimeout(hideTimeout)
+        tooltip.style.display = 'block'
+      })
+
+      tooltip.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none'
+      })
+    }
+  })
+}
 
 // Load remotes list
 async function loadRemotesList() {
@@ -335,12 +402,17 @@ function isActiveRemote(remoteName) {
   return appStore.leftPane.remote === remoteName || appStore.rightPane.remote === remoteName
 }
 
+// Show custom remote form
+function showCustomRemoteForm() {
+  customConfig.value = ''
+  showCustomConfigModal.value = true
+}
+
 // Show template selection
 function showTemplateSelection() {
   currentStep.value = 2
   selectedTemplate.value = null
   formValues.value = {}
-  customConfig.value = ''
 }
 
 // Show remotes list
@@ -349,7 +421,6 @@ function showRemotesList() {
   selectedTemplate.value = null
   formValues.value = {}
   remoteName.value = ''
-  customConfig.value = ''
 }
 
 // Show remote form
@@ -359,11 +430,7 @@ function showRemoteForm() {
 
 // Select template
 function selectTemplate(templateName) {
-  if (templateName === '__custom__') {
-    selectedTemplate.value = { name: '__custom__', fields: [] }
-  } else {
-    selectedTemplate.value = templates.value.find(t => t.name === templateName)
-  }
+  selectedTemplate.value = templates.value.find(t => t.name === templateName)
 }
 
 // Is secret field
@@ -378,28 +445,41 @@ function isSensitiveKey(key) {
   return lowerKey.includes('password') || lowerKey.includes('secret') || lowerKey.includes('key') || lowerKey.includes('token')
 }
 
-// Create remote
+// Create remote from template
 async function createRemote() {
   try {
-    if (selectedTemplate.value.name === '__custom__') {
-      await apiCall('/api/remotes', 'POST', {
-        raw_config: customConfig.value
-      })
-    } else {
-      const config = { type: selectedTemplate.value.name }
+    const config = { type: selectedTemplate.value.name }
 
-      for (const field of selectedTemplate.value.fields) {
-        config[field.key] = formValues.value[field.key].trim()
-      }
-
-      await apiCall('/api/remotes', 'POST', {
-        name: remoteName.value.trim(),
-        config: config
-      })
+    for (const field of selectedTemplate.value.fields) {
+      config[field.key] = formValues.value[field.key].trim()
     }
+
+    await apiCall('/api/remotes', 'POST', {
+      name: remoteName.value.trim(),
+      config: config
+    })
 
     await loadRemotesList()
     showRemotesList()
+
+    // Trigger remotes changed event
+    window.dispatchEvent(new CustomEvent('remotes-changed'))
+
+    alert('Remote created successfully')
+  } catch (error) {
+    alert(`Failed to create remote: ${error.message}`)
+  }
+}
+
+// Create custom remote
+async function createCustomRemote() {
+  try {
+    await apiCall('/api/remotes', 'POST', {
+      raw_config: customConfig.value
+    })
+
+    await loadRemotesList()
+    showCustomConfigModal.value = false
 
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
@@ -506,3 +586,25 @@ async function refreshOAuth(name) {
   alert(`OAuth refresh for "${name}" - This feature will be implemented in a future update.`)
 }
 </script>
+
+<style scoped>
+.help-icon svg {
+  vertical-align: middle;
+}
+
+.help-tooltip {
+  pointer-events: auto;
+}
+
+.help-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 8px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid #2c3e50;
+}
+</style>
