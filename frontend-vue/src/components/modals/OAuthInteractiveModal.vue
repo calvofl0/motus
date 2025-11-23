@@ -1,6 +1,6 @@
 <template>
   <BaseModal
-    v-model="modelValue"
+    :modelValue="modelValue"
     size="large"
     @update:modelValue="$emit('update:modelValue', $event)"
   >
