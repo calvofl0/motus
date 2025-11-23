@@ -6,89 +6,82 @@
     :canClose="true"
     :style="{ maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }"
   >
-    <!-- Step 1: List Remotes -->
-    <div v-if="currentStep === 1" style="display: flex; flex-direction: column; max-height: 80vh;">
-      <template #header>🔧 Manage Remotes</template>
-      <template #body>
-        <div style="margin-bottom: 15px; overflow-y: auto; max-height: 50vh;">
-          <p v-if="loading" style="color: #666; text-align: center;">Loading remotes...</p>
-          <p v-else-if="remotes.length === 0" style="color: #666; text-align: center;">No remotes configured</p>
-          <table v-else style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 2px solid #ddd;">
-                <th style="text-align: left; padding: 8px;">Name</th>
-                <th style="text-align: left; padding: 8px;">Type</th>
-                <th style="text-align: center; padding: 8px; width: 140px;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="remote in remotes"
-                :key="remote.name"
-                @dblclick="viewRemoteConfig(remote.name)"
-                style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;"
-                @mouseenter="$event.currentTarget.style.backgroundColor = '#f8f9fa'"
-                @mouseleave="$event.currentTarget.style.backgroundColor = ''"
-                title="Double-click to view configuration"
-              >
-                <td style="padding: 8px;">{{ remote.name }}</td>
-                <td style="padding: 8px;">{{ remote.type }}</td>
-                <td style="padding: 8px; text-align: center;">
-                  <button
-                    v-if="remote.is_oauth"
-                    @click.stop="refreshOAuth(remote.name)"
-                    style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;"
-                    title="Refresh OAuth token"
-                  >↻</button>
-                  <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
+    <template #header>
+      <span v-if="currentStep === 1">🔧 Manage Remotes</span>
+      <span v-else-if="currentStep === 2">📋 Select Template</span>
+      <span v-else-if="currentStep === 3">⚙️ Configure Remote</span>
+    </template>
 
-                  <button
-                    @click.stop="editRemoteConfig(remote.name)"
-                    :disabled="isActiveRemote(remote.name)"
-                    :style="{
-                      background: 'none',
-                      border: 'none',
-                      fontSize: '14px',
-                      cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
-                      color: isActiveRemote(remote.name) ? '#ccc' : '#007bff',
-                      padding: '4px 8px',
-                      marginRight: '4px'
-                    }"
-                    :title="isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote'"
-                  >✏️</button>
+    <template #body>
+      <!-- Step 1: List Remotes -->
+      <div v-if="currentStep === 1" style="margin-bottom: 15px; overflow-y: auto; max-height: 50vh;">
+        <p v-if="loading" style="color: #666; text-align: center;">Loading remotes...</p>
+        <p v-else-if="remotes.length === 0" style="color: #666; text-align: center;">No remotes configured</p>
+        <table v-else style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #ddd;">
+              <th style="text-align: left; padding: 8px;">Name</th>
+              <th style="text-align: left; padding: 8px;">Type</th>
+              <th style="text-align: center; padding: 8px; width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="remote in remotes"
+              :key="remote.name"
+              @dblclick="viewRemoteConfig(remote.name)"
+              style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;"
+              @mouseenter="$event.currentTarget.style.backgroundColor = '#f8f9fa'"
+              @mouseleave="$event.currentTarget.style.backgroundColor = ''"
+              title="Double-click to view configuration"
+            >
+              <td style="padding: 8px;">{{ remote.name }}</td>
+              <td style="padding: 8px;">{{ remote.type }}</td>
+              <td style="padding: 8px; text-align: center;">
+                <button
+                  v-if="remote.is_oauth"
+                  @click.stop="refreshOAuth(remote.name)"
+                  style="background: none; border: none; font-size: 18px; cursor: pointer; color: #28a745; padding: 4px 8px; margin-right: 4px;"
+                  title="Refresh OAuth token"
+                >↻</button>
+                <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
 
-                  <button
-                    @click.stop="deleteRemote(remote.name)"
-                    :disabled="isActiveRemote(remote.name)"
-                    :style="{
-                      background: 'none',
-                      border: 'none',
-                      fontSize: '18px',
-                      cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
-                      color: isActiveRemote(remote.name) ? '#ccc' : '#dc3545',
-                      padding: '4px 8px'
-                    }"
-                    :title="isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote'"
-                  >🗑️</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </template>
-      <template #footer>
-        <button
-          v-if="templatesAvailable"
-          @click="showTemplateSelection"
-          style="background: #28a745;"
-        >+ Add Remote</button>
-      </template>
-    </div>
+                <button
+                  @click.stop="editRemoteConfig(remote.name)"
+                  :disabled="isActiveRemote(remote.name)"
+                  :style="{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '14px',
+                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
+                    color: isActiveRemote(remote.name) ? '#ccc' : '#007bff',
+                    padding: '4px 8px',
+                    marginRight: '4px'
+                  }"
+                  :title="isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote'"
+                >✏️</button>
 
-    <!-- Step 2: Select Template -->
-    <div v-if="currentStep === 2" style="display: flex; flex-direction: column; max-height: 80vh;">
-      <template #header>📋 Select Template</template>
-      <template #body>
+                <button
+                  @click.stop="deleteRemote(remote.name)"
+                  :disabled="isActiveRemote(remote.name)"
+                  :style="{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '18px',
+                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
+                    color: isActiveRemote(remote.name) ? '#ccc' : '#dc3545',
+                    padding: '4px 8px'
+                  }"
+                  :title="isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote'"
+                >🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Step 2: Select Template -->
+      <div v-else-if="currentStep === 2">
         <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
         <div style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
           <div
@@ -123,8 +116,63 @@
             <small style="color: #666;">Manually enter remote configuration</small>
           </div>
         </div>
-      </template>
-      <template #footer>
+      </div>
+
+      <!-- Step 3: Configure Remote -->
+      <div v-else-if="currentStep === 3" style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
+        <!-- Custom Remote Form -->
+        <div v-if="selectedTemplate?.name === '__custom__'">
+          <p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>
+          <p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
+          <textarea
+            v-model="customConfig"
+            style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
+            placeholder="[myremote]&#10;type = s3&#10;access_key_id = YOUR_ACCESS_KEY&#10;secret_access_key = YOUR_SECRET_KEY&#10;region = us-east-1&#10;..."
+          ></textarea>
+        </div>
+
+        <!-- Template Form -->
+        <div v-else-if="selectedTemplate">
+          <p style="margin-bottom: 15px;"><strong>Template:</strong> {{ selectedTemplate.name }}</p>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Remote Name field -->
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>
+              <input
+                v-model="remoteName"
+                type="text"
+                placeholder="Enter remote name"
+                pattern="[a-zA-Z0-9_-]+"
+                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+              />
+              <small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>
+            </div>
+
+            <!-- Template fields -->
+            <div v-for="field in selectedTemplate.fields" :key="field.key">
+              <label style="display: block; margin-bottom: 4px; font-weight: 500;">{{ field.label }}</label>
+              <input
+                v-model="formValues[field.key]"
+                :type="isSecretField(field) ? 'password' : 'text'"
+                :placeholder="`Enter ${field.label}`"
+                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <!-- Step 1 Footer -->
+      <button
+        v-if="currentStep === 1 && templatesAvailable"
+        @click="showTemplateSelection"
+        style="background: #28a745;"
+      >+ Add Remote</button>
+
+      <!-- Step 2 Footer -->
+      <template v-else-if="currentStep === 2">
         <button @click="showRemotesList">Back</button>
         <button
           @click="showRemoteForm"
@@ -132,56 +180,9 @@
           style="background: #007bff;"
         >Next</button>
       </template>
-    </div>
 
-    <!-- Step 3: Configure Remote -->
-    <div v-if="currentStep === 3" style="display: flex; flex-direction: column; max-height: 80vh;">
-      <template #header>⚙️ Configure Remote</template>
-      <template #body>
-        <div style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px;">
-          <!-- Custom Remote Form -->
-          <div v-if="selectedTemplate?.name === '__custom__'">
-            <p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>
-            <p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
-            <textarea
-              v-model="customConfig"
-              style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
-              placeholder="[myremote]&#10;type = s3&#10;access_key_id = YOUR_ACCESS_KEY&#10;secret_access_key = YOUR_SECRET_KEY&#10;region = us-east-1&#10;..."
-            ></textarea>
-          </div>
-
-          <!-- Template Form -->
-          <div v-else-if="selectedTemplate">
-            <p style="margin-bottom: 15px;"><strong>Template:</strong> {{ selectedTemplate.name }}</p>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <!-- Remote Name field -->
-              <div>
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">Remote Name</label>
-                <input
-                  v-model="remoteName"
-                  type="text"
-                  placeholder="Enter remote name"
-                  pattern="[a-zA-Z0-9_-]+"
-                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-                />
-                <small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>
-              </div>
-
-              <!-- Template fields -->
-              <div v-for="field in selectedTemplate.fields" :key="field.key">
-                <label style="display: block; margin-bottom: 4px; font-weight: 500;">{{ field.label }}</label>
-                <input
-                  v-model="formValues[field.key]"
-                  :type="isSecretField(field) ? 'password' : 'text'"
-                  :placeholder="`Enter ${field.label}`"
-                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-      <template #footer>
+      <!-- Step 3 Footer -->
+      <template v-else-if="currentStep === 3">
         <button @click="showTemplateSelection">Back</button>
         <button
           @click="createRemote"
@@ -189,7 +190,7 @@
           style="background: #28a745;"
         >Create Remote</button>
       </template>
-    </div>
+    </template>
   </BaseModal>
 
   <!-- View Remote Config Modal -->
@@ -252,7 +253,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
