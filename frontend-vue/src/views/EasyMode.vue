@@ -1,12 +1,5 @@
 <template>
   <div id="easy-mode">
-    <!-- Toolbar -->
-    <div class="easy-mode-toolbar">
-      <button @click="showManageRemotes = true" class="toolbar-btn" title="Manage Remotes">
-        🔧 Manage Remotes
-      </button>
-    </div>
-
     <div class="panes-container">
       <!-- Left Pane -->
       <FilePane pane="left" ref="leftPaneRef" />
@@ -195,9 +188,15 @@ function handleContextMenuSort({ field, asc }) {
   }
 }
 
+// Manage Remotes functions
+function openManageRemotes() {
+  showManageRemotes.value = true
+}
+
 // Provide file operations and context menu to child components
 provide('fileOperations', fileOps)
 provide('contextMenu', { show: showContextMenu })
+provide('manageRemotes', { open: openManageRemotes })
 
 // Handle refresh pane events
 function handleRefreshPane(event) {
@@ -250,29 +249,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.easy-mode-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 15px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.toolbar-btn {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.toolbar-btn:hover {
-  background: #0056b3;
 }
 
 .panes-container {
