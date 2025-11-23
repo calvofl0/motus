@@ -262,6 +262,13 @@
       <button @click="saveRemoteConfig" style="background: #28a745;">Save</button>
     </template>
   </BaseModal>
+
+  <!-- OAuth Interactive Modal -->
+  <OAuthInteractiveModal
+    v-model="showOAuthModal"
+    :remote-name="oauthRemoteName"
+    @token-refreshed="handleOAuthRefreshed"
+  />
 </template>
 
 <script setup>
@@ -269,6 +276,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
+import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 
 const appStore = useAppStore()
 
@@ -291,6 +299,8 @@ const showCopyTooltip = ref(false)
 const showEditConfigModal = ref(false)
 const editConfigText = ref('')
 const editingRemoteName = ref('')
+const showOAuthModal = ref(false)
+const oauthRemoteName = ref('')
 
 // Computed
 const isFormValid = computed(() => {
@@ -345,10 +355,10 @@ watch(currentStep, async (newStep) => {
 })
 
 // Watch child modals closing to refocus parent modal
-watch([showCustomConfigModal, showViewConfigModal, showEditConfigModal], async ([custom, view, edit], [prevCustom, prevView, prevEdit]) => {
+watch([showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([custom, view, edit, oauth], [prevCustom, prevView, prevEdit, prevOAuth]) => {
   // If any child modal just closed (was true, now false) and main modal is still open
   if (appStore.showManageRemotesModal) {
-    if ((prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit)) {
+    if ((prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
       // Wait for DOM update, then refocus main modal overlay
       await nextTick()
       const mainOverlay = document.querySelector('.modal-overlay')
@@ -602,8 +612,16 @@ async function deleteRemote(name) {
 }
 
 // Refresh OAuth
-async function refreshOAuth(name) {
-  alert(`OAuth refresh for "${name}" - This feature will be implemented in a future update.`)
+function refreshOAuth(name) {
+  oauthRemoteName.value = name
+  showOAuthModal.value = true
+}
+
+// Handle OAuth token refreshed
+async function handleOAuthRefreshed() {
+  await loadRemotesList()
+  // Trigger remotes changed event
+  window.dispatchEvent(new CustomEvent('remotes-changed'))
 }
 </script>
 
