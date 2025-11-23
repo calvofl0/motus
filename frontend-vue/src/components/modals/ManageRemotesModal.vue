@@ -134,12 +134,22 @@
                   <span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" v-html="field.help"></span>
                 </span>
               </label>
-              <input
-                v-model="formValues[field.key]"
-                :type="isSecretField(field) ? 'password' : 'text'"
-                :placeholder="`Enter ${field.label}`"
-                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-              />
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <input
+                  v-model="formValues[field.key]"
+                  :type="isSecretField(field) ? 'password' : 'text'"
+                  :placeholder="`Enter ${field.label}`"
+                  style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                />
+                <button
+                  v-if="isTokenField(field) && !formValues[field.key]?.trim()"
+                  @click.prevent="showOAuthHelp"
+                  style="padding: 8px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;"
+                  title="Get OAuth token"
+                >
+                  Get Token
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -475,17 +485,35 @@ function isSensitiveKey(key) {
   return lowerKey.includes('password') || lowerKey.includes('secret') || lowerKey.includes('key') || lowerKey.includes('token')
 }
 
+// Is token field (for OAuth)
+function isTokenField(field) {
+  const lowerKey = field.key.toLowerCase()
+  const lowerLabel = field.label.toLowerCase()
+  return lowerKey.includes('token') || lowerLabel.includes('token')
+}
+
 // Create remote from template
 async function createRemote() {
   try {
     const config = { type: selectedTemplate.value.name }
 
+    // Track if any token field was empty
+    let hasEmptyTokenField = false
+
     for (const field of selectedTemplate.value.fields) {
-      config[field.key] = formValues.value[field.key].trim()
+      const value = formValues.value[field.key].trim()
+      config[field.key] = value
+
+      // Check if this is a token field and it's empty
+      if (isTokenField(field) && !value) {
+        hasEmptyTokenField = true
+      }
     }
 
+    const newRemoteName = remoteName.value.trim()
+
     await apiCall('/api/remotes', 'POST', {
-      name: remoteName.value.trim(),
+      name: newRemoteName,
       config: config
     })
 
@@ -495,7 +523,11 @@ async function createRemote() {
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
 
-    alert('Remote created successfully')
+    // If there was an empty token field, automatically open OAuth modal
+    if (hasEmptyTokenField) {
+      oauthRemoteName.value = newRemoteName
+      showOAuthModal.value = true
+    }
   } catch (error) {
     alert(`Failed to create remote: ${error.message}`)
   }
@@ -514,7 +546,7 @@ async function createCustomRemote() {
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
 
-    alert('Remote created successfully')
+    // Don't show success alert, only show errors
   } catch (error) {
     alert(`Failed to create remote: ${error.message}`)
   }
@@ -637,6 +669,14 @@ async function deleteRemote(name) {
   } catch (error) {
     alert(`Failed to delete remote: ${error.message}`)
   }
+}
+
+// Show OAuth help for creating remote
+function showOAuthHelp() {
+  alert(
+    'Leave the token field empty when creating the remote.\n\n' +
+    'After the remote is created, you will be automatically prompted to refresh the OAuth token.'
+  )
 }
 
 // Refresh OAuth
