@@ -328,11 +328,34 @@ watch(() => appStore.showManageRemotesModal, async (isOpen) => {
   }
 })
 
-// Watch for step 3 to add tooltip listeners
+// Watch for step changes to add tooltip listeners and refocus
 watch(currentStep, async (newStep) => {
+  await nextTick()
+
+  // Setup tooltips for step 3
   if (newStep === 3) {
-    await nextTick()
     setupHelpTooltips()
+  }
+
+  // Refocus main modal overlay after step change
+  const mainOverlay = document.querySelector('.modal-overlay')
+  if (mainOverlay) {
+    mainOverlay.focus()
+  }
+})
+
+// Watch child modals closing to refocus parent modal
+watch([showCustomConfigModal, showViewConfigModal, showEditConfigModal], async ([custom, view, edit], [prevCustom, prevView, prevEdit]) => {
+  // If any child modal just closed (was true, now false) and main modal is still open
+  if (appStore.showManageRemotesModal) {
+    if ((prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit)) {
+      // Wait for DOM update, then refocus main modal overlay
+      await nextTick()
+      const mainOverlay = document.querySelector('.modal-overlay')
+      if (mainOverlay) {
+        mainOverlay.focus()
+      }
+    }
   }
 })
 
