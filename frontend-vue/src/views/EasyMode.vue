@@ -52,12 +52,6 @@
       @cancel="upload.cancelUpload"
     />
 
-    <ManageRemotesModal
-      v-model="showManageRemotes"
-      :active-remotes="activeRemotes"
-      @remotes-changed="handleRemotesChanged"
-    />
-
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
@@ -82,7 +76,6 @@ import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
-import ManageRemotesModal from '../components/modals/ManageRemotesModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 
 const appStore = useAppStore()
@@ -92,9 +85,6 @@ const upload = useUpload()
 // Refs to FilePane components
 const leftPaneRef = ref(null)
 const rightPaneRef = ref(null)
-
-// Manage Remotes state
-const showManageRemotes = ref(false)
 
 // Context menu state - using separate refs for reliable reactivity
 const contextMenuVisible = ref(false)
@@ -111,11 +101,6 @@ const canCopyLeft = computed(() =>
   appStore.rightPane.selectedIndexes.length > 0
 )
 
-const activeRemotes = computed(() => ({
-  left: appStore.leftPane.remote,
-  right: appStore.rightPane.remote
-}))
-
 // Copy functions
 function copyToRight() {
   if (!canCopyRight.value) return
@@ -125,17 +110,6 @@ function copyToRight() {
 function copyToLeft() {
   if (!canCopyLeft.value) return
   fileOps.copyToPane('right', 'left')
-}
-
-// Manage Remotes functions
-async function handleRemotesChanged() {
-  // Refresh both panes when remotes are changed
-  if (leftPaneRef.value) {
-    await leftPaneRef.value.refresh()
-  }
-  if (rightPaneRef.value) {
-    await rightPaneRef.value.refresh()
-  }
 }
 
 // Context menu functions
@@ -188,15 +162,9 @@ function handleContextMenuSort({ field, asc }) {
   }
 }
 
-// Manage Remotes functions
-function openManageRemotes() {
-  showManageRemotes.value = true
-}
-
 // Provide file operations and context menu to child components
 provide('fileOperations', fileOps)
 provide('contextMenu', { show: showContextMenu })
-provide('manageRemotes', { open: openManageRemotes })
 
 // Handle refresh pane events
 function handleRefreshPane(event) {

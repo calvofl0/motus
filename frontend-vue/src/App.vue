@@ -2,12 +2,16 @@
   <div id="app">
     <AppHeader />
     <router-view />
+
+    <!-- Global Modals -->
+    <ManageRemotesModal />
   </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
+import ManageRemotesModal from './components/modals/ManageRemotesModal.vue'
 import { useAppStore } from './stores/app'
 
 const appStore = useAppStore()

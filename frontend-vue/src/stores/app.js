@@ -11,6 +11,7 @@ export const useAppStore = defineStore('app', () => {
   const showHiddenFiles = ref(false)
   const lastFocusedPane = ref('left')
   const maxUploadSize = ref(0)
+  const showManageRemotesModal = ref(false)
 
   // Left pane state
   const leftPane = ref({
@@ -144,6 +145,14 @@ export const useAppStore = defineStore('app', () => {
     lastFocusedPane.value = pane
   }
 
+  function openManageRemotes() {
+    showManageRemotesModal.value = true
+  }
+
+  function closeManageRemotes() {
+    showManageRemotesModal.value = false
+  }
+
   return {
     // State
     currentMode,
@@ -152,6 +161,7 @@ export const useAppStore = defineStore('app', () => {
     showHiddenFiles,
     lastFocusedPane,
     maxUploadSize,
+    showManageRemotesModal,
     leftPane,
     rightPane,
     contextMenu,
@@ -170,6 +180,8 @@ export const useAppStore = defineStore('app', () => {
     setPanePath,
     setPaneRemote,
     setPaneSelection,
-    setLastFocusedPane
+    setLastFocusedPane,
+    openManageRemotes,
+    closeManageRemotes
   }
 })

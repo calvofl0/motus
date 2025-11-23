@@ -30,7 +30,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
@@ -39,9 +39,6 @@ const appStore = useAppStore()
 const router = useRouter()
 
 const showViewMenu = ref(false)
-
-// Inject manage remotes handler (only available in Easy Mode)
-const manageRemotesHandler = inject('manageRemotes', null)
 
 const viewModeIcon = computed(() =>
   appStore.viewMode === 'grid' ? '⊞' : '☰'
@@ -60,11 +57,7 @@ const modeButtonText = computed(() =>
 )
 
 function openManageRemotes() {
-  if (manageRemotesHandler) {
-    manageRemotesHandler.open()
-  } else {
-    alert('Manage Remotes is only available in Easy Mode')
-  }
+  appStore.openManageRemotes()
 }
 
 function toggleViewMenu(e) {
