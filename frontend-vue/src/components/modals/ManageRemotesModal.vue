@@ -547,6 +547,34 @@ async function copyConfigToClipboard() {
   }
 }
 
+// Handle Ctrl+C to copy remote config when view modal is open
+function handleViewConfigKeyDown(event) {
+  if (!showViewConfigModal.value) return
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+    const selection = window.getSelection()
+    if (!selection || selection.toString().length === 0) {
+      // No text selected, copy the entire config
+      event.preventDefault()
+      copyConfigToClipboard()
+    }
+  }
+}
+
+// Watch view config modal to add/remove keyboard listener
+watch(showViewConfigModal, (isOpen) => {
+  if (isOpen) {
+    document.addEventListener('keydown', handleViewConfigKeyDown)
+  } else {
+    document.removeEventListener('keydown', handleViewConfigKeyDown)
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleViewConfigKeyDown)
+})
+
 // Edit remote config
 async function editRemoteConfig(name) {
   if (isActiveRemote(name)) {

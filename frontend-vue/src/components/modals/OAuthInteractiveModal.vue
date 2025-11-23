@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
 
@@ -159,7 +159,7 @@ async function submitToken() {
   statusMessage.value = ''
 
   try {
-    const response = await apiCall(`/api/remotes/${encodeURIComponent(props.remoteName)}/oauth/token`, 'POST', {
+    const response = await apiCall(`/api/remotes/${encodeURIComponent(props.remoteName)}/oauth/submit-token`, 'POST', {
       token: tokenInput.value.trim()
     })
 
@@ -186,4 +186,25 @@ function showStatus(message, type = 'success') {
   statusMessage.value = message
   statusType.value = type
 }
+
+// Handle Ctrl+C to copy authorize command
+function handleKeyDown(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+    const selection = window.getSelection()
+    if (!selection || selection.toString().length === 0) {
+      // No text selected, copy the authorize command
+      event.preventDefault()
+      copyCommand()
+    }
+  }
+}
+
+// Add/remove keyboard event listener
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
