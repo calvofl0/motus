@@ -159,14 +159,14 @@ const canProceed = computed(() => {
   }
 })
 
-// Load providers on mount
-onMounted(async () => {
-  await loadProviders()
-})
-
 // Watch modal open/close
-watch(() => props.modelValue, (isOpen) => {
+watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
+    // Load providers when modal opens (only if not already loaded)
+    if (providers.value.length === 0) {
+      await loadProviders()
+    }
+
     // Focus first input when modal opens
     nextTick(() => {
       if (wizardStep.value === 1 && remoteNameInput.value) {
