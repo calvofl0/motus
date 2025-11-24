@@ -30,8 +30,8 @@
             style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
           >
             <option value="">-- Select a type --</option>
-            <option v-for="provider in providers" :key="provider.name" :value="provider.name">
-              {{ provider.name }} - {{ provider.description }}
+            <option v-for="provider in sortedProviders" :key="provider.name" :value="provider.name">
+              {{ provider.description }} ({{ provider.name }})
             </option>
           </select>
         </div>
@@ -134,6 +134,13 @@ const wizardStep = ref(1)
 const providers = ref([])
 const remoteName = ref('')
 const remoteType = ref('')
+
+// Computed: sorted providers by description (long name)
+const sortedProviders = computed(() => {
+  return [...providers.value].sort((a, b) => {
+    return a.description.localeCompare(b.description)
+  })
+})
 
 // Step 2+ state
 const sessionId = ref(null)
