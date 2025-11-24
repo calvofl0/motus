@@ -4,7 +4,7 @@
  * Gracefully shuts down when backend process stops
  */
 import { createServer } from 'vite'
-import { readFileSync, existsSync, writeFileSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -92,6 +92,17 @@ async function shutdown() {
       console.error('[Monitor] Error closing server:', e)
     }
   }
+
+  // Clean up dev port file
+  try {
+    if (existsSync(DEV_PORT_FILE)) {
+      unlinkSync(DEV_PORT_FILE)
+      console.log('[Monitor] Cleaned up dev port file')
+    }
+  } catch (e) {
+    console.error('[Monitor] Error cleaning up dev port file:', e)
+  }
+
   process.exit(0)
 }
 
@@ -108,6 +119,16 @@ process.on('SIGTERM', async () => {
 
 // Main
 async function main() {
+  // Clean up stale dev port file from previous run
+  try {
+    if (existsSync(DEV_PORT_FILE)) {
+      unlinkSync(DEV_PORT_FILE)
+      console.log('[Startup] Cleaned up stale dev port file')
+    }
+  } catch (e) {
+    // Ignore errors, file might not exist
+  }
+
   // Read backend connection info
   if (!existsSync(CONNECTION_FILE)) {
     console.error('Error: Backend connection file not found')

@@ -78,6 +78,7 @@ def cleanup_connection_info(config: Config):
     data_dir = Path(config.data_dir)
     pid_file = data_dir / 'motus.pid'
     connection_file = data_dir / 'connection.json'
+    dev_port_file = data_dir / 'dev-port.json'
 
     try:
         if pid_file.exists():
@@ -92,6 +93,13 @@ def cleanup_connection_info(config: Config):
             logging.debug(f"Removed connection file: {connection_file}")
     except Exception as e:
         logging.warning(f"Could not remove connection file: {e}")
+
+    try:
+        if dev_port_file.exists():
+            dev_port_file.unlink()
+            logging.debug(f"Removed dev port file: {dev_port_file}")
+    except Exception as e:
+        logging.warning(f"Could not remove dev port file: {e}")
 
 
 def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
@@ -257,6 +265,9 @@ def create_app(config: Config = None):
 
     logging.info("Creating Flask application...")
     logging.info(f"Configuration: {config}")
+
+    # Clean up stale connection files from previous crashes
+    cleanup_connection_info(config)
 
     app = Flask(
         __name__,
