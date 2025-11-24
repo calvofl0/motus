@@ -8,7 +8,7 @@
       <div class="toolbar-row">
         <select v-model="selectedRemote" @change="onRemoteChange">
           <option value="">Local Filesystem</option>
-          <option v-for="remote in remotes" :key="remote.name" :value="remote.name">
+          <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
           </option>
         </select>
@@ -214,6 +214,13 @@ const sortedFiles = computed(() => {
   visualOrder.value = orderMap
 
   return sorted
+})
+
+// Sort remotes alphabetically (Local Filesystem is always first in the template)
+const sortedRemotes = computed(() => {
+  return [...remotes.value].sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  })
 })
 
 // Helper functions

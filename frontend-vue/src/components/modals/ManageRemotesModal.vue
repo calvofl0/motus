@@ -26,7 +26,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="remote in remotes"
+              v-for="remote in sortedRemotes"
               :key="remote.name"
               @dblclick="viewRemoteConfig(remote.name)"
               style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;"
@@ -359,6 +359,13 @@ const isFormValid = computed(() => {
 
 const isCustomConfigValid = computed(() => {
   return customConfig.value.trim() && /^\[.+?\]/m.test(customConfig.value)
+})
+
+// Sort remotes alphabetically for display (preserves config file order for saves)
+const sortedRemotes = computed(() => {
+  return [...remotes.value].sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  })
 })
 
 // Handle ESC key for main modal
