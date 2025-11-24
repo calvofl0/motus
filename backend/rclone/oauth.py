@@ -196,18 +196,26 @@ class OAuthRefreshManager:
             authorize_command = None
 
             # Parse the command from help text
-            # Example: "rclone authorize \"onedrive\" \"BASE64_STRING\""
+            # Example 1: "rclone authorize \"onedrive\""
+            # Example 2: "rclone authorize \"onedrive\" \"BASE64_STRING\""
             import re
+            # Try matching with both arguments first
             match = re.search(r'rclone authorize "([^"]+)" "([^"]+)"', help_text)
             if match:
                 provider = match.group(1)
                 config_blob = match.group(2)
                 authorize_command = f'rclone authorize "{provider}" "{config_blob}"'
             else:
-                return {
-                    'status': 'error',
-                    'message': 'Failed to extract authorize command from rclone output',
-                }
+                # Try matching with just provider (single argument)
+                match = re.search(r'rclone authorize "([^"]+)"', help_text)
+                if match:
+                    provider = match.group(1)
+                    authorize_command = f'rclone authorize "{provider}"'
+                else:
+                    return {
+                        'status': 'error',
+                        'message': 'Failed to extract authorize command from rclone output',
+                    }
 
             # Store session info
             with self._lock:

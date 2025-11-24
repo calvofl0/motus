@@ -62,9 +62,9 @@
                     border: 'none',
                     fontSize: '14px',
                     cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
-                    color: isActiveRemote(remote.name) ? '#ccc' : '#007bff',
                     padding: '4px 8px',
-                    marginRight: '4px'
+                    marginRight: '4px',
+                    filter: isActiveRemote(remote.name) ? 'grayscale(100%) opacity(0.4)' : 'none'
                   }"
                   :title="isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote'"
                 >✏️</button>
@@ -75,10 +75,10 @@
                   :style="{
                     background: 'none',
                     border: 'none',
-                    fontSize: '18px',
+                    fontSize: '14px',
                     cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
-                    color: isActiveRemote(remote.name) ? '#ccc' : '#dc3545',
-                    padding: '4px 8px'
+                    padding: '4px 8px',
+                    filter: isActiveRemote(remote.name) ? 'grayscale(100%) opacity(0.4)' : 'none'
                   }"
                   :title="isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote'"
                 >🗑️</button>
@@ -507,6 +507,24 @@ async function handleCustomRemoteCreated(remoteName) {
   // Reload remotes list
   await loadRemotesList()
   console.log(`Custom remote '${remoteName}' created successfully`)
+
+  // Check if the created remote needs OAuth token
+  const createdRemote = remotes.value.find(r => r.name === remoteName)
+  if (createdRemote && createdRemote.is_oauth) {
+    // Check if token is empty by fetching the full config
+    try {
+      const configData = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/config`)
+      const token = configData.config?.token || ''
+
+      // If token is empty, open OAuth modal
+      if (!token || token.trim() === '') {
+        oauthRemoteName.value = remoteName
+        showOAuthModal.value = true
+      }
+    } catch (error) {
+      console.error('Failed to check remote token:', error)
+    }
+  }
 }
 
 // Start the wizard (fresh start)
