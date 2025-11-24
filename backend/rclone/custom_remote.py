@@ -57,23 +57,32 @@ class CustomRemoteCreationManager:
                 logging.error(f"Failed to get providers: {error_msg}")
                 return []
 
-            # Parse output - format is "name - description"
+            # Parse JSON output - rclone returns array of provider objects
             # Example:
-            # 1password - 1Password
-            # s3 - Amazon S3 Compliant Storage Providers
-            # ...
-            providers = []
-            for line in result.stdout.strip().split('\n'):
-                line = line.strip()
-                if ' - ' in line:
-                    parts = line.split(' - ', 1)
+            # [
+            #   {
+            #     "Name": "s3",
+            #     "Description": "Amazon S3 Compliant Storage Providers",
+            #     "Prefix": "s3",
+            #     "Options": [...]
+            #   },
+            #   ...
+            # ]
+            try:
+                providers_data = json.loads(result.stdout)
+                providers = []
+                for provider in providers_data:
                     providers.append({
-                        'name': parts[0].strip(),
-                        'description': parts[1].strip()
+                        'name': provider.get('Name', ''),
+                        'description': provider.get('Description', '')
                     })
 
-            logging.info(f"Found {len(providers)} providers")
-            return providers
+                logging.info(f"Found {len(providers)} providers")
+                return providers
+
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse providers JSON: {e}")
+                return []
 
         except subprocess.TimeoutExpired:
             logging.error("Get providers command timed out")
