@@ -4,11 +4,12 @@
  * Gracefully shuts down when backend process stops
  */
 import { createServer } from 'vite'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
 const CONNECTION_FILE = join(homedir(), '.motus', 'connection.json')
+const DEV_PORT_FILE = join(homedir(), '.motus', 'dev-port.json')
 const CHECK_INTERVAL = 2000 // Check every 2 seconds
 
 let server = null
@@ -27,15 +28,38 @@ function isProcessRunning(pid) {
 async function startServer() {
   console.log('Starting Vite dev server...\n')
 
+  // Get requested port from environment or use default
+  const requestedPort = parseInt(process.env.VITE_PORT || '3000', 10)
+
   server = await createServer({
     configFile: './vite.config.js',
     server: {
-      port: 3000
+      port: requestedPort,
+      strictPort: false // Allow fallback to next available port
     }
   })
 
   await server.listen()
+
+  // Get the actual port Vite is using
+  const actualPort = server.config.server.port
+
   server.printUrls()
+  console.log()
+  console.log(`[Info] Vite dev server listening on port ${actualPort}`)
+
+  // Write actual port to file for dev-vue.py to read
+  try {
+    const portInfo = {
+      port: actualPort,
+      requested_port: requestedPort,
+      pid: process.pid
+    }
+    writeFileSync(DEV_PORT_FILE, JSON.stringify(portInfo, null, 2))
+    console.log(`[Info] Port info written to ${DEV_PORT_FILE}`)
+  } catch (e) {
+    console.error('[Warning] Could not write port info file:', e.message)
+  }
   console.log()
 }
 

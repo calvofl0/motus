@@ -126,6 +126,20 @@ def ensure_backend_running(backend_args=''):
     print("  Check the error messages above for details", file=sys.stderr)
     sys.exit(1)
 
+def get_dev_port_info():
+    """Read the actual port info written by dev-server.js"""
+    data_dir = Path.home() / '.motus'
+    dev_port_file = data_dir / 'dev-port.json'
+
+    if dev_port_file.exists():
+        try:
+            with open(dev_port_file, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    return None
+
 def main():
     parser = argparse.ArgumentParser(
         description='Development helper for Vue frontend'
@@ -139,7 +153,7 @@ def main():
         '--port',
         type=int,
         default=3000,
-        help='Vue dev server port (default: 3000)'
+        help='Vue dev server port (default: 3000, may use next available if in use)'
     )
     parser.add_argument(
         '--backend-args',
@@ -159,17 +173,38 @@ def main():
     # Ensure backend is running
     conn = ensure_backend_running(args.backend_args)
 
-    # Set environment variable for Vite proxy
+    # Set environment variables for Vite
     os.environ['MOTUS_PORT'] = str(conn['port'])
+    os.environ['VITE_PORT'] = str(args.port)
 
-    # Open browser to Vue dev server with token
+    # Open browser to Vue dev server with token (will determine actual port after Vite starts)
     if not args.no_browser:
         def open_browser():
-            time.sleep(2)  # Wait for Vite to start
+            # Wait for Vite to start and write port info
+            print("  Waiting for Vite to start", end='', flush=True)
+            for i in range(30):  # 30 seconds max
+                time.sleep(1)
+                print('.', end='', flush=True)
+                port_info = get_dev_port_info()
+                if port_info:
+                    actual_port = port_info['port']
+                    print()  # New line after dots
+                    vue_url = f"http://localhost:{actual_port}?token={conn['token']}"
+                    print()
+                    print(f"  Opening browser to: {vue_url}")
+                    if actual_port != args.port:
+                        print(f"  (Note: Port {args.port} was in use, using {actual_port})")
+                    print()
+                    try:
+                        webbrowser.open(vue_url)
+                    except:
+                        pass
+                    return
+
+            # Timeout - open with requested port anyway
+            print()
+            print("  Warning: Could not determine actual Vite port, using requested port")
             vue_url = f"http://localhost:{args.port}?token={conn['token']}"
-            print()
-            print(f"  Opening browser to: {vue_url}")
-            print()
             try:
                 webbrowser.open(vue_url)
             except:
@@ -184,7 +219,7 @@ def main():
     print(f"    PID: {conn['pid']}")
     print()
     print(f"  Vue Dev Server:")
-    print(f"    Port: {args.port}")
+    print(f"    Requested port: {args.port}")
     print(f"    Proxy to backend: port {conn['port']}")
     print()
     print("  Starting Vite dev server...")
