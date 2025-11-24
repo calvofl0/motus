@@ -150,8 +150,8 @@ class CustomRemoteCreationManager:
                     'message': response['Error']
                 }
 
-            # Initialize state machine for this session
-            state_machine = RcloneConfigStateMachine(self.rclone_path, self.config_file)
+            # Initialize state machine for this session (use 'create' operation)
+            state_machine = RcloneConfigStateMachine(self.rclone_path, self.config_file, operation='create')
             self.sessions[remote_name] = {
                 'remote_name': remote_name,
                 'remote_type': remote_type,

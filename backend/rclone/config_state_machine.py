@@ -15,16 +15,18 @@ class RcloneConfigStateMachine:
     Handles rclone config update flows using the --non-interactive state machine
     """
 
-    def __init__(self, rclone_path: str, rclone_config_file: str):
+    def __init__(self, rclone_path: str, rclone_config_file: str, operation: str = 'update'):
         """
         Initialize the state machine
 
         Args:
             rclone_path: Path to rclone executable
             rclone_config_file: Path to rclone config file
+            operation: Either 'update' or 'create' (default: 'update')
         """
         self.rclone_path = rclone_path
         self.rclone_config_file = rclone_config_file
+        self.operation = operation  # 'update' or 'create'
 
     def start(self, remote_name: str, **kwargs) -> Tuple[bool, Dict[str, Any], Optional[str]]:
         """
@@ -44,7 +46,7 @@ class RcloneConfigStateMachine:
         command = [
             self.rclone_path,
             'config',
-            'update',
+            self.operation,  # Use 'update' or 'create' based on initialization
             '--non-interactive',
             remote_name,
         ]
@@ -103,7 +105,7 @@ class RcloneConfigStateMachine:
         command = [
             self.rclone_path,
             'config',
-            'update',
+            self.operation,  # Use 'update' or 'create' based on initialization
             remote_name,
             '--continue',
             '--state',
