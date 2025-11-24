@@ -99,6 +99,12 @@ async function quitServer() {
       return
     }
 
+    // Notify components to stop polling before shutdown
+    window.dispatchEvent(new CustomEvent('server-shutting-down'))
+
+    // Small delay to let components clean up
+    await new Promise(resolve => setTimeout(resolve, 100))
+
     // Shutdown server
     const shutdownData = await apiCall('/api/shutdown', 'POST')
 

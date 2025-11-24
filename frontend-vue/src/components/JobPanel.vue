@@ -365,14 +365,22 @@ function handleUpdateJobs() {
   updateFailedJobs()
 }
 
+// Handle server shutdown - stop polling immediately
+function handleServerShutdown() {
+  console.log('[JobPanel] Server shutting down, stopping all polling')
+  stopJobUpdates()
+}
+
 onMounted(() => {
   startJobUpdates()
   window.addEventListener('update-jobs', handleUpdateJobs)
+  window.addEventListener('server-shutting-down', handleServerShutdown)
 })
 
 onUnmounted(() => {
   stopJobUpdates()
   window.removeEventListener('update-jobs', handleUpdateJobs)
+  window.removeEventListener('server-shutting-down', handleServerShutdown)
 })
 </script>
 

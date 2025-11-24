@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
 import { useUpload } from '../composables/useUpload'
@@ -657,6 +657,11 @@ async function handleExternalFileDrop(files) {
   }
 }
 
+// Handle remotes changed event
+function handleRemotesChanged() {
+  loadRemotes()
+}
+
 // Initialize
 onMounted(async () => {
   try {
@@ -671,6 +676,14 @@ onMounted(async () => {
   } catch (error) {
     console.warn('Backend not available:', error.message)
   }
+
+  // Listen for remote changes
+  window.addEventListener('remotes-changed', handleRemotesChanged)
+})
+
+// Cleanup
+onUnmounted(() => {
+  window.removeEventListener('remotes-changed', handleRemotesChanged)
 })
 
 // Expose methods to parent
