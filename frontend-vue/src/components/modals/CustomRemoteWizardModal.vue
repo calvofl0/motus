@@ -31,7 +31,7 @@
           >
             <option value="">-- Select a type --</option>
             <option v-for="provider in sortedProviders" :key="provider.name" :value="provider.name">
-              {{ provider.description }} ({{ provider.name }})
+              {{ provider.displayDescription }} [{{ provider.name }}]
             </option>
           </select>
         </div>
@@ -139,6 +139,18 @@ const remoteType = ref('')
 const sortedProviders = computed(() => {
   return [...providers.value].sort((a, b) => {
     return a.description.localeCompare(b.description)
+  }).map(provider => {
+    // Limit description to 10 words
+    const words = provider.description.split(' ')
+    let displayDescription = provider.description
+    if (words.length > 10) {
+      displayDescription = words.slice(0, 10).join(' ') + '...'
+    }
+    return {
+      name: provider.name,
+      description: provider.description,
+      displayDescription: displayDescription
+    }
   })
 })
 
@@ -160,7 +172,10 @@ const canProceed = computed(() => {
   } else {
     // For subsequent steps, check if required field is filled
     if (currentQuestion.value?.required) {
-      return currentAnswer.value.trim() !== ''
+      // Convert to string to handle number/boolean inputs
+      // Use ?? instead of || to preserve false/0 values
+      const answerStr = String(currentAnswer.value ?? '').trim()
+      return answerStr !== ''
     }
     return true // Optional fields can be empty
   }
@@ -285,7 +300,10 @@ async function startCreation() {
       wizardStep.value = 2
       sessionId.value = result.session_id
       currentQuestion.value = result.question
-      currentAnswer.value = result.question.default || ''
+      // Convert default to string (handles boolean false, number 0, etc.)
+      currentAnswer.value = result.question.default !== undefined && result.question.default !== null
+        ? String(result.question.default)
+        : ''
     } else if (result.status === 'error') {
       alert(`Error: ${result.message}`)
     }
@@ -301,9 +319,13 @@ async function submitAnswer() {
   isProcessing.value = true
 
   try {
+    // Convert answer to string (handles number, boolean inputs)
+    // Use ?? instead of || to preserve false/0 values
+    const answerStr = String(currentAnswer.value ?? '').trim()
+
     const result = await apiCall('/api/remotes/custom/continue', 'POST', {
       session_id: sessionId.value,
-      answer: currentAnswer.value.trim()
+      answer: answerStr
     })
 
     if (result.status === 'complete') {
@@ -314,7 +336,10 @@ async function submitAnswer() {
     } else if (result.status === 'needs_input') {
       // Show next question
       currentQuestion.value = result.question
-      currentAnswer.value = result.question.default || ''
+      // Convert default to string (handles boolean false, number 0, etc.)
+      currentAnswer.value = result.question.default !== undefined && result.question.default !== null
+        ? String(result.question.default)
+        : ''
     } else if (result.status === 'error') {
       alert(`Error: ${result.message}`)
     }
