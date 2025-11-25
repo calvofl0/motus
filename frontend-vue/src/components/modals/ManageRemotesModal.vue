@@ -424,6 +424,11 @@ watch(currentStep, async (newStep) => {
   // Setup tooltips for step 3
   if (newStep === 3) {
     setupHelpTooltips()
+
+    // Auto-focus the remote name input field
+    if (remoteNameInput.value) {
+      remoteNameInput.value.focus()
+    }
   }
 
   // Focus template list container for step 2 (for keyboard navigation)
@@ -464,26 +469,28 @@ function setupHelpTooltips() {
     if (tooltip) {
       let hideTimeout
 
-      icon.addEventListener('mouseenter', () => {
-        tooltip.style.display = 'block'
-      })
-
-      icon.addEventListener('mouseleave', () => {
-        hideTimeout = setTimeout(() => {
-          if (!tooltip.matches(':hover')) {
-            tooltip.style.display = 'none'
-          }
-        }, 100)
-      })
-
-      tooltip.addEventListener('mouseenter', () => {
+      const showTooltip = () => {
         clearTimeout(hideTimeout)
         tooltip.style.display = 'block'
-      })
+      }
 
-      tooltip.addEventListener('mouseleave', () => {
-        tooltip.style.display = 'none'
-      })
+      const hideTooltip = () => {
+        hideTimeout = setTimeout(() => {
+          tooltip.style.display = 'none'
+        }, 200) // Increased delay for easier tooltip hovering
+      }
+
+      // Show on icon hover
+      icon.addEventListener('mouseenter', showTooltip)
+
+      // Hide when leaving icon (with delay)
+      icon.addEventListener('mouseleave', hideTooltip)
+
+      // Keep visible when hovering tooltip
+      tooltip.addEventListener('mouseenter', showTooltip)
+
+      // Hide when leaving tooltip
+      tooltip.addEventListener('mouseleave', hideTooltip)
     }
   })
 }
@@ -553,10 +560,18 @@ async function handleCustomRemoteCreated(remoteName) {
       const configData = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`)
       const rawConfig = configData.raw_config || ''
 
-      // Parse token from raw config (format: "token = value")
-      // Use [^\r\n]* to explicitly stop at line boundaries (handles both \n and \r\n)
-      const tokenMatch = rawConfig.match(/^\s*token\s*=\s*([^\r\n]*)$/m)
-      const token = tokenMatch ? tokenMatch[1].trim() : ''
+      // Parse token from raw config by splitting lines
+      let token = ''
+      const lines = rawConfig.split(/\r?\n/)
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        if (trimmedLine.startsWith('token =') || trimmedLine.startsWith('token=')) {
+          // Extract value after 'token ='
+          const equalsIndex = trimmedLine.indexOf('=')
+          token = trimmedLine.substring(equalsIndex + 1).trim()
+          break
+        }
+      }
 
       // If token is empty, open OAuth modal
       if (!token || token.trim() === '') {
@@ -786,10 +801,18 @@ async function createRemote() {
         const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/raw`)
         const rawConfig = configData.raw_config || ''
 
-        // Parse token from raw config (format: "token = value")
-        // Use [^\r\n]* to explicitly stop at line boundaries (handles both \n and \r\n)
-        const tokenMatch = rawConfig.match(/^\s*token\s*=\s*([^\r\n]*)$/m)
-        const token = tokenMatch ? tokenMatch[1].trim() : ''
+        // Parse token from raw config by splitting lines
+        let token = ''
+        const lines = rawConfig.split(/\r?\n/)
+        for (const line of lines) {
+          const trimmedLine = line.trim()
+          if (trimmedLine.startsWith('token =') || trimmedLine.startsWith('token=')) {
+            // Extract value after 'token ='
+            const equalsIndex = trimmedLine.indexOf('=')
+            token = trimmedLine.substring(equalsIndex + 1).trim()
+            break
+          }
+        }
 
         console.log(`[ManageRemotesModal] Token check for ${newRemoteName}: token="${token}", isEmpty=${!token || token.trim() === ''}`)
 
@@ -989,13 +1012,14 @@ async function handleOAuthRefreshed() {
   pointer-events: auto;
 }
 
-.help-tooltip a {
-  color: #58C4FF;
+/* Use :deep() to style links inside v-html content */
+.help-tooltip :deep(a) {
+  color: #58C4FF !important;
   text-decoration: underline;
 }
 
-.help-tooltip a:hover {
-  color: #8FD5FF;
+.help-tooltip :deep(a:hover) {
+  color: #8FD5FF !important;
 }
 
 .help-tooltip::before {
