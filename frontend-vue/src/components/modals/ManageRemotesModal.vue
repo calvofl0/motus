@@ -1082,6 +1082,13 @@ async function deleteRemote(name) {
   }
 
   if (!confirm(`Are you sure you want to delete the remote "${name}"?`)) {
+    // Restore focus to modal after cancel
+    setTimeout(() => {
+      const modalOverlay = document.querySelector('.modal-overlay')
+      if (modalOverlay) {
+        modalOverlay.focus()
+      }
+    }, 100)
     return
   }
 
@@ -1091,8 +1098,23 @@ async function deleteRemote(name) {
 
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
+
+    // Restore focus to modal after delete
+    setTimeout(() => {
+      const modalOverlay = document.querySelector('.modal-overlay')
+      if (modalOverlay) {
+        modalOverlay.focus()
+      }
+    }, 100)
   } catch (error) {
     alert(`Failed to delete remote: ${error.message}`)
+    // Restore focus to modal after error
+    setTimeout(() => {
+      const modalOverlay = document.querySelector('.modal-overlay')
+      if (modalOverlay) {
+        modalOverlay.focus()
+      }
+    }, 100)
   }
 }
 

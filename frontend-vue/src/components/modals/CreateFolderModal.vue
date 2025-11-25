@@ -52,9 +52,12 @@ watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     folderName.value = ''
     await nextTick()
-    if (inputRef.value) {
-      inputRef.value.focus()
-    }
+    // Use setTimeout to ensure modal is fully rendered
+    setTimeout(() => {
+      if (inputRef.value) {
+        inputRef.value.focus()
+      }
+    }, 100)
   }
 })
 

@@ -56,10 +56,13 @@ watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     newName.value = props.currentName
     await nextTick()
-    if (inputRef.value) {
-      inputRef.value.focus()
-      inputRef.value.select()
-    }
+    // Use setTimeout to ensure modal is fully rendered
+    setTimeout(() => {
+      if (inputRef.value) {
+        inputRef.value.focus()
+        inputRef.value.select()
+      }
+    }, 100)
   }
 })
 

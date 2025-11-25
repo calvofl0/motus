@@ -53,7 +53,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'method-selected'])
 
 const containerRef = ref(null)
-const selectedIndex = ref(0)
+const selectedIndex = ref(-1)
 const hoveredIndex = ref(-1)
 const methods = ['wizard', 'manual']
 
@@ -63,7 +63,7 @@ function selectMethod(method) {
 }
 
 function getOptionStyle(index) {
-  const isSelected = selectedIndex.value === index
+  const isSelected = selectedIndex.value === index && selectedIndex.value !== -1
   const isHovered = hoveredIndex.value === index
 
   return {
@@ -79,24 +79,36 @@ function getOptionStyle(index) {
 function handleKeydown(event) {
   if (event.key === 'ArrowDown') {
     event.preventDefault()
-    selectedIndex.value = (selectedIndex.value + 1) % methods.length
+    if (selectedIndex.value === -1) {
+      selectedIndex.value = 0
+    } else {
+      selectedIndex.value = (selectedIndex.value + 1) % methods.length
+    }
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
-    selectedIndex.value = (selectedIndex.value - 1 + methods.length) % methods.length
+    if (selectedIndex.value === -1) {
+      selectedIndex.value = methods.length - 1
+    } else {
+      selectedIndex.value = (selectedIndex.value - 1 + methods.length) % methods.length
+    }
   } else if (event.key === 'Enter') {
     event.preventDefault()
-    selectMethod(methods[selectedIndex.value])
+    if (selectedIndex.value !== -1) {
+      selectMethod(methods[selectedIndex.value])
+    }
   }
 }
 
 // Auto-focus container when modal opens
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
-    selectedIndex.value = 0
+    selectedIndex.value = -1
     await nextTick()
-    if (containerRef.value) {
-      containerRef.value.focus()
-    }
+    setTimeout(() => {
+      if (containerRef.value) {
+        containerRef.value.focus()
+      }
+    }, 100)
   }
 })
 </script>
