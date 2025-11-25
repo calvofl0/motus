@@ -52,11 +52,19 @@
       @cancel="upload.cancelUpload"
     />
 
+    <CreateAliasModal
+      v-model="showCreateAliasModal"
+      :target-path="aliasTargetPath"
+      :resolved-path="aliasResolvedPath"
+      @create="handleCreateAlias"
+    />
+
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
       :position="contextMenuPosition"
       :selected-count="contextMenuSelectedCount"
+      :has-target-folder="contextMenuTargetFolder !== null"
       @close="closeContextMenu"
       @action="handleContextMenuAction"
       @sort="handleContextMenuSort"
@@ -76,7 +84,9 @@ import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
+import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import { apiCall } from '../services/api'
 
 const appStore = useAppStore()
 const fileOps = useFileOperations()
@@ -91,6 +101,13 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const contextMenuPane = ref(null)
 const contextMenuSelectedCount = ref(0)
+const contextMenuTargetFolder = ref(null) // The folder being right-clicked (for Create Alias)
+
+// Create alias modal state
+const showCreateAliasModal = ref(false)
+const aliasTargetPath = ref('')
+const aliasResolvedPath = ref('')
+const aliasPane = ref(null)
 
 // Computed
 const canCopyRight = computed(() =>
@@ -116,11 +133,21 @@ function copyToLeft() {
 function showContextMenu(pane, event) {
   const paneState = appStore[`${pane}Pane`]
 
+  // Determine if a single folder is selected (for Create Alias)
+  let targetFolder = null
+  if (paneState.selectedIndexes.length === 1) {
+    const file = paneState.files[paneState.selectedIndexes[0]]
+    if (file && file.IsDir) {
+      targetFolder = file
+    }
+  }
+
   // Update refs directly
   contextMenuVisible.value = true
   contextMenuPosition.value = { x: event.clientX, y: event.clientY }
   contextMenuPane.value = pane
   contextMenuSelectedCount.value = paneState.selectedIndexes.length
+  contextMenuTargetFolder.value = targetFolder
 }
 
 function closeContextMenu() {
@@ -134,6 +161,11 @@ function handleContextMenuAction(action) {
   const paneState = appStore[`${pane}Pane`]
 
   switch (action) {
+    case 'createalias':
+      if (contextMenuTargetFolder.value) {
+        openCreateAliasModal(pane, contextMenuTargetFolder.value)
+      }
+      break
     case 'newfolder':
       fileOps.openCreateFolderModal(pane)
       break
@@ -159,6 +191,65 @@ function handleContextMenuSort({ field, asc }) {
   const paneRef = pane === 'left' ? leftPaneRef.value : rightPaneRef.value
   if (paneRef && paneRef.setSortBy) {
     paneRef.setSortBy(field, asc)
+  }
+}
+
+// Alias creation functions
+async function openCreateAliasModal(pane, folder) {
+  const paneState = appStore[`${pane}Pane`]
+  const remote = paneState.remote
+  const currentPath = paneState.path
+
+  // Construct target path
+  const folderPath = currentPath === '/' ? `/${folder.Name}` : `${currentPath}/${folder.Name}`
+  const targetPath = remote ? `${remote}:${folderPath}` : folderPath
+
+  // Resolve alias chain to get underlying path
+  const resolvedPath = await resolveAliasPath(remote, folderPath)
+
+  aliasTargetPath.value = targetPath
+  aliasResolvedPath.value = resolvedPath
+  aliasPane.value = pane
+  showCreateAliasModal.value = true
+}
+
+async function resolveAliasPath(remote, path) {
+  if (!remote) {
+    // Local filesystem - no alias resolution needed
+    return path
+  }
+
+  try {
+    // Call backend API to resolve alias chain
+    const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
+      remote: remote,
+      path: path
+    })
+    return response.resolved_path || `${remote}:${path}`
+  } catch (error) {
+    console.error('Failed to resolve alias path:', error)
+    // Fallback to original path if resolution fails
+    return `${remote}:${path}`
+  }
+}
+
+async function handleCreateAlias(aliasName) {
+  try {
+    // Create alias remote config
+    const config = `[${aliasName}]\ntype = alias\nremote = ${aliasResolvedPath.value}\n`
+
+    await apiCall('/api/remotes/raw', 'POST', {
+      raw_config: config
+    })
+
+    // Notify that remotes have changed
+    window.dispatchEvent(new CustomEvent('remotes-changed'))
+
+    showCreateAliasModal.value = false
+    alert(`Alias remote "${aliasName}" created successfully!`)
+  } catch (error) {
+    console.error('Failed to create alias:', error)
+    alert(`Failed to create alias: ${error.message}`)
   }
 }
 

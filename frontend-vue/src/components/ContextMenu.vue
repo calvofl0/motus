@@ -7,6 +7,15 @@
       :style="{ left: `${position.x}px`, top: `${position.y}px` }"
       @click="handleMenuClick"
     >
+      <!-- Create Alias (only when a folder is selected) -->
+      <div
+        v-if="hasTargetFolder"
+        class="context-menu-item"
+        data-action="createalias"
+      >
+        🔗 Create Alias
+      </div>
+
       <!-- Create Folder (only when no files selected or on empty space) -->
       <div
         v-if="canCreateFolder"
@@ -77,6 +86,10 @@ const props = defineProps({
   selectedCount: {
     type: Number,
     default: 0
+  },
+  hasTargetFolder: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -133,6 +146,8 @@ function handleClickOutside(event) {
 // Close on escape key
 function handleKeyDown(event) {
   if (event.key === 'Escape' && props.visible) {
+    event.stopPropagation()
+    event.preventDefault()
     close()
   }
 }

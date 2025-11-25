@@ -508,6 +508,8 @@ async function loadRemotesList() {
   try {
     const data = await apiCall('/api/remotes')
     remotes.value = data.remotes || []
+    // Clear alias cache when remotes are reloaded
+    aliasTargetCache.value.clear()
     // Update active remotes to handle alias chains
     await updateActiveRemotes()
   } catch (error) {
@@ -551,7 +553,7 @@ async function getAliasTarget(remoteName) {
   try {
     // Get raw config
     const data = await apiCall(`/api/remotes/${remoteName}/raw`)
-    const rawConfig = data.config || ''
+    const rawConfig = data.raw_config || ''
 
     // Parse the "remote = " field
     const lines = rawConfig.split(/\r?\n/)
@@ -653,6 +655,9 @@ async function handleCustomRemoteCreated(remoteName) {
   // Reload remotes list
   await loadRemotesList()
   console.log(`Custom remote '${remoteName}' created successfully`)
+
+  // Notify other components that remotes have changed
+  window.dispatchEvent(new CustomEvent('remotes-changed'))
 
   // Check if the created remote needs OAuth token
   const createdRemote = remotes.value.find(r => r.name === remoteName)
