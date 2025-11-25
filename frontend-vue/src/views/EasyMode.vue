@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide, nextTick } from 'vue'
 import { useAppStore } from '../stores/app'
 import { useFileOperations } from '../composables/useFileOperations'
 import { useUpload } from '../composables/useUpload'
@@ -242,10 +242,12 @@ async function handleCreateAlias(aliasName) {
       raw_config: config
     })
 
-    // Notify that remotes have changed
+    showCreateAliasModal.value = false
+
+    // Notify that remotes have changed (after modal closes)
+    await nextTick()
     window.dispatchEvent(new CustomEvent('remotes-changed'))
 
-    showCreateAliasModal.value = false
     alert(`Alias remote "${aliasName}" created successfully!`)
   } catch (error) {
     console.error('Failed to create alias:', error)

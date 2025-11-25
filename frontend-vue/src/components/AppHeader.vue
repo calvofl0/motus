@@ -134,12 +134,13 @@ async function quitServer() {
   }
 }
 
-// Handle ESC key to quit when no modals are open
+// Handle ESC key to quit when no modals or context menu are open
 function handleGlobalKeydown(e) {
   if (e.key === 'Escape') {
-    // Check if any modal is open
+    // Check if any modal or context menu is open
     const hasOpenModal = document.querySelector('.modal-overlay')
-    if (!hasOpenModal) {
+    const hasOpenContextMenu = document.querySelector('.context-menu')
+    if (!hasOpenModal && !hasOpenContextMenu) {
       quitServer()
     }
   }

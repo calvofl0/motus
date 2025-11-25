@@ -719,9 +719,10 @@ onMounted(async () => {
   try {
     await loadRemotes()
 
-    // Set initial path for local filesystem
+    // Set initial path for local filesystem and expand home directory
     if (selectedRemote.value === '') {
       currentPath.value = '~/'
+      await expandHomePath()
     }
 
     await refresh()
