@@ -132,7 +132,7 @@
                 v-model="remoteName"
                 type="text"
                 placeholder="Enter remote name"
-                pattern="[a-zA-Z0-9_-]+"
+                pattern="[a-zA-Z0-9_\-]+"
                 style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
                 @keydown.enter="handleFieldEnter('remoteName')"
               />
@@ -549,10 +549,14 @@ async function handleCustomRemoteCreated(remoteName) {
   // Check if the created remote needs OAuth token
   const createdRemote = remotes.value.find(r => r.name === remoteName)
   if (createdRemote && createdRemote.is_oauth) {
-    // Check if token is empty by fetching the full config
+    // Check if token is empty by fetching the raw config
     try {
-      const configData = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/config`)
-      const token = configData.config?.token || ''
+      const configData = await apiCall(`/api/remotes/${encodeURIComponent(remoteName)}/raw`)
+      const rawConfig = configData.raw_config || ''
+
+      // Parse token from raw config (format: "token = value")
+      const tokenMatch = rawConfig.match(/^\s*token\s*=\s*(.*)$/m)
+      const token = tokenMatch ? tokenMatch[1].trim() : ''
 
       // If token is empty, open OAuth modal
       if (!token || token.trim() === '') {
@@ -777,10 +781,14 @@ async function createRemote() {
     console.log(`[ManageRemotesModal] Created remote: ${newRemoteName}, is_oauth=${createdRemote?.is_oauth}`)
 
     if (createdRemote && createdRemote.is_oauth) {
-      // Check if token is empty by fetching the full config
+      // Check if token is empty by fetching the raw config
       try {
-        const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/config`)
-        const token = configData.config?.token || ''
+        const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/raw`)
+        const rawConfig = configData.raw_config || ''
+
+        // Parse token from raw config (format: "token = value")
+        const tokenMatch = rawConfig.match(/^\s*token\s*=\s*(.*)$/m)
+        const token = tokenMatch ? tokenMatch[1].trim() : ''
 
         console.log(`[ManageRemotesModal] Token check for ${newRemoteName}: token="${token}", isEmpty=${!token || token.trim() === ''}`)
 
