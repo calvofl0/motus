@@ -177,7 +177,7 @@
                     <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
-                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                      <line x1="1" y1="23" x2="23" y2="1"></line>
                     </svg>
                   </button>
                 </div>
@@ -428,8 +428,11 @@ watch(currentStep, async (newStep) => {
   }
 
   // Focus template list container for step 2 (for keyboard navigation)
-  if (newStep === 2 && templateListContainer.value) {
-    templateListContainer.value.focus()
+  if (newStep === 2) {
+    await nextTick()
+    if (templateListContainer.value) {
+      templateListContainer.value.focus()
+    }
   }
 
   // Refocus main modal overlay after step change
@@ -763,27 +766,37 @@ async function createRemote() {
     })
 
     await loadRemotesList()
-    showRemotesList()
 
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
 
-    // Check if the created remote needs OAuth token
+    // Check if the created remote needs OAuth token BEFORE going back to list
     const createdRemote = remotes.value.find(r => r.name === newRemoteName)
+    let needsOAuth = false
+
     if (createdRemote && createdRemote.is_oauth) {
       // Check if token is empty by fetching the full config
       try {
         const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/config`)
         const token = configData.config?.token || ''
 
-        // If token is empty, open OAuth modal
+        // If token is empty, we'll need to open OAuth modal
         if (!token || token.trim() === '') {
+          needsOAuth = true
           oauthRemoteName.value = newRemoteName
-          showOAuthModal.value = true
         }
       } catch (error) {
         console.error('Failed to check remote token:', error)
       }
+    }
+
+    // Return to list view
+    showRemotesList()
+
+    // Open OAuth modal if needed (after returning to list)
+    if (needsOAuth) {
+      await nextTick()
+      showOAuthModal.value = true
     }
   } catch (error) {
     alert(`Failed to create remote: ${error.message}`)

@@ -413,6 +413,7 @@ def register_routes(app: Flask, config: Config):
             'default_mode': config.default_mode,
             'max_upload_size': config.max_upload_size,
             'max_upload_size_formatted': format_size(config.max_upload_size),
+            'max_idle_time': config.max_idle_time,
         })
 
     @app.route('/api/preferences', methods=['GET'])
