@@ -47,15 +47,34 @@
           <div v-if="currentQuestion.help" v-html="formatHelp(currentQuestion.help)" style="margin-bottom: 8px; color: #666; font-size: 14px;"></div>
 
           <!-- Password field -->
-          <input
-            v-if="currentQuestion.is_password"
-            ref="answerInput"
-            type="password"
-            v-model="currentAnswer"
-            @keydown.enter="handleAnswerEnter"
-            :placeholder="getPlaceholder()"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-          />
+          <div v-if="currentQuestion.is_password" style="position: relative;">
+            <input
+              ref="answerInput"
+              :type="showPassword ? 'text' : 'password'"
+              v-model="currentAnswer"
+              @keydown.enter="handleAnswerEnter"
+              :placeholder="getPlaceholder()"
+              style="width: 100%; padding: 8px; padding-right: 35px; border: 1px solid #ddd; border-radius: 4px;"
+            />
+            <button
+              @click.prevent="showPassword = !showPassword"
+              type="button"
+              style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px;"
+              :title="showPassword ? 'Hide password' : 'Show password'"
+            >
+              <!-- Eye icon (show password) -->
+              <svg v-if="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <!-- Eye with diagonal line (hide password) -->
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+                <line x1="1" y1="23" x2="23" y2="1"></line>
+              </svg>
+            </button>
+          </div>
 
           <!-- Boolean field -->
           <select
@@ -158,6 +177,7 @@ const sortedProviders = computed(() => {
 const sessionId = ref(null)
 const currentQuestion = ref(null)
 const currentAnswer = ref('')
+const showPassword = ref(false)
 const isProcessing = ref(false)
 
 // Refs for inputs
@@ -300,6 +320,7 @@ async function startCreation() {
       wizardStep.value = 2
       sessionId.value = result.session_id
       currentQuestion.value = result.question
+      showPassword.value = false // Reset password visibility
       // Convert default to string (handles boolean false, number 0, etc.)
       currentAnswer.value = result.question.default !== undefined && result.question.default !== null
         ? String(result.question.default)
@@ -336,6 +357,7 @@ async function submitAnswer() {
     } else if (result.status === 'needs_input') {
       // Show next question
       currentQuestion.value = result.question
+      showPassword.value = false // Reset password visibility
       // Convert default to string (handles boolean false, number 0, etc.)
       currentAnswer.value = result.question.default !== undefined && result.question.default !== null
         ? String(result.question.default)

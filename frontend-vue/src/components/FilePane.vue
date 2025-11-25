@@ -662,6 +662,40 @@ function handleRemotesChanged() {
   loadRemotes()
 }
 
+// Handle job completion event
+function handleJobCompleted(event) {
+  const { jobId, dstPath } = event.detail
+
+  if (!dstPath) return
+
+  // Parse destination path (format: "remote:path" or just "path" for local)
+  let dstRemote = ''
+  let dstDir = ''
+
+  if (dstPath.includes(':')) {
+    const parts = dstPath.split(':', 2)
+    dstRemote = parts[0]
+    dstDir = parts[1] || '/'
+  } else {
+    dstRemote = ''
+    dstDir = dstPath || '/'
+  }
+
+  // Get directory from destination path
+  const lastSlashIndex = dstDir.lastIndexOf('/')
+  if (lastSlashIndex > 0) {
+    dstDir = dstDir.substring(0, lastSlashIndex)
+  } else if (lastSlashIndex === 0) {
+    dstDir = '/'
+  }
+
+  // Check if this pane is showing the destination
+  if (selectedRemote.value === dstRemote && currentPath.value === dstDir) {
+    console.log(`[FilePane ${props.pane}] Job ${jobId} completed, refreshing ${dstRemote || 'local'}:${dstDir}`)
+    refresh()
+  }
+}
+
 // Initialize
 onMounted(async () => {
   try {
@@ -679,11 +713,15 @@ onMounted(async () => {
 
   // Listen for remote changes
   window.addEventListener('remotes-changed', handleRemotesChanged)
+
+  // Listen for job completion to auto-refresh
+  window.addEventListener('job-completed', handleJobCompleted)
 })
 
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('remotes-changed', handleRemotesChanged)
+  window.removeEventListener('job-completed', handleJobCompleted)
 })
 
 // Expose methods to parent

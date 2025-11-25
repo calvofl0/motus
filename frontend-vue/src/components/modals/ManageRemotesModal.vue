@@ -433,12 +433,12 @@ watch(currentStep, async (newStep) => {
     if (templateListContainer.value) {
       templateListContainer.value.focus()
     }
-  }
-
-  // Refocus main modal overlay after step change
-  const mainOverlay = document.querySelector('.modal-overlay')
-  if (mainOverlay) {
-    mainOverlay.focus()
+  } else {
+    // Refocus main modal overlay after step change (but not for step 2)
+    const mainOverlay = document.querySelector('.modal-overlay')
+    if (mainOverlay) {
+      mainOverlay.focus()
+    }
   }
 })
 
