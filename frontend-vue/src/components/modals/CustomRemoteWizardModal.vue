@@ -59,7 +59,7 @@
             <button
               @click.prevent="showPassword = !showPassword"
               type="button"
-              style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px;"
+              style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px; color: #666;"
               :title="showPassword ? 'Hide password' : 'Show password'"
             >
               <!-- Eye icon (show password) -->
