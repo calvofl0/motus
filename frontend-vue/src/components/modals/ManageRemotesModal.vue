@@ -717,7 +717,7 @@ function handleFieldEnter(currentFieldKey) {
 // Is secret field
 function isSecretField(field) {
   const label = field.label.toLowerCase()
-  return label.includes('password') || label.includes('secret') || label.includes('key')
+  return label.includes('password') || label.includes('secret') || label.includes('key') || label.includes('token')
 }
 
 // Toggle password field visibility
@@ -774,11 +774,15 @@ async function createRemote() {
     const createdRemote = remotes.value.find(r => r.name === newRemoteName)
     let needsOAuth = false
 
+    console.log(`[ManageRemotesModal] Created remote: ${newRemoteName}, is_oauth=${createdRemote?.is_oauth}`)
+
     if (createdRemote && createdRemote.is_oauth) {
       // Check if token is empty by fetching the full config
       try {
         const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/config`)
         const token = configData.config?.token || ''
+
+        console.log(`[ManageRemotesModal] Token check for ${newRemoteName}: token="${token}", isEmpty=${!token || token.trim() === ''}`)
 
         // If token is empty, we'll need to open OAuth modal
         if (!token || token.trim() === '') {
@@ -795,8 +799,12 @@ async function createRemote() {
 
     // Open OAuth modal if needed (after returning to list)
     if (needsOAuth) {
-      await nextTick()
+      console.log(`[ManageRemotesModal] Auto-opening OAuth modal for ${newRemoteName}`)
+      // Use setTimeout to ensure modal state has settled
+      await new Promise(resolve => setTimeout(resolve, 100))
+      oauthRemoteName.value = newRemoteName
       showOAuthModal.value = true
+      console.log(`[ManageRemotesModal] OAuth modal opened, showOAuthModal=${showOAuthModal.value}`)
     }
   } catch (error) {
     alert(`Failed to create remote: ${error.message}`)
