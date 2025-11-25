@@ -145,8 +145,7 @@
                 {{ field.label }}
                 <span v-if="field.help" class="help-icon" style="display: inline-block; cursor: help; position: relative; margin-left: 4px;">
                   <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align: middle;">
-                    <circle cx="8" cy="8" r="7" fill="none" stroke="#007bff" stroke-width="1.5"/>
-                    <text x="8" y="11" text-anchor="middle" fill="#007bff" font-size="11" font-weight="bold" font-family="serif">i</text>
+                    <text x="8" y="12" text-anchor="middle" fill="#007bff" font-size="14" font-weight="bold" font-style="italic" font-family="serif">i</text>
                   </svg>
                   <span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" v-html="field.help"></span>
                 </span>
