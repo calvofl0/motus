@@ -355,6 +355,11 @@ const formValues = ref({})
 const fieldVisibility = ref({}) // Track password field visibility
 const customConfig = ref('')
 
+// Cache for alias target remotes (remoteName -> targetRemoteName)
+const aliasTargetCache = ref(new Map())
+// Set of remotes that are currently in use (including via aliases)
+const activeRemoteNames = ref(new Set())
+
 // Input refs for ENTER key navigation
 const remoteNameInput = ref(null)
 const fieldInputs = ref([])
@@ -426,19 +431,21 @@ watch(currentStep, async (newStep) => {
     setupHelpTooltips()
 
     // Auto-focus the remote name input field
+    await nextTick()
     if (remoteNameInput.value) {
       remoteNameInput.value.focus()
     }
   }
 
   // Focus template list container for step 2 (for keyboard navigation)
-  if (newStep === 2) {
+  else if (newStep === 2) {
     await nextTick()
     if (templateListContainer.value) {
       templateListContainer.value.focus()
     }
-  } else {
-    // Refocus main modal overlay after step change (but not for step 2)
+  }
+  // Refocus main modal overlay for other steps
+  else {
     const mainOverlay = document.querySelector('.modal-overlay')
     if (mainOverlay) {
       mainOverlay.focus()
@@ -501,6 +508,8 @@ async function loadRemotesList() {
   try {
     const data = await apiCall('/api/remotes')
     remotes.value = data.remotes || []
+    // Update active remotes to handle alias chains
+    await updateActiveRemotes()
   } catch (error) {
     console.error('Failed to load remotes:', error)
     alert(`Failed to load remotes: ${error.message}`)
@@ -521,9 +530,102 @@ async function loadTemplatesList() {
   }
 }
 
-// Check if remote is active
+/**
+ * Get the target remote name from an alias remote's config
+ * Returns null if not an alias or if target can't be determined
+ */
+async function getAliasTarget(remoteName) {
+  // Check cache first
+  if (aliasTargetCache.value.has(remoteName)) {
+    return aliasTargetCache.value.get(remoteName)
+  }
+
+  // Find the remote in our list
+  const remote = remotes.value.find(r => r.name === remoteName)
+  if (!remote || remote.type !== 'alias') {
+    // Not an alias, cache null
+    aliasTargetCache.value.set(remoteName, null)
+    return null
+  }
+
+  try {
+    // Get raw config
+    const data = await apiCall(`/api/remotes/${remoteName}/raw`)
+    const rawConfig = data.config || ''
+
+    // Parse the "remote = " field
+    const lines = rawConfig.split(/\r?\n/)
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (trimmedLine.startsWith('remote =') || trimmedLine.startsWith('remote=')) {
+        const equalsIndex = trimmedLine.indexOf('=')
+        const targetValue = trimmedLine.substring(equalsIndex + 1).trim()
+
+        // Extract remote name (before the colon)
+        // e.g., "onedrive:/path" -> "onedrive"
+        // or just "onedrive" -> "onedrive"
+        let targetRemote = targetValue
+        if (targetValue.includes(':')) {
+          targetRemote = targetValue.split(':', 2)[0]
+        }
+
+        // Cache and return
+        aliasTargetCache.value.set(remoteName, targetRemote)
+        return targetRemote
+      }
+    }
+
+    // No remote field found
+    aliasTargetCache.value.set(remoteName, null)
+    return null
+  } catch (error) {
+    console.error(`Failed to get alias target for ${remoteName}:`, error)
+    return null
+  }
+}
+
+/**
+ * Recursively add all remotes in an alias chain to the active set
+ */
+async function addAliasChain(remoteName, activeSet, visitedRemotes = new Set()) {
+  // Prevent infinite loops
+  if (visitedRemotes.has(remoteName)) {
+    return
+  }
+  visitedRemotes.add(remoteName)
+
+  // Get the target of this remote (if it's an alias)
+  const target = await getAliasTarget(remoteName)
+  if (target) {
+    // Add the target to active set
+    activeSet.add(target)
+
+    // Recursively trace the target
+    await addAliasChain(target, activeSet, visitedRemotes)
+  }
+}
+
+/**
+ * Update the set of active remote names (including alias targets)
+ */
+async function updateActiveRemotes() {
+  const active = new Set()
+
+  // Start with directly active remotes
+  const directlyActive = [appStore.leftPane.remote, appStore.rightPane.remote].filter(Boolean)
+  directlyActive.forEach(name => active.add(name))
+
+  // For each directly active remote, trace alias chain
+  for (const remoteName of directlyActive) {
+    await addAliasChain(remoteName, active)
+  }
+
+  activeRemoteNames.value = active
+}
+
+// Check if remote is active (includes remotes used via alias chains)
 function isActiveRemote(remoteName) {
-  return appStore.leftPane.remote === remoteName || appStore.rightPane.remote === remoteName
+  return activeRemoteNames.value.has(remoteName)
 }
 
 // Show custom remote method selection
@@ -909,6 +1011,14 @@ watch(showViewConfigModal, (isOpen) => {
     document.addEventListener('keydown', handleViewConfigKeyDown)
   } else {
     document.removeEventListener('keydown', handleViewConfigKeyDown)
+  }
+})
+
+// Watch pane remotes to update active remotes (for alias chain handling)
+watch([() => appStore.leftPane.remote, () => appStore.rightPane.remote], async () => {
+  // Only update if modal is open and remotes are loaded
+  if (appStore.showManageRemotesModal && remotes.value.length > 0) {
+    await updateActiveRemotes()
   }
 })
 
