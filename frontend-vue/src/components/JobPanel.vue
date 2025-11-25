@@ -96,6 +96,9 @@ let jobUpdateInterval = null
 let interruptedJobsInterval = null
 let failedJobsInterval = null
 
+// Shutdown flag to prevent API calls after shutdown event
+let isShuttingDown = false
+
 // Toggle functions
 function toggleActiveJobs() {
   activeJobsCollapsed.value = !activeJobsCollapsed.value
@@ -205,6 +208,11 @@ function getTransferStatus(job) {
  * Update active jobs list
  */
 async function updateJobs() {
+  // Don't make API calls if server is shutting down
+  if (isShuttingDown) {
+    return
+  }
+
   try {
     const data = await apiCall('/api/jobs?status=running')
     const previousJobs = new Set(activeJobs.value.map(j => j.job_id))
@@ -257,6 +265,11 @@ async function updateJobs() {
  * Update interrupted jobs list
  */
 async function updateInterruptedJobs() {
+  // Don't make API calls if server is shutting down
+  if (isShuttingDown) {
+    return
+  }
+
   try {
     const data = await apiCall('/api/jobs?status=interrupted')
     interruptedJobs.value = data.jobs || []
@@ -269,6 +282,11 @@ async function updateInterruptedJobs() {
  * Update failed jobs list
  */
 async function updateFailedJobs() {
+  // Don't make API calls if server is shutting down
+  if (isShuttingDown) {
+    return
+  }
+
   try {
     const data = await apiCall('/api/jobs?status=failed')
     failedJobs.value = data.jobs || []
@@ -368,6 +386,7 @@ function handleUpdateJobs() {
 // Handle server shutdown - stop polling immediately
 function handleServerShutdown() {
   console.log('[JobPanel] Server shutting down, stopping all polling')
+  isShuttingDown = true
   stopJobUpdates()
 }
 
