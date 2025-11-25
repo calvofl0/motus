@@ -555,7 +555,8 @@ async function handleCustomRemoteCreated(remoteName) {
       const rawConfig = configData.raw_config || ''
 
       // Parse token from raw config (format: "token = value")
-      const tokenMatch = rawConfig.match(/^\s*token\s*=\s*(.*)$/m)
+      // Use [^\r\n]* to explicitly stop at line boundaries (handles both \n and \r\n)
+      const tokenMatch = rawConfig.match(/^\s*token\s*=\s*([^\r\n]*)$/m)
       const token = tokenMatch ? tokenMatch[1].trim() : ''
 
       // If token is empty, open OAuth modal
@@ -787,7 +788,8 @@ async function createRemote() {
         const rawConfig = configData.raw_config || ''
 
         // Parse token from raw config (format: "token = value")
-        const tokenMatch = rawConfig.match(/^\s*token\s*=\s*(.*)$/m)
+        // Use [^\r\n]* to explicitly stop at line boundaries (handles both \n and \r\n)
+        const tokenMatch = rawConfig.match(/^\s*token\s*=\s*([^\r\n]*)$/m)
         const token = tokenMatch ? tokenMatch[1].trim() : ''
 
         console.log(`[ManageRemotesModal] Token check for ${newRemoteName}: token="${token}", isEmpty=${!token || token.trim() === ''}`)
@@ -986,6 +988,15 @@ async function handleOAuthRefreshed() {
 
 .help-tooltip {
   pointer-events: auto;
+}
+
+.help-tooltip a {
+  color: #58C4FF;
+  text-decoration: underline;
+}
+
+.help-tooltip a:hover {
+  color: #8FD5FF;
 }
 
 .help-tooltip::before {
