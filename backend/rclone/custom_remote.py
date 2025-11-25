@@ -111,7 +111,7 @@ class CustomRemoteCreationManager:
         try:
             logging.info(f"Starting creation of remote '{remote_name}' type '{remote_type}'")
 
-            # Run rclone config create --non-interactive
+            # Run rclone config create --non-interactive --all
             command = [
                 self.rclone_path,
                 'config',
@@ -119,6 +119,7 @@ class CustomRemoteCreationManager:
                 remote_name,
                 remote_type,
                 '--non-interactive',
+                '--all',
                 '--config', self.config_file,
             ]
 
