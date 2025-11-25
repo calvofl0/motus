@@ -169,3 +169,41 @@ def delete_file():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@files_bp.route('/api/files/expand-home', methods=['POST'])
+@token_required
+def expand_home():
+    """
+    Expand home directory (~) in a path to the actual home directory
+
+    Request JSON:
+    {
+        "path": "~/Documents"
+    }
+
+    Response:
+    {
+        "expanded_path": "/home/username/Documents"
+    }
+    """
+    import os
+    try:
+        data = request.get_json()
+        if not data or 'path' not in data:
+            return jsonify({'error': 'Missing required field: path'}), 400
+
+        path = data['path']
+
+        # Use os.path.expanduser which is cross-platform
+        expanded = os.path.expanduser(path)
+
+        logging.info(f"Expanded path: {path} -> {expanded}")
+
+        return jsonify({
+            'expanded_path': expanded
+        })
+
+    except Exception as e:
+        logging.error(f"Expand home error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+

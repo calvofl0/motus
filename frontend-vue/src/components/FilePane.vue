@@ -337,8 +337,26 @@ function onRemoteChange() {
   refresh()
 }
 
-function browsePath() {
+async function browsePath() {
+  // Expand ~ before refreshing (only for local filesystem)
+  if (selectedRemote.value === '' && currentPath.value.includes('~')) {
+    await expandHomePath()
+  }
   refresh()
+}
+
+async function expandHomePath() {
+  try {
+    const response = await apiCall('/api/files/expand-home', 'POST', {
+      path: currentPath.value
+    })
+    if (response.expanded_path) {
+      currentPath.value = response.expanded_path
+    }
+  } catch (error) {
+    console.error('Failed to expand home path:', error)
+    // Continue anyway - the path might still work
+  }
 }
 
 function setSortBy(field, asc = null) {
