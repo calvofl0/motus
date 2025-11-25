@@ -222,6 +222,14 @@ class Config:
             default='false'
         ).lower() == 'true'
 
+        # Allow expert mode toggle in UI
+        # If false, the Expert/Easy Mode toggle will be hidden
+        self.allow_expert_mode = self._get_config(
+            'allow_expert_mode',
+            env_var='MOTUS_ALLOW_EXPERT_MODE',
+            default='false'
+        ).lower() == 'true'
+
         # Max upload size (total size of all files in one upload)
         # Supports formats: 50M, 1G, 1024 (bytes), 0 or "unlimited" = no limit
         # Default: 0 (unlimited)

@@ -263,6 +263,11 @@ def main():
         type=str,
         help='Maximum total upload size per operation (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_UPLOAD_SIZE env var)'
     )
+    parser.add_argument(
+        '--allow-expert-mode',
+        action='store_true',
+        help='Show Expert/Easy Mode toggle in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
+    )
 
     args = parser.parse_args()
 
@@ -297,6 +302,8 @@ def main():
         except ValueError as e:
             print(f"Error: Invalid --max-upload-size: {e}", file=sys.stderr)
             sys.exit(1)
+    if args.allow_expert_mode:
+        config.allow_expert_mode = True
 
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)

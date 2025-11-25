@@ -21,7 +21,7 @@
           </div>
         </div>
       </div>
-      <button class="mode-toggle-button" @click="toggleMode">
+      <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
       <button class="quit-button" @click="quitServer">Quit</button>
@@ -39,6 +39,7 @@ const appStore = useAppStore()
 const router = useRouter()
 
 const showViewMenu = ref(false)
+const allowExpertMode = ref(false)
 
 const viewModeIcon = computed(() =>
   appStore.viewMode === 'grid' ? '⊞' : '☰'
@@ -151,8 +152,18 @@ document.addEventListener('click', () => {
   showViewMenu.value = false
 })
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
+
+  // Fetch config to check if expert mode is allowed
+  try {
+    const config = await apiCall('/api/config')
+    allowExpertMode.value = config.allow_expert_mode || false
+  } catch (error) {
+    console.error('Failed to fetch config:', error)
+    // Default to false if config fetch fails
+    allowExpertMode.value = false
+  }
 })
 
 onUnmounted(() => {
