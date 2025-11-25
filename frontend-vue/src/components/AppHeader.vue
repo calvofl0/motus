@@ -30,7 +30,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
@@ -102,8 +102,8 @@ async function quitServer() {
     // Notify components to stop polling before shutdown
     window.dispatchEvent(new CustomEvent('server-shutting-down'))
 
-    // Small delay to let components clean up
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Delay to let components clean up (intervals are 2-5s, need time for them to clear)
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // Shutdown server
     const shutdownData = await apiCall('/api/shutdown', 'POST')
@@ -134,8 +134,27 @@ async function quitServer() {
   }
 }
 
+// Handle ESC key to quit when no modals are open
+function handleGlobalKeydown(e) {
+  if (e.key === 'Escape') {
+    // Check if any modal is open
+    const hasOpenModal = document.querySelector('.modal-overlay')
+    if (!hasOpenModal) {
+      quitServer()
+    }
+  }
+}
+
 // Close view menu when clicking elsewhere
 document.addEventListener('click', () => {
   showViewMenu.value = false
+})
+
+onMounted(() => {
+  document.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>

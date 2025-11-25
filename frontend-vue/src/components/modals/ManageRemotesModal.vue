@@ -91,10 +91,16 @@
       <!-- Step 2: Select Template -->
       <div v-else-if="currentStep === 2">
         <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
-        <div style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
+        <div
+          ref="templateListContainer"
+          tabindex="0"
+          @keydown="handleTemplateKeydown"
+          style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; outline: none;"
+        >
           <div
-            v-for="template in templates"
+            v-for="(template, index) in templates"
             :key="template.name"
+            :ref="el => templateItems[index] = el"
             @click="selectTemplate(template.name)"
             :style="{
               padding: '12px',
@@ -145,15 +151,36 @@
                   <span class="help-tooltip" style="display: none; position: absolute; left: 20px; top: -5px; background: #2c3e50; color: white; padding: 10px 14px; border-radius: 6px; z-index: 1000; font-size: 13px; font-weight: normal; min-width: 250px; max-width: 400px; white-space: normal; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" v-html="field.help"></span>
                 </span>
               </label>
-              <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <input
-                  :ref="el => fieldInputs[index] = el"
-                  v-model="formValues[field.key]"
-                  :type="isSecretField(field) ? 'password' : 'text'"
-                  :placeholder="`Enter ${field.label}`"
-                  style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-                  @keydown.enter="handleFieldEnter(field.key)"
-                />
+              <div style="display: flex; gap: 8px; align-items: flex-start; position: relative;">
+                <div style="flex: 1; position: relative;">
+                  <input
+                    :ref="el => fieldInputs[index] = el"
+                    v-model="formValues[field.key]"
+                    :type="isSecretField(field) && !fieldVisibility[field.key] ? 'password' : 'text'"
+                    :placeholder="`Enter ${field.label}`"
+                    style="width: 100%; padding: 8px; padding-right: 35px; border: 1px solid #ddd; border-radius: 4px;"
+                    @keydown.enter="handleFieldEnter(field.key)"
+                  />
+                  <button
+                    v-if="isSecretField(field)"
+                    @click.prevent="toggleFieldVisibility(field.key)"
+                    type="button"
+                    style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px;"
+                    :title="fieldVisibility[field.key] ? 'Hide password' : 'Show password'"
+                  >
+                    <!-- Eye icon (show password) -->
+                    <svg v-if="!fieldVisibility[field.key]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <!-- Eye with diagonal line (hide password) -->
+                    <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
                 <button
                   v-if="isTokenField(field) && !formValues[field.key]?.trim()"
                   @click.prevent="showOAuthHelp"
@@ -326,11 +353,14 @@ const templatesAvailable = ref(false)
 const selectedTemplate = ref(null)
 const remoteName = ref('')
 const formValues = ref({})
+const fieldVisibility = ref({}) // Track password field visibility
 const customConfig = ref('')
 
 // Input refs for ENTER key navigation
 const remoteNameInput = ref(null)
 const fieldInputs = ref([])
+const templateListContainer = ref(null)
+const templateItems = ref([])
 
 // Modals
 const showCustomMethodModal = ref(false)
@@ -395,6 +425,11 @@ watch(currentStep, async (newStep) => {
   // Setup tooltips for step 3
   if (newStep === 3) {
     setupHelpTooltips()
+  }
+
+  // Focus template list container for step 2 (for keyboard navigation)
+  if (newStep === 2 && templateListContainer.value) {
+    templateListContainer.value.focus()
   }
 
   // Refocus main modal overlay after step change
@@ -532,6 +567,7 @@ function startWizard() {
   // Clear all wizard state for a fresh start
   selectedTemplate.value = null
   formValues.value = {}
+  fieldVisibility.value = {}
   remoteName.value = ''
   currentStep.value = 2
 }
@@ -580,10 +616,54 @@ function selectTemplate(templateName) {
       }
     }
     formValues.value = initialValues
+    fieldVisibility.value = {} // Reset password visibility
     remoteName.value = ''
   } else {
     // Same template selected, just ensure it's set
     selectedTemplate.value = newTemplate
+  }
+}
+
+// Handle keyboard navigation in template selection
+function handleTemplateKeydown(e) {
+  if (e.key === 'Enter' && selectedTemplate.value) {
+    // ENTER key with selection -> go to next step
+    e.preventDefault()
+    showRemoteForm()
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    // Arrow key navigation
+    e.preventDefault()
+
+    const currentIndex = selectedTemplate.value
+      ? templates.value.findIndex(t => t.name === selectedTemplate.value.name)
+      : -1
+
+    let newIndex
+    if (e.key === 'ArrowDown') {
+      if (currentIndex === -1) {
+        newIndex = 0 // Select first
+      } else {
+        newIndex = Math.min(currentIndex + 1, templates.value.length - 1)
+      }
+    } else { // ArrowUp
+      if (currentIndex === -1) {
+        newIndex = templates.value.length - 1 // Select last
+      } else {
+        newIndex = Math.max(currentIndex - 1, 0)
+      }
+    }
+
+    if (newIndex !== currentIndex && templates.value[newIndex]) {
+      selectTemplate(templates.value[newIndex].name)
+
+      // Scroll selected item into view
+      nextTick(() => {
+        const item = templateItems.value[newIndex]
+        if (item) {
+          item.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        }
+      })
+    }
   }
 }
 
@@ -637,6 +717,11 @@ function isSecretField(field) {
   return label.includes('password') || label.includes('secret') || label.includes('key')
 }
 
+// Toggle password field visibility
+function toggleFieldVisibility(fieldKey) {
+  fieldVisibility.value[fieldKey] = !fieldVisibility.value[fieldKey]
+}
+
 // Is sensitive key
 function isSensitiveKey(key) {
   const lowerKey = key.toLowerCase()
@@ -683,10 +768,22 @@ async function createRemote() {
     // Trigger remotes changed event
     window.dispatchEvent(new CustomEvent('remotes-changed'))
 
-    // If there was an empty token field, automatically open OAuth modal
-    if (hasEmptyTokenField) {
-      oauthRemoteName.value = newRemoteName
-      showOAuthModal.value = true
+    // Check if the created remote needs OAuth token
+    const createdRemote = remotes.value.find(r => r.name === newRemoteName)
+    if (createdRemote && createdRemote.is_oauth) {
+      // Check if token is empty by fetching the full config
+      try {
+        const configData = await apiCall(`/api/remotes/${encodeURIComponent(newRemoteName)}/config`)
+        const token = configData.config?.token || ''
+
+        // If token is empty, open OAuth modal
+        if (!token || token.trim() === '') {
+          oauthRemoteName.value = newRemoteName
+          showOAuthModal.value = true
+        }
+      } catch (error) {
+        console.error('Failed to check remote token:', error)
+      }
     }
   } catch (error) {
     alert(`Failed to create remote: ${error.message}`)
