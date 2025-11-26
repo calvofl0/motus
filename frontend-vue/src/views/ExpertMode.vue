@@ -75,6 +75,22 @@
         <div v-if="deleteOutput" :class="['status', deleteOutput.type]">
           {{ deleteOutput.message }}
         </div>
+
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+        <div class="form-group">
+          <label>Download Path:</label>
+          <input
+            type="text"
+            v-model="downloadPath"
+            placeholder="/path/to/file or remote:/path/to/folder"
+          />
+          <div class="hint">Download files or folders to your computer</div>
+        </div>
+        <button @click="downloadFile" style="background: #17a2b8;">⬇️ Download</button>
+        <div v-if="downloadOutput" :class="['status', downloadOutput.type]">
+          {{ downloadOutput.message }}
+        </div>
       </div>
 
       <!-- Job Management Section -->
@@ -169,6 +185,8 @@ const mkdirPath = ref('')
 const mkdirOutput = ref(null)
 const deletePath = ref('')
 const deleteOutput = ref(null)
+const downloadPath = ref('')
+const downloadOutput = ref(null)
 
 // Job Management
 const copySource = ref('')
@@ -301,6 +319,126 @@ async function deleteFile() {
       message: `Failed: ${error.message}`
     }
   }
+}
+
+/**
+ * Download file or directory
+ */
+async function downloadFile() {
+  if (!downloadPath.value.trim()) {
+    downloadOutput.value = { type: 'error', message: 'Please enter a path to download' }
+    return
+  }
+
+  try {
+    downloadOutput.value = { type: 'info', message: 'Preparing download...' }
+
+    // Call prepare endpoint
+    const response = await apiCall('/api/files/download/prepare', 'POST', {
+      paths: [downloadPath.value],
+      remote_config: null
+    })
+
+    if (response.type === 'direct') {
+      // Direct download
+      downloadOutput.value = { type: 'info', message: 'Downloading file...' }
+      await downloadDirect(response.path)
+      downloadOutput.value = { type: 'success', message: '✓ Download started' }
+      downloadPath.value = ''
+    } else if (response.type === 'zip_job') {
+      // ZIP job created
+      downloadOutput.value = {
+        type: 'info',
+        message: `ZIP job created (ID: ${response.job_id}). Your download will start automatically when ready.`
+      }
+
+      // Monitor job completion
+      watchJobForDownload(response.job_id)
+    }
+  } catch (error) {
+    downloadOutput.value = {
+      type: 'error',
+      message: `Download failed: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Download a file directly (for small files)
+ */
+async function downloadDirect(path) {
+  try {
+    const response = await fetch('/api/files/download/direct', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `token ${appStore.authToken}`
+      },
+      body: JSON.stringify({ path: path, remote_config: null })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    // Get filename from response headers or path
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = 'download'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/)
+      if (filenameMatch) filename = filenameMatch[1]
+    } else {
+      filename = path.split('/').pop() || 'download'
+    }
+
+    // Convert response to blob and trigger download
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (error) {
+    console.error('Direct download failed:', error)
+    throw error
+  }
+}
+
+/**
+ * Watch for ZIP job completion and trigger download
+ */
+function watchJobForDownload(jobId) {
+  const handleJobComplete = (event) => {
+    const job = event.detail
+    if (job.job_id === jobId) {
+      if (job.status === 'completed') {
+        // Job completed - trigger download
+        const downloadToken = job.download_token
+        if (downloadToken) {
+          const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${appStore.authToken}`
+          window.location.href = downloadUrl
+
+          downloadOutput.value = {
+            type: 'success',
+            message: '✓ ZIP created, download starting...'
+          }
+          downloadPath.value = ''
+        }
+        window.removeEventListener('job-completed', handleJobComplete)
+      } else if (job.status === 'failed') {
+        downloadOutput.value = {
+          type: 'error',
+          message: `Download failed: ${job.error_text || 'Unknown error'}`
+        }
+        window.removeEventListener('job-completed', handleJobComplete)
+      }
+    }
+  }
+
+  window.addEventListener('job-completed', handleJobComplete)
 }
 
 /**
