@@ -33,6 +33,71 @@ _idle_timer_thread = None
 _idle_timer_stop_event = None
 
 
+def cancel_two_phase_downloads(rclone: RcloneWrapper, db: Database, job_ids, status='cancelled'):
+    """
+    Cancel zip jobs and their associated copy jobs
+
+    Two-phase downloads create:
+    - Zip job: visible to user
+    - Copy job: internal, targets cache/temp/download_temp_* path
+
+    Args:
+        rclone: RcloneWrapper instance
+        db: Database instance
+        job_ids: List of job IDs to process
+        status: Status to set ('cancelled' or 'interrupted')
+    """
+    cancelled_jobs = set()
+
+    for job_id in job_ids:
+        try:
+            job = db.get_job(job_id)
+            if not job:
+                continue
+
+            # If it's a zip job, find and cancel associated copy job
+            if job['operation'] == 'zip':
+                # Find copy jobs with destination in cache/temp/
+                all_jobs = db.list_jobs(status='running', limit=1000)
+                for potential_copy in all_jobs:
+                    if (potential_copy['operation'] == 'copy' and
+                        potential_copy['dst_path'] and
+                        '/cache/download/temp/download_temp_' in potential_copy['dst_path']):
+
+                        # Get log text
+                        log_text = rclone.job_log_text(potential_copy['job_id'])
+
+                        # Cancel the copy job
+                        db.update_job(
+                            job_id=potential_copy['job_id'],
+                            status=status,
+                            error_text=f'Associated with cancelled zip job {job_id}',
+                            log_text=log_text
+                        )
+                        rclone.job_cleanup_log(potential_copy['job_id'])
+                        cancelled_jobs.add(potential_copy['job_id'])
+                        logging.info(f"Cancelled copy job {potential_copy['job_id']} associated with zip job {job_id}")
+
+                # Get log text for zip job
+                log_text = rclone.job_log_text(job_id)
+
+                # Cancel the zip job
+                db.update_job(
+                    job_id=job_id,
+                    status=status,
+                    error_text='Two-phase download cancelled',
+                    log_text=log_text
+                )
+                rclone.job_cleanup_log(job_id)
+                cancelled_jobs.add(job_id)
+                logging.info(f"Cancelled zip job {job_id}")
+
+        except Exception as e:
+            logging.error(f"Error cancelling two-phase download for job {job_id}: {e}")
+
+    return cancelled_jobs
+
+
 def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
     """
     Perform graceful shutdown - stop jobs and cleanup
@@ -47,9 +112,20 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
         # Stop all running jobs
         rclone.shutdown()
 
-        # Save logs and mark them as interrupted in database
+        # Mark zip jobs and their associated copy jobs as cancelled
+        cancel_two_phase_downloads(rclone, db, running_jobs, 'interrupted')
+
+        # Save logs and mark remaining running jobs as interrupted in database
         for job_id in running_jobs:
             try:
+                job = db.get_job(job_id)
+                if not job:
+                    continue
+
+                # Skip if already handled by cancel_two_phase_downloads
+                if job['status'] in ['interrupted', 'cancelled']:
+                    continue
+
                 # Get log text before marking as interrupted
                 log_text = rclone.job_log_text(job_id)
 
@@ -187,6 +263,54 @@ def stop_idle_timer():
 
     if _idle_timer_stop_event:
         _idle_timer_stop_event.set()
+
+
+def cleanup_orphaned_two_phase_downloads(db: Database, config: Config):
+    """
+    Cancel orphaned two-phase downloads from previous crash/shutdown
+
+    Two-phase downloads that were interrupted leave:
+    - Zip jobs in 'running' or 'interrupted' status
+    - Copy jobs targeting cache/temp/download_temp_* paths
+
+    This function marks them as 'cancelled' since they can't be resumed.
+    """
+    try:
+        # Get all interrupted and running jobs
+        interrupted_jobs = db.list_jobs(status='interrupted', limit=1000)
+        running_jobs = db.list_jobs(status='running', limit=1000)
+        all_jobs = interrupted_jobs + running_jobs
+
+        cancelled_count = 0
+
+        for job in all_jobs:
+            # Cancel zip jobs
+            if job['operation'] == 'zip':
+                db.update_job(
+                    job_id=job['job_id'],
+                    status='cancelled',
+                    error_text='Two-phase download cancelled (cannot resume after restart)'
+                )
+                cancelled_count += 1
+                logging.info(f"Cancelled orphaned zip job {job['job_id']}")
+
+            # Cancel copy jobs targeting temp directory (internal download jobs)
+            elif (job['operation'] == 'copy' and
+                  job['dst_path'] and
+                  '/cache/download/temp/download_temp_' in job['dst_path']):
+                db.update_job(
+                    job_id=job['job_id'],
+                    status='cancelled',
+                    error_text='Internal download job cancelled (cannot resume after restart)'
+                )
+                cancelled_count += 1
+                logging.info(f"Cancelled orphaned copy job {job['job_id']}")
+
+        if cancelled_count > 0:
+            logging.warning(f"Cancelled {cancelled_count} orphaned two-phase download jobs")
+
+    except Exception as e:
+        logging.error(f"Error cleaning up orphaned two-phase downloads: {e}")
 
 
 def cleanup_orphaned_logs(logs_dir: str, db, rclone):
@@ -361,6 +485,9 @@ def create_app(config: Config = None):
     orphaned_count = db.mark_running_as_interrupted()
     if orphaned_count > 0:
         logging.warning(f"Marked {orphaned_count} orphaned jobs as interrupted")
+
+    # Cancel orphaned two-phase downloads (zip + copy jobs left from crash)
+    cleanup_orphaned_two_phase_downloads(db, config)
 
     # Cleanup orphaned log files from previous runs
     cleanup_orphaned_logs(logs_dir, db, rclone)
