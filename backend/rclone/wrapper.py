@@ -688,6 +688,10 @@ class RcloneWrapper:
                             is_remote = bool(remote_name) or bool(remote_config)
 
                             if is_remote:
+                                # Update progress to show download starting
+                                base_progress = int((idx / len(paths)) * 80)  # Reserve 80% for downloads
+                                db.update_job(job_id, progress=base_progress + 5)
+
                                 # Check if it's a file or directory
                                 is_file = self._is_remote_file(path, remote_config)
 
@@ -697,6 +701,9 @@ class RcloneWrapper:
                                     temp_path = self.download_to_temp(path, remote_config)
                                     temp_items_to_cleanup.append(temp_path)
 
+                                    # Update progress after download
+                                    db.update_job(job_id, progress=base_progress + 10)
+
                                     # Add to zip
                                     arcname = os.path.basename(clean_path) or f"file_{idx}"
                                     zf.write(temp_path, arcname=arcname)
@@ -705,6 +712,9 @@ class RcloneWrapper:
                                     logging.info(f"[Job {job_id}] Downloading remote directory: {path}")
                                     temp_dir = self._download_dir_to_temp(path, remote_config)
                                     temp_items_to_cleanup.append(temp_dir)
+
+                                    # Update progress after download
+                                    db.update_job(job_id, progress=base_progress + 10)
 
                                     # Add directory contents to zip
                                     base_name = os.path.basename(clean_path.rstrip('/')) or 'folder'
@@ -732,8 +742,8 @@ class RcloneWrapper:
                                             rel_path = os.path.relpath(file_path, os.path.dirname(clean_path))
                                             zf.write(file_path, arcname=rel_path)
 
-                            # Update progress
-                            progress = int(((idx + 1) / len(paths)) * 100)
+                            # Update overall progress
+                            progress = int(80 + ((idx + 1) / len(paths)) * 20)  # 80-100% for final processing
                             db.update_job(job_id, progress=progress)
 
                         except Exception as e:
