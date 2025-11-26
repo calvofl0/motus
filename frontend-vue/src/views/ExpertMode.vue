@@ -411,34 +411,92 @@ async function downloadDirect(path) {
  * Watch for ZIP job completion and trigger download
  */
 function watchJobForDownload(jobId) {
+  let pollInterval = null
+  let eventHandled = false
+
+  // Function to trigger the download
+  const triggerDownload = (job) => {
+    if (eventHandled) return // Prevent duplicate handling
+    eventHandled = true
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+
+    const downloadToken = job.download_token
+    if (downloadToken) {
+      const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${appStore.authToken}`
+      window.location.href = downloadUrl
+
+      downloadOutput.value = {
+        type: 'success',
+        message: '✓ ZIP created, download starting...'
+      }
+      downloadPath.value = ''
+    } else {
+      downloadOutput.value = {
+        type: 'error',
+        message: 'Download preparation completed but download link is missing'
+      }
+    }
+  }
+
+  // Function to handle failures
+  const handleFailure = (errorText) => {
+    if (eventHandled) return
+    eventHandled = true
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+
+    downloadOutput.value = {
+      type: 'error',
+      message: `Download failed: ${errorText || 'Unknown error'}`
+    }
+  }
+
+  // Listen for job completion event (from JobPanel)
   const handleJobComplete = (event) => {
     const job = event.detail
     if (job.job_id === jobId) {
       if (job.status === 'completed') {
-        // Job completed - trigger download
-        const downloadToken = job.download_token
-        if (downloadToken) {
-          const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${appStore.authToken}`
-          window.location.href = downloadUrl
-
-          downloadOutput.value = {
-            type: 'success',
-            message: '✓ ZIP created, download starting...'
-          }
-          downloadPath.value = ''
-        }
+        triggerDownload(job)
         window.removeEventListener('job-completed', handleJobComplete)
       } else if (job.status === 'failed') {
-        downloadOutput.value = {
-          type: 'error',
-          message: `Download failed: ${job.error_text || 'Unknown error'}`
-        }
+        handleFailure(job.error_text)
         window.removeEventListener('job-completed', handleJobComplete)
       }
     }
   }
 
   window.addEventListener('job-completed', handleJobComplete)
+
+  // Also poll the job status directly (for fast-completing jobs)
+  // This ensures we catch jobs that complete before JobPanel sees them
+  const pollJobStatus = async () => {
+    try {
+      const job = await apiCall(`/api/jobs/${jobId}`)
+      if (job.status === 'completed') {
+        triggerDownload(job)
+        window.removeEventListener('job-completed', handleJobComplete)
+      } else if (job.status === 'failed') {
+        handleFailure(job.error_text)
+        window.removeEventListener('job-completed', handleJobComplete)
+      }
+      // If still running, keep polling
+    } catch (error) {
+      console.error(`Error polling job ${jobId}:`, error)
+    }
+  }
+
+  // Start polling every 500ms
+  pollInterval = setInterval(pollJobStatus, 500)
+
+  // Also check immediately
+  pollJobStatus()
 }
 
 /**
