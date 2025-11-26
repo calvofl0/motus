@@ -877,7 +877,6 @@ class RcloneWrapper:
         Raises:
             RcloneException: If download fails or is interrupted
         """
-        import tempfile
         import shutil
         import time
 
@@ -897,9 +896,14 @@ class RcloneWrapper:
         else:
             raise RcloneException("_download_file_to_temp_with_progress requires a remote path")
 
-        # Create temp file
-        fd, temp_file = tempfile.mkstemp(suffix=os.path.basename(clean_path) or '.tmp')
-        os.close(fd)
+        # Create temp file in cache directory (NOT /tmp)
+        temp_dir = os.path.join(config.download_cache_dir, 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Generate unique temp filename
+        import secrets
+        temp_filename = f"download_temp_{secrets.token_urlsafe(8)}_{os.path.basename(clean_path) or 'file'}"
+        temp_file = os.path.join(temp_dir, temp_filename)
 
         try:
             logging.info(f"[Job {download_job_id}] Starting rclone copy job for file {path}")
@@ -1011,7 +1015,6 @@ class RcloneWrapper:
         Raises:
             RcloneException: If download fails or is interrupted
         """
-        import tempfile
         import shutil
         import time
 
@@ -1036,8 +1039,15 @@ class RcloneWrapper:
         if not remote_path.endswith('/'):
             remote_path += '/'
 
-        # Create temp directory
-        temp_dir = tempfile.mkdtemp(prefix='motus_download_')
+        # Create temp directory in cache (NOT /tmp)
+        temp_base_dir = os.path.join(config.download_cache_dir, 'temp')
+        os.makedirs(temp_base_dir, exist_ok=True)
+
+        # Generate unique temp directory name
+        import secrets
+        temp_dir_name = f"download_temp_{secrets.token_urlsafe(8)}"
+        temp_dir = os.path.join(temp_base_dir, temp_dir_name)
+        os.makedirs(temp_dir, exist_ok=True)
 
         try:
             logging.info(f"[Job {download_job_id}] Starting rclone copy job for {path}")

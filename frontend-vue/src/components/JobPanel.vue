@@ -63,14 +63,14 @@
           v-for="job in failedJobs"
           :key="job.job_id"
           class="failed-job-item"
-          @dblclick="showJobLog(job)"
-          title="Double-click to view log"
+          @click="showJobLog(job)"
+          title="Click to view log"
         >
           <div class="failed-job-info">
             Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="failed-job-actions">
-            <button class="job-icon-btn cancel" @click="clearFailedJob(job.job_id)" title="Remove from list">×</button>
+            <button class="job-icon-btn cancel" @click.stop="clearFailedJob(job.job_id)" title="Remove from list">×</button>
           </div>
         </div>
       </div>

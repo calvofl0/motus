@@ -1,8 +1,6 @@
 <template>
   <BaseModal :model-value="show" @close="$emit('close')" size="large">
-    <template #header>
-      <h2>📋 Job Log - Job #{{ job?.job_id }}</h2>
-    </template>
+    <template #header>📋 Job Log - Job #{{ job?.job_id }}</template>
 
     <template #body>
       <div class="job-log-container">
@@ -42,8 +40,7 @@
     </template>
 
     <template #footer>
-      <button @click="downloadLog" class="btn download-btn">⬇️ Download Log</button>
-      <button @click="$emit('close')" class="btn btn-primary">Close</button>
+      <button v-if="job?.log_text" @click="downloadLog" class="btn download-btn">⬇️ Download Log</button>
     </template>
   </BaseModal>
 </template>
