@@ -180,6 +180,11 @@ function handleContextMenuAction(action) {
         fileOps.openDeleteModal(pane)
       }
       break
+    case 'download':
+      if (paneState.selectedIndexes.length > 0) {
+        handleDownload(pane)
+      }
+      break
   }
 }
 
@@ -192,6 +197,102 @@ function handleContextMenuSort({ field, asc }) {
   if (paneRef && paneRef.setSortBy) {
     paneRef.setSortBy(field, asc)
   }
+}
+
+// Download function
+async function handleDownload(pane) {
+  try {
+    const paneState = appStore[`${pane}Pane`]
+    const remote = paneState.remote
+    const currentPath = paneState.path
+
+    // Get selected files
+    const selectedFiles = paneState.selectedIndexes.map(idx => {
+      const file = paneState.files[idx]
+      // Construct full path
+      let fullPath
+      if (remote) {
+        // Remote path
+        const filePath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+        fullPath = `${remote}:${filePath}`
+      } else {
+        // Local path
+        fullPath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+      }
+      return fullPath
+    })
+
+    if (selectedFiles.length === 0) return
+
+    // Call prepare endpoint
+    const response = await apiCall('/api/files/download/prepare', 'POST', {
+      paths: selectedFiles,
+      remote_config: null // We use named remotes
+    })
+
+    if (response.type === 'direct') {
+      // Direct download - trigger file download
+      await downloadDirect(response.path)
+    } else if (response.type === 'zip_job') {
+      // ZIP job created - show notification
+      alert(`Download preparation started. Job ID: ${response.job_id}\nYour download will start automatically when ready.`)
+
+      // Monitor job completion
+      watchJobForDownload(response.job_id)
+    }
+  } catch (error) {
+    console.error('Download failed:', error)
+    alert(`Download failed: ${error.message}`)
+  }
+}
+
+async function downloadDirect(path) {
+  try {
+    const response = await apiCall('/api/files/download/direct', 'POST', {
+      path: path,
+      remote_config: null
+    }, { responseType: 'blob' })
+
+    // Trigger browser download
+    const url = window.URL.createObjectURL(response)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = path.split('/').pop() || 'download'
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (error) {
+    console.error('Direct download failed:', error)
+    throw error
+  }
+}
+
+function watchJobForDownload(jobId) {
+  // Listen for job completion event
+  const handleJobComplete = (event) => {
+    const job = event.detail
+    if (job.job_id === jobId && job.status === 'completed') {
+      // Job completed - trigger download
+      const downloadToken = job.download_token
+      if (downloadToken) {
+        // Get current token for authentication
+        const token = localStorage.getItem('token')
+        const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${token}`
+
+        // Trigger download by navigating
+        window.location.href = downloadUrl
+      }
+
+      // Remove listener
+      window.removeEventListener('job-completed', handleJobComplete)
+    } else if (job.job_id === jobId && job.status === 'failed') {
+      alert(`Download preparation failed: ${job.error_text || 'Unknown error'}`)
+      window.removeEventListener('job-completed', handleJobComplete)
+    }
+  }
+
+  window.addEventListener('job-completed', handleJobComplete)
 }
 
 // Alias creation functions

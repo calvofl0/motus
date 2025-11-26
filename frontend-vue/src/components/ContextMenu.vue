@@ -16,6 +16,15 @@
         🔗 Create Alias
       </div>
 
+      <!-- Download (only when files selected) -->
+      <div
+        v-if="canDownload"
+        class="context-menu-item"
+        data-action="download"
+      >
+        ⬇️ Download
+      </div>
+
       <!-- Create Folder (only when no files selected or on empty space) -->
       <div
         v-if="canCreateFolder"
@@ -102,6 +111,7 @@ const justOpened = ref(false)
 const canCreateFolder = computed(() => true) // Always available
 const canRename = computed(() => props.selectedCount === 1)
 const canDelete = computed(() => props.selectedCount > 0)
+const canDownload = computed(() => props.selectedCount > 0)
 
 function handleMenuClick(event) {
   const item = event.target.closest('.context-menu-item')
