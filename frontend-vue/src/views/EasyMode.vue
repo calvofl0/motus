@@ -86,7 +86,7 @@ import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import { apiCall } from '../services/api'
+import { apiCall, getAuthToken } from '../services/api'
 
 const appStore = useAppStore()
 const fileOps = useFileOperations()
@@ -252,7 +252,7 @@ async function downloadDirect(path) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `token ${localStorage.getItem('token')}`
+        'Authorization': `token ${getAuthToken()}`
       },
       body: JSON.stringify({ path: path, remote_config: null })
     })
@@ -296,8 +296,7 @@ function watchJobForDownload(jobId) {
       const downloadToken = job.download_token
       if (downloadToken) {
         // Get current token for authentication
-        const token = localStorage.getItem('token')
-        const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${token}`
+        const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${getAuthToken()}`
 
         // Trigger download by navigating
         window.location.href = downloadUrl
