@@ -702,6 +702,9 @@ class RcloneWrapper:
                                     temp_path = self._download_file_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_path)
 
+                                    # Update zip job to show actual source being zipped (temp file, not remote)
+                                    db.update_job(job_id, src_path=temp_path)
+
                                     # Phase 2: Compress to ZIP
                                     db.update_job(job_id, progress=80)
                                     current_log = db.get_job(job_id).get('log_text', '')
@@ -717,6 +720,9 @@ class RcloneWrapper:
                                     # Phase 1 is handled inside _download_dir_to_temp_with_progress
                                     temp_dir = self._download_dir_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_dir)
+
+                                    # Update zip job to show actual source being zipped (temp dir, not remote)
+                                    db.update_job(job_id, src_path=temp_dir)
 
                                     # Phase 2: Compress to ZIP
                                     db.update_job(job_id, progress=80)
@@ -963,22 +969,16 @@ class RcloneWrapper:
                 # Check if copy job finished
                 if copy_job['status'] == 'completed':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
-                    # Delete the internal copy job from database (hide it from user)
-                    db.delete_job(copy_job_id)
                     break
                 elif copy_job['status'] == 'failed':
                     error_text = copy_job.get('error_text', 'Unknown error')
                     logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
-                    # Delete the internal copy job
-                    db.delete_job(copy_job_id)
                     # Clean up temp file
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                     raise RcloneException(f"Remote download failed: {error_text}")
                 elif copy_job['status'] == 'interrupted':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
-                    # Delete the internal copy job
-                    db.delete_job(copy_job_id)
                     # Clean up temp file
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
@@ -1106,22 +1106,16 @@ class RcloneWrapper:
                 # Check if copy job finished
                 if copy_job['status'] == 'completed':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
-                    # Delete the internal copy job from database (hide it from user)
-                    db.delete_job(copy_job_id)
                     break
                 elif copy_job['status'] == 'failed':
                     error_text = copy_job.get('error_text', 'Unknown error')
                     logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
-                    # Delete the internal copy job
-                    db.delete_job(copy_job_id)
                     # Clean up temp directory
                     if os.path.exists(temp_dir):
                         shutil.rmtree(temp_dir)
                     raise RcloneException(f"Remote download failed: {error_text}")
                 elif copy_job['status'] == 'interrupted':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
-                    # Delete the internal copy job
-                    db.delete_job(copy_job_id)
                     # Clean up temp directory
                     if os.path.exists(temp_dir):
                         shutil.rmtree(temp_dir)
