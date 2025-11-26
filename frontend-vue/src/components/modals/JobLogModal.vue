@@ -1,5 +1,5 @@
 <template>
-  <BaseModal :show="show" @close="$emit('close')" size="large">
+  <BaseModal :model-value="show" @close="$emit('close')" size="large">
     <template #header>
       <h2>📋 Job Log - Job #{{ job?.job_id }}</h2>
     </template>
@@ -32,9 +32,6 @@
         <div class="log-section">
           <div class="log-header">
             <h3>Log Output</h3>
-            <button @click="downloadLog" class="download-btn">
-              ⬇️ Download Log
-            </button>
           </div>
           <div ref="logContainer" class="log-content">
             <pre v-if="job?.log_text">{{ job.log_text }}</pre>
@@ -45,6 +42,7 @@
     </template>
 
     <template #footer>
+      <button @click="downloadLog" class="btn download-btn">⬇️ Download Log</button>
       <button @click="$emit('close')" class="btn btn-primary">Close</button>
     </template>
   </BaseModal>
@@ -225,5 +223,10 @@ function downloadLog() {
 .btn-primary {
   background: #007bff;
   color: white;
+}
+
+/* Override BaseModal footer alignment to space buttons */
+:deep(.modal-footer) {
+  justify-content: space-between;
 }
 </style>

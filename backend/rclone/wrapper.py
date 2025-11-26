@@ -698,24 +698,14 @@ class RcloneWrapper:
                                     # Download remote file to temp WITH PROGRESS TRACKING
                                     logging.info(f"[Job {job_id}] Downloading remote file: {path}")
 
-                                    # Determine if we need to zip (if file exceeds threshold)
-                                    # Note: If we're already in a zip job, we always show phases
-                                    # since the file exceeded the threshold to need zipping
-                                    from ..config import Config
-                                    config = Config()
-
-                                    # Phase 1: Download from remote
-                                    db.update_job(job_id, log_text="Phase 1/2: Downloading from remote...\n")
-
+                                    # Phase 1 is handled inside _download_file_to_temp_with_progress
                                     temp_path = self._download_file_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_path)
 
-                                    # Update progress after download
-                                    db.update_job(job_id, progress=base_progress + 10)
-
                                     # Phase 2: Compress to ZIP
+                                    db.update_job(job_id, progress=80)
                                     current_log = db.get_job(job_id).get('log_text', '')
-                                    db.update_job(job_id, log_text=current_log + "\nPhase 2/2: Compressing to ZIP...\n")
+                                    db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
 
                                     # Add to zip
                                     arcname = os.path.basename(clean_path) or f"file_{idx}"
@@ -723,17 +713,15 @@ class RcloneWrapper:
                                 else:
                                     # Download remote directory to temp WITH PROGRESS TRACKING
                                     logging.info(f"[Job {job_id}] Downloading remote directory: {path}")
-                                    db.update_job(job_id, log_text="Phase 1/2: Downloading from remote...\n")
 
+                                    # Phase 1 is handled inside _download_dir_to_temp_with_progress
                                     temp_dir = self._download_dir_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_dir)
 
-                                    # Update progress after download completes
-                                    db.update_job(job_id, progress=base_progress + 10)
-
-                                    # Append to log to show we're moving to compression phase
+                                    # Phase 2: Compress to ZIP
+                                    db.update_job(job_id, progress=80)
                                     current_log = db.get_job(job_id).get('log_text', '')
-                                    db.update_job(job_id, log_text=current_log + "\nPhase 2/2: Compressing to ZIP...\n")
+                                    db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
 
                                     # Add directory contents to zip
                                     base_name = os.path.basename(clean_path.rstrip('/')) or 'folder'
@@ -948,28 +936,45 @@ class RcloneWrapper:
                         os.remove(temp_file)
                     raise RcloneException("Download cancelled by user")
 
-                # Get copy job status
+                # Get live progress from rclone job queue
+                if copy_job_id in self.get_running_jobs():
+                    progress = self.job_percent(copy_job_id)
+                    text = self.job_text(copy_job_id)
+
+                    # Relay progress and text to download job (Phase 1 = 0-80%)
+                    db.update_job(
+                        download_job_id,
+                        progress=int(progress * 0.8),  # Scale to 80%
+                    )
+
+                    # Update log with Phase 1 header + copy progress
+                    log_text = "Phase 1/2: Downloading from remote...\n\n" + text
+                    db.update_job(download_job_id, log_text=log_text)
+
+                # Get copy job status from database
                 copy_job = db.get_job(copy_job_id)
                 if not copy_job:
                     raise RcloneException(f"Copy job {copy_job_id} not found")
 
-                # Relay log to download job
-                if copy_job.get('log_text'):
-                    db.update_job(download_job_id, log_text=copy_job['log_text'])
-
                 # Check if copy job finished
                 if copy_job['status'] == 'completed':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
+                    # Delete the internal copy job from database (hide it from user)
+                    db.delete_job(copy_job_id)
                     break
                 elif copy_job['status'] == 'failed':
                     error_text = copy_job.get('error_text', 'Unknown error')
                     logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
+                    # Delete the internal copy job
+                    db.delete_job(copy_job_id)
                     # Clean up temp file
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                     raise RcloneException(f"Remote download failed: {error_text}")
                 elif copy_job['status'] == 'interrupted':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
+                    # Delete the internal copy job
+                    db.delete_job(copy_job_id)
                     # Clean up temp file
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
@@ -1026,6 +1031,11 @@ class RcloneWrapper:
         else:
             raise RcloneException("_download_dir_to_temp_with_progress requires a remote path")
 
+        # Add trailing slash to source to copy contents (not the directory itself)
+        # This prevents creating an extra path level in the zip
+        if not remote_path.endswith('/'):
+            remote_path += '/'
+
         # Create temp directory
         temp_dir = tempfile.mkdtemp(prefix='motus_download_')
 
@@ -1063,28 +1073,45 @@ class RcloneWrapper:
                         shutil.rmtree(temp_dir)
                     raise RcloneException("Download cancelled by user")
 
-                # Get copy job status
+                # Get live progress from rclone job queue
+                if copy_job_id in self.get_running_jobs():
+                    progress = self.job_percent(copy_job_id)
+                    text = self.job_text(copy_job_id)
+
+                    # Relay progress and text to download job (Phase 1 = 0-80%)
+                    db.update_job(
+                        download_job_id,
+                        progress=int(progress * 0.8),  # Scale to 80%
+                    )
+
+                    # Update log with Phase 1 header + copy progress
+                    log_text = "Phase 1/2: Downloading from remote...\n\n" + text
+                    db.update_job(download_job_id, log_text=log_text)
+
+                # Get copy job status from database
                 copy_job = db.get_job(copy_job_id)
                 if not copy_job:
                     raise RcloneException(f"Copy job {copy_job_id} not found")
 
-                # Relay log to download job
-                if copy_job.get('log_text'):
-                    db.update_job(download_job_id, log_text=copy_job['log_text'])
-
                 # Check if copy job finished
                 if copy_job['status'] == 'completed':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
+                    # Delete the internal copy job from database (hide it from user)
+                    db.delete_job(copy_job_id)
                     break
                 elif copy_job['status'] == 'failed':
                     error_text = copy_job.get('error_text', 'Unknown error')
                     logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
+                    # Delete the internal copy job
+                    db.delete_job(copy_job_id)
                     # Clean up temp directory
                     if os.path.exists(temp_dir):
                         shutil.rmtree(temp_dir)
                     raise RcloneException(f"Remote download failed: {error_text}")
                 elif copy_job['status'] == 'interrupted':
                     logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
+                    # Delete the internal copy job
+                    db.delete_job(copy_job_id)
                     # Clean up temp directory
                     if os.path.exists(temp_dir):
                         shutil.rmtree(temp_dir)

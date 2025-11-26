@@ -7,6 +7,15 @@
       :style="{ left: `${position.x}px`, top: `${position.y}px` }"
       @click="handleMenuClick"
     >
+      <!-- Download (only when files selected) - Always show first -->
+      <div
+        v-if="canDownload"
+        class="context-menu-item"
+        data-action="download"
+      >
+        ⬇️ Download
+      </div>
+
       <!-- Create Alias (only when a folder is selected) -->
       <div
         v-if="hasTargetFolder"
@@ -14,15 +23,6 @@
         data-action="createalias"
       >
         🔗 Create Alias
-      </div>
-
-      <!-- Download (only when files selected) -->
-      <div
-        v-if="canDownload"
-        class="context-menu-item"
-        data-action="download"
-      >
-        ⬇️ Download
       </div>
 
       <!-- Create Folder (only when no files selected or on empty space) -->
