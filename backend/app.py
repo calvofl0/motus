@@ -69,8 +69,8 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
     # Clean up connection info files
     cleanup_connection_info(config)
 
-    # Clean up download cache
-    cleanup_download_cache(config)
+    # Clean up download cache - remove ALL zips on shutdown
+    cleanup_download_cache(config, clean_all=True)
 
     logging.info("Shutdown complete")
     return len(running_jobs)
@@ -250,12 +250,16 @@ def cleanup_orphaned_logs(logs_dir: str, db, rclone):
         logging.error(f"Error during log cleanup: {e}")
 
 
-def cleanup_download_cache(config: Config):
+def cleanup_download_cache(config: Config, clean_all: bool = False):
     """
-    Clean up old zip files from download cache
+    Clean up zip files from download cache
 
-    - Removes zip files older than config.download_cache_max_age
-    - Called at startup, shutdown, and periodically
+    Args:
+        config: Configuration object
+        clean_all: If True, remove all zips (used on shutdown).
+                   If False, only remove zips older than max_age (used on startup).
+
+    - Called at startup (clean_all=False) and shutdown (clean_all=True)
     """
     cache_dir = os.path.join(config.data_dir, '.download-cache')
     if not os.path.exists(cache_dir):
@@ -274,16 +278,24 @@ def cleanup_download_cache(config: Config):
         for zip_file in zip_files:
             zip_path = os.path.join(cache_dir, zip_file)
             try:
-                file_age = now - os.path.getmtime(zip_path)
-                if file_age > max_age:
+                if clean_all:
+                    # On shutdown: remove all ZIPs
                     os.remove(zip_path)
                     cleaned += 1
-                    logging.info(f"Cleaned up expired zip file: {zip_file} (age: {int(file_age)}s)")
+                    logging.info(f"Cleaned up zip file on shutdown: {zip_file}")
+                else:
+                    # On startup: only remove expired ZIPs
+                    file_age = now - os.path.getmtime(zip_path)
+                    if file_age > max_age:
+                        os.remove(zip_path)
+                        cleaned += 1
+                        logging.info(f"Cleaned up expired zip file: {zip_file} (age: {int(file_age)}s)")
             except Exception as e:
                 logging.warning(f"Failed to clean up zip file {zip_file}: {e}")
 
         if cleaned > 0:
-            logging.info(f"Cleaned up {cleaned} expired zip files from download cache")
+            action = "all" if clean_all else "expired"
+            logging.info(f"Cleaned up {cleaned} {action} zip files from download cache")
 
     except Exception as e:
         logging.error(f"Error during download cache cleanup: {e}")
