@@ -20,19 +20,19 @@ cache_dir = None
 max_upload_size = 0  # 0 = unlimited
 
 
-def init_upload(rclone, data_dir: str, max_size: int = 0):
+def init_upload(rclone, upload_cache_path: str, max_size: int = 0):
     """
     Initialize upload management
 
     Args:
         rclone: RcloneWrapper instance
-        data_dir: Path to data directory
+        upload_cache_path: Path to upload cache directory
         max_size: Maximum upload size in bytes (0 = unlimited)
     """
     global rclone_wrapper, cache_dir, max_upload_size
 
     rclone_wrapper = rclone
-    cache_dir = Path(data_dir) / '.upload-cache'
+    cache_dir = Path(upload_cache_path)
     max_upload_size = max_size
 
     # Create cache directory if it doesn't exist

@@ -261,7 +261,7 @@ def cleanup_download_cache(config: Config, clean_all: bool = False):
 
     - Called at startup (clean_all=False) and shutdown (clean_all=True)
     """
-    cache_dir = os.path.join(config.data_dir, '.download-cache')
+    cache_dir = config.download_cache_dir
     if not os.path.exists(cache_dir):
         return
 
@@ -347,8 +347,8 @@ def create_app(config: Config = None):
     # Initialize rclone wrapper
     try:
         logging.info("Initializing rclone wrapper...")
-        # Store temporary job logs in hidden directory (cleaned up after storing in DB)
-        logs_dir = os.path.join(config.data_dir, '.tmp-logs')
+        # Store temporary job logs in cache directory (cleaned up after storing in DB)
+        logs_dir = config.log_cache_dir
         rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file, logs_dir)
         # Initialize job counter from database to avoid ID conflicts
         rclone.initialize_job_counter(db)
@@ -374,7 +374,7 @@ def create_app(config: Config = None):
     init_stream(rclone, db)
     # Use rclone's discovered config file path (not the config's, which may be None)
     init_remote_management(rclone.rclone_config_file, config.remote_templates_file, rclone.rclone_path)
-    init_upload(rclone, config.data_dir, config.max_upload_size)
+    init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()

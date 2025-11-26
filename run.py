@@ -218,6 +218,11 @@ def main():
         help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
     parser.add_argument(
+        '--cache-path',
+        type=str,
+        help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_PATH env var)'
+    )
+    parser.add_argument(
         '--config',
         type=str,
         help='Path to config file (YAML)'
@@ -289,12 +294,24 @@ def main():
         config.token_auto_generated = False
     if args.data_dir:
         config.data_dir = args.data_dir
+    if args.cache_path:
+        config.cache_path = args.cache_path
+        # Update derived cache directories
+        config.download_cache_dir = os.path.join(config.cache_path, 'download')
+        config.upload_cache_dir = os.path.join(config.cache_path, 'upload')
+        config.log_cache_dir = os.path.join(config.cache_path, 'log')
+        # Create cache subdirectories
+        os.makedirs(config.download_cache_dir, exist_ok=True)
+        os.makedirs(config.upload_cache_dir, exist_ok=True)
+        os.makedirs(config.log_cache_dir, exist_ok=True)
     if args.log_level:
         config.log_level = args.log_level
     if args.allow_cors:
         config.allow_cors = True
     if args.expert_mode:
         config.default_mode = 'expert'
+        # Enforce --allow-expert-mode when starting in expert mode
+        config.allow_expert_mode = True
     if args.remote_templates:
         config.remote_templates_file = args.remote_templates
     if args.max_idle_time is not None:

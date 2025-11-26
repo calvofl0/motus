@@ -100,6 +100,15 @@ class Config:
         )
         os.makedirs(self.data_dir, exist_ok=True)
 
+        # Cache directory (for temporary files, downloads, uploads, logs)
+        # Default: {data_dir}/cache
+        self.cache_path = self._get_config(
+            'cache_path',
+            env_var='MOTUS_CACHE_PATH',
+            default=os.path.join(self.data_dir, 'cache')
+        )
+        os.makedirs(self.cache_path, exist_ok=True)
+
         # Port configuration (like Jupyter)
         self.port = int(self._get_config(
             'port',
@@ -265,6 +274,16 @@ class Config:
             env_var='MOTUS_DOWNLOAD_CACHE_MAX_AGE',
             default=3600
         ) or 3600)
+
+        # Specific cache subdirectories (computed from cache_path)
+        self.download_cache_dir = os.path.join(self.cache_path, 'download')
+        self.upload_cache_dir = os.path.join(self.cache_path, 'upload')
+        self.log_cache_dir = os.path.join(self.cache_path, 'log')
+
+        # Create cache subdirectories
+        os.makedirs(self.download_cache_dir, exist_ok=True)
+        os.makedirs(self.upload_cache_dir, exist_ok=True)
+        os.makedirs(self.log_cache_dir, exist_ok=True)
 
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""

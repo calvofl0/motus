@@ -649,8 +649,7 @@ class RcloneWrapper:
         # Get download cache directory
         from ..config import Config
         config = Config()  # This will use existing data_dir
-        cache_dir = os.path.join(config.data_dir, '.download-cache')
-        os.makedirs(cache_dir, exist_ok=True)
+        cache_dir = config.download_cache_dir
 
         zip_path = os.path.join(cache_dir, zip_filename)
 
