@@ -59,7 +59,13 @@
         <span class="collapse-icon">{{ failedJobsCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div v-if="!failedJobsCollapsed" class="failed-jobs-list">
-        <div v-for="job in failedJobs" :key="job.job_id" class="failed-job-item">
+        <div
+          v-for="job in failedJobs"
+          :key="job.job_id"
+          class="failed-job-item"
+          @dblclick="showJobLog(job)"
+          title="Double-click to view log"
+        >
           <div class="failed-job-info">
             Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
           </div>
@@ -70,11 +76,19 @@
       </div>
     </div>
   </div>
+
+  <!-- Job Log Modal -->
+  <JobLogModal
+    :show="showLogModal"
+    :job="selectedJob"
+    @close="showLogModal = false"
+  />
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiCall } from '../services/api'
+import JobLogModal from './modals/JobLogModal.vue'
 
 // Collapsible state
 const activeJobsCollapsed = ref(true)
@@ -85,6 +99,10 @@ const failedJobsCollapsed = ref(true)
 const activeJobs = ref([])
 const interruptedJobs = ref([])
 const failedJobs = ref([])
+
+// Job log modal state
+const showLogModal = ref(false)
+const selectedJob = ref(null)
 
 // Tracking
 const trackedJobs = ref(new Set())
@@ -342,6 +360,20 @@ async function clearFailedJob(jobId) {
     await updateFailedJobs()
   } catch (error) {
     alert(`Failed to clear job: ${error.message}`)
+  }
+}
+
+/**
+ * Show job log modal for a failed job
+ */
+async function showJobLog(job) {
+  try {
+    // Fetch full job details including log
+    const fullJob = await apiCall(`/api/jobs/${job.job_id}`)
+    selectedJob.value = fullJob
+    showLogModal.value = true
+  } catch (error) {
+    alert(`Failed to load job log: ${error.message}`)
   }
 }
 
@@ -663,6 +695,12 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.failed-job-item:hover {
+  background: #f8f9fa;
 }
 
 .failed-job-info {
