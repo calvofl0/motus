@@ -674,6 +674,7 @@ class RcloneWrapper:
                 db.update_job(job_id, status='running', progress=0)
 
                 total_bytes_processed = 0
+                temp_items_to_cleanup = []  # Track temp files/dirs to cleanup
 
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for idx, path in enumerate(paths):
@@ -683,16 +684,34 @@ class RcloneWrapper:
                             is_remote = bool(remote_name) or bool(remote_config)
 
                             if is_remote:
-                                # Download remote file/folder to temp first
-                                logging.info(f"[Job {job_id}] Downloading remote: {path}")
-                                temp_path = self.download_to_temp(path, remote_config)
+                                # Check if it's a file or directory
+                                is_file = self._is_remote_file(path, remote_config)
 
-                                # Add to zip
-                                arcname = os.path.basename(clean_path) or f"file_{idx}"
-                                zf.write(temp_path, arcname=arcname)
+                                if is_file:
+                                    # Download remote file to temp
+                                    logging.info(f"[Job {job_id}] Downloading remote file: {path}")
+                                    temp_path = self.download_to_temp(path, remote_config)
+                                    temp_items_to_cleanup.append(temp_path)
 
-                                # Clean up temp file
-                                os.remove(temp_path)
+                                    # Add to zip
+                                    arcname = os.path.basename(clean_path) or f"file_{idx}"
+                                    zf.write(temp_path, arcname=arcname)
+                                else:
+                                    # Download remote directory to temp
+                                    logging.info(f"[Job {job_id}] Downloading remote directory: {path}")
+                                    temp_dir = self._download_dir_to_temp(path, remote_config)
+                                    temp_items_to_cleanup.append(temp_dir)
+
+                                    # Add directory contents to zip
+                                    base_name = os.path.basename(clean_path.rstrip('/')) or 'folder'
+                                    for root, dirs, files in os.walk(temp_dir):
+                                        for file in files:
+                                            file_path = os.path.join(root, file)
+                                            # Calculate relative path for archive
+                                            rel_path = os.path.relpath(file_path, temp_dir)
+                                            arcname = os.path.join(base_name, rel_path)
+                                            zf.write(file_path, arcname=arcname)
+
                             else:
                                 # Local path
                                 if os.path.isfile(clean_path):
@@ -718,6 +737,17 @@ class RcloneWrapper:
                             # Continue with other files
 
                 logging.info(f"[Job {job_id}] Zip creation complete: {zip_path}")
+
+                # Clean up temp files/directories
+                for temp_item in temp_items_to_cleanup:
+                    try:
+                        if os.path.isfile(temp_item):
+                            os.remove(temp_item)
+                        elif os.path.isdir(temp_item):
+                            import shutil
+                            shutil.rmtree(temp_item)
+                    except Exception as e:
+                        logging.warning(f"[Job {job_id}] Failed to cleanup temp item {temp_item}: {e}")
 
                 # Mark job as completed with download token and zip info
                 db.update_job(
@@ -748,6 +778,102 @@ class RcloneWrapper:
         thread.start()
 
         return job_id
+
+    def _is_remote_file(self, path: str, remote_config: Optional[Dict] = None) -> bool:
+        """
+        Check if a remote path is a file (not a directory)
+
+        Args:
+            path: Remote path to check
+            remote_config: Optional remote configuration
+
+        Returns:
+            True if it's a file, False if it's a directory
+        """
+        try:
+            remote_name, clean_path = self._parse_path(path)
+
+            # Get parent directory listing
+            parent_path = os.path.dirname(clean_path.rstrip('/'))
+            basename = os.path.basename(clean_path.rstrip('/'))
+
+            if not parent_path or parent_path == '.':
+                parent_path = '/'
+
+            if remote_name:
+                full_parent = f"{remote_name}:{parent_path}"
+            else:
+                full_parent = parent_path
+
+            # List parent directory
+            result = self.ls(full_parent, remote_config)
+
+            # Find the item in the listing
+            for item in result:
+                if item.get('Name') == basename:
+                    # Check if it's a file (has Size) or directory (IsDir=True)
+                    return not item.get('IsDir', False)
+
+            # If not found, assume it's a directory
+            return False
+
+        except Exception as e:
+            logging.warning(f"Could not determine if {path} is file: {e}")
+            # Default to file for single items
+            return True
+
+    def _download_dir_to_temp(self, path: str, remote_config: Optional[Dict] = None) -> str:
+        """
+        Download a remote directory to a temporary location
+
+        Args:
+            path: Remote directory path
+            remote_config: Optional remote configuration
+
+        Returns:
+            str: Path to temporary directory
+        """
+        import tempfile
+        import shutil
+
+        credentials = {}
+        config_arg = self.rclone_config_file
+
+        # Parse path
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            credentials = self._format_credentials(remote_config)
+            remote_path = f":backend:{path}"
+            config_arg = '/dev/null'
+        else:
+            raise RcloneException("_download_dir_to_temp requires a remote path")
+
+        # Create temp directory
+        temp_dir = tempfile.mkdtemp(prefix='motus_download_')
+
+        try:
+            command = [
+                self.rclone_path,
+                '--config', config_arg if config_arg else DEVNULL,
+                'copy',
+                remote_path,
+                temp_dir
+            ]
+
+            self._log_command(command, credentials)
+            self._execute(command, credentials)
+
+            logging.info(f"Downloaded directory {path} to {temp_dir}")
+            return temp_dir
+
+        except Exception as e:
+            # Clean up temp directory on error
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            raise RcloneException(f"Failed to download directory {path} to temp: {e}")
 
     def _path_exists(self, path: str, remote_config: Optional[Dict] = None) -> bool:
         """
