@@ -248,16 +248,35 @@ async function handleDownload(pane) {
 
 async function downloadDirect(path) {
   try {
-    const response = await apiCall('/api/files/download/direct', 'POST', {
-      path: path,
-      remote_config: null
-    }, { responseType: 'blob' })
+    const response = await fetch('/api/files/download/direct', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `token ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ path: path, remote_config: null })
+    })
 
-    // Trigger browser download
-    const url = window.URL.createObjectURL(response)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    // Get filename from response headers or path
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = 'download'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/)
+      if (filenameMatch) filename = filenameMatch[1]
+    } else {
+      filename = path.split('/').pop() || 'download'
+    }
+
+    // Convert response to blob and trigger download
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = path.split('/').pop() || 'download'
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
