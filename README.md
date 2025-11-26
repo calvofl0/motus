@@ -9,6 +9,8 @@ A simplified, single-user web application for file transfers using rclone with a
 - **rclone Remote Support**: Graphical remote management with wizard-based configuration
 - **rclone Backend**: Supports all rclone backends (S3, SFTP, Azure, Google Cloud, local filesystem, etc.)
 - **Async File Transfers**: Background copy/move operations with real-time progress tracking
+- **File Download**: Download files/folders to your laptop with automatic ZIP compression for large transfers
+- **Drag-and-Drop Upload**: Upload files and folders directly from your desktop browser
 - **REST API**: Clean REST API for file operations and job management
 - **Server-Sent Events**: Real-time progress updates via SSE
 - **Single-User Design**: No complex authentication or multi-tenancy
@@ -297,17 +299,19 @@ When adding a remote from this template, users will be prompted for:
 motus --help
 
 # Common options:
-motus --port 5000                        # Use specific port
-motus --token mysecrettoken              # Use specific token
-motus --data-dir /path/to/data           # Custom data directory
-motus --log-level INFO                   # Set log level
-motus --no-browser                       # Don't open browser
-motus --expert-mode                      # Start in Expert mode
-motus --allow-expert-mode                # Show mode toggle in UI
-motus --remote-templates templates.conf  # Remote templates file
-motus --max-idle-time 3600               # Auto-quit after 1 hour idle
-motus --auto-cleanup-db                  # Clean DB at startup
-motus --max-upload-size 1G               # Limit upload size
+motus --port 5000                                 # Use specific port
+motus --token mysecrettoken                       # Use specific token
+motus --data-dir /path/to/data                    # Custom data directory
+motus --cache-path /path/to/cache                 # Custom cache directory (default: {data_dir}/cache)
+motus --log-level INFO                            # Set log level
+motus --no-browser                                # Don't open browser
+motus --expert-mode                               # Start in Expert mode (auto-enables --allow-expert-mode)
+motus --allow-expert-mode                         # Show mode toggle in UI
+motus --remote-templates templates.conf           # Remote templates file
+motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
+motus --auto-cleanup-db                           # Clean DB at startup
+motus --max-upload-size 1G                        # Limit upload size
+motus --max-uncompressed-download-size 100M       # ZIP threshold for downloads (default: 100M)
 ```
 
 #### Environment Variables
@@ -316,14 +320,16 @@ motus --max-upload-size 1G               # Limit upload size
 export MOTUS_PORT=5000
 export MOTUS_TOKEN=mysecrettoken
 export MOTUS_DATA_DIR=/path/to/data
+export MOTUS_CACHE_PATH=/path/to/cache                   # Custom cache directory
 export MOTUS_LOG_LEVEL=INFO
-export MOTUS_HOST=0.0.0.0                # Bind to all interfaces
-export MOTUS_DEFAULT_MODE=expert         # Start in Expert mode
-export MOTUS_ALLOW_EXPERT_MODE=true      # Show mode toggle
+export MOTUS_HOST=0.0.0.0                                # Bind to all interfaces
+export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
+export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
+export MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE=100M         # ZIP threshold for downloads
 
 motus
 ```
@@ -335,6 +341,7 @@ Create `~/.motus/config.yml`:
 ```yaml
 port: 5000
 data_dir: /path/to/data
+cache_path: /path/to/cache                      # Custom cache directory (default: {data_dir}/cache)
 log_level: INFO
 host: 127.0.0.1
 default_mode: expert
@@ -342,10 +349,25 @@ allow_expert_mode: true
 remote_templates_file: /path/to/templates.conf
 max_idle_time: 3600
 auto_cleanup_db: true
-max_upload_size: 1073741824  # 1GB in bytes
+max_upload_size: 1073741824                     # 1GB in bytes
+max_uncompressed_download_size: 104857600       # 100MB in bytes
+download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
 
 **Priority**: CLI arguments > Environment variables > Config file > Defaults
+
+### Cache Directory Structure
+
+Motus uses a cache directory for temporary files:
+
+```
+{cache_path}/
+├── download/          # Temporary ZIP files for downloads (auto-cleaned after download or on shutdown)
+├── upload/            # Staging area for uploads (auto-cleaned after job completion)
+└── log/               # Temporary job log files (auto-cleaned after storing in database)
+```
+
+By default, `cache_path` is `{data_dir}/cache`. You can customize it with `--cache-path` or `MOTUS_CACHE_PATH`.
 
 ### Port Allocation
 
