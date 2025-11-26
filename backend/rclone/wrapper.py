@@ -663,7 +663,7 @@ class RcloneWrapper:
         db = Database(config.database_path)
         db.create_job(
             job_id=job_id,
-            operation='download',
+            operation='zip',  # Operation is 'zip' since that's the primary visible work
             src_path=', '.join(paths[:3]) + ('...' if len(paths) > 3 else ''),
             dst_path=zip_path
         )
