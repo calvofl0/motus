@@ -138,12 +138,13 @@ function formatTime(seconds) {
 function parseTransferInfo(text) {
   if (!text) return null
 
-  const transferMatch = text.match(/Transferred(?:\s+\(bytes\))?:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+)s.*?ETA\s+(.+?)$/m)
+  // Match pattern like: "Transferred: 123.45 MiB / 500.00 MiB, 50%, 10.50 MiB/s, ETA 30s"
+  const transferMatch = text.match(/Transferred(?:\s+\(bytes\))?:\s+([0-9.]+)\s*([A-Za-z]+)\s*\/\s*([0-9.]+)\s*([A-Za-z]+).*?([0-9.]+)\s*([A-Za-z/]+s).*?ETA\s+(.+?)$/m)
   if (transferMatch) {
     return {
       transferred: `${transferMatch[1]} ${transferMatch[2]}`,
       total: `${transferMatch[3]} ${transferMatch[4]}`,
-      speed: `${transferMatch[5]} ${transferMatch[6]}/s`,
+      speed: `${transferMatch[5]} ${transferMatch[6]}`,  // transferMatch[6] already includes /s
       eta: transferMatch[7].trim()
     }
   }

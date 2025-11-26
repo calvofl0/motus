@@ -762,6 +762,17 @@ class RcloneWrapper:
                     except Exception as e:
                         logging.warning(f"[Job {job_id}] Failed to cleanup temp item {temp_item}: {e}")
 
+                # Check if job was cancelled while we were working
+                current_job = db.get_job(job_id)
+                if current_job and current_job['status'] == 'interrupted':
+                    logging.info(f"[Job {job_id}] Job was cancelled, cleaning up ZIP")
+                    try:
+                        if os.path.exists(zip_path):
+                            os.remove(zip_path)
+                    except Exception as e:
+                        logging.warning(f"[Job {job_id}] Failed to cleanup cancelled ZIP: {e}")
+                    return  # Don't mark as completed
+
                 # Mark job as completed with download token and zip info
                 db.update_job(
                     job_id,
