@@ -191,6 +191,10 @@ class RcloneWrapper:
 
         # Local path - expand tilde for home directory
         expanded = os.path.expanduser(path)
+        # Remove trailing slash (except for root '/') for consistency
+        # Works on Unix, Mac, and Windows (handles both '/' and '\')
+        if len(expanded) > 1:
+            expanded = expanded.rstrip('/').rstrip('\\')
         return (None, expanded)
 
     def ls(self, path: str, remote_config: Optional[Dict] = None) -> List[Dict]:

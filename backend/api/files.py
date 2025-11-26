@@ -198,6 +198,11 @@ def expand_home():
         # Use os.path.expanduser which is cross-platform
         expanded = os.path.expanduser(path)
 
+        # Remove trailing slash (except for root '/') for consistency
+        # Works on Unix, Mac, and Windows (handles both '/' and '\')
+        if len(expanded) > 1:
+            expanded = expanded.rstrip('/').rstrip('\\')
+
         logging.info(f"Expanded path: {path} -> {expanded}")
 
         return jsonify({
