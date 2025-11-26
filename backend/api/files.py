@@ -254,30 +254,31 @@ def is_remote_path(path: str) -> bool:
 def is_single_file(path: str, remote_config: dict = None) -> bool:
     """Check if path is a single file (not a directory)"""
     try:
-        result = rclone.ls(path, remote_config)
-        files = result.get('files', [])
-        # If it's a directory, ls will return multiple items or subdirectories
-        # For single file, check if parent directory listing shows it as a file
-        if len(files) == 0:
-            # Try to list parent directory and check if this is a file
-            if is_remote_path(path):
-                # Remote path: split at last /
-                parts = path.rsplit('/', 1)
-                if len(parts) == 2:
-                    parent_path, filename = parts
-                    parent_result = rclone.ls(parent_path, remote_config)
-                    for item in parent_result.get('files', []):
-                        if item['Name'] == filename and not item.get('IsDir', False):
-                            return True
-            else:
-                # Local path
-                return os.path.isfile(path)
+        # For local paths, use os.path directly
+        if not is_remote_path(path):
+            return os.path.isfile(path)
+
+        # For remote paths, try to list it
+        # If it's a file, rclone will fail or return empty list
+        # If it's a directory, rclone will return contents
+        files = rclone.ls(path, remote_config)
+
+        # If ls returns empty or fails, might be a file
+        # Check parent directory
+        if is_remote_path(path):
+            parts = path.rsplit('/', 1)
+            if len(parts) == 2:
+                parent_path, filename = parts
+                parent_files = rclone.ls(parent_path, remote_config)
+                for item in parent_files:
+                    if item.get('Name') == filename and not item.get('IsDir', False):
+                        return True
+
+        # If we got here and files is not empty, it's a directory
         return False
     except Exception as e:
         logging.warning(f"Could not determine if {path} is file: {e}")
-        # If local path, use os.path
-        if not is_remote_path(path):
-            return os.path.isfile(path)
+        # Default to false (assume directory) to be safe
         return False
 
 

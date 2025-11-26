@@ -227,9 +227,9 @@ async function updateJobs() {
       try {
         const jobDetails = await apiCall(`/api/jobs/${jobId}`)
         if (jobDetails && jobDetails.status === 'completed') {
-          // Dispatch event to refresh panes
+          // Dispatch event to refresh panes and trigger downloads
           window.dispatchEvent(new CustomEvent('job-completed', {
-            detail: { jobId, dstPath: jobDetails.dst_path }
+            detail: jobDetails  // Pass full job details including download_token
           }))
         }
       } catch (err) {

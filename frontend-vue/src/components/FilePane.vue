@@ -675,7 +675,10 @@ function handleRemotesChanged() {
 
 // Handle job completion event
 function handleJobCompleted(event) {
-  const { jobId, dstPath } = event.detail
+  // Support both old format {jobId, dstPath} and new format (full job object)
+  const detail = event.detail
+  const jobId = detail.jobId || detail.job_id
+  const dstPath = detail.dstPath || detail.dst_path
 
   if (!dstPath) return
 

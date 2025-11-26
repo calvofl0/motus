@@ -292,6 +292,10 @@ def get_job_status(job_id):
             'exit_status': exit_status,
             'created_at': job['created_at'],
             'updated_at': job['updated_at'],
+            # Download-specific fields (for download jobs)
+            'download_token': job.get('download_token'),
+            'zip_path': job.get('zip_path'),
+            'zip_filename': job.get('zip_filename'),
         })
 
     except Exception as e:
