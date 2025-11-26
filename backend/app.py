@@ -115,20 +115,16 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
         # Stop all running jobs
         rclone.shutdown()
 
-        # Mark zip jobs and their associated copy jobs as cancelled
-        cancel_two_phase_downloads(rclone, db, running_jobs, 'interrupted')
+        # Mark zip jobs and their associated copy jobs as interrupted
+        handled_jobs = cancel_two_phase_downloads(rclone, db, running_jobs, 'interrupted')
 
-        # Save logs and mark remaining running jobs as interrupted in database
+        # Mark remaining jobs (not part of two-phase downloads) as interrupted
         for job_id in running_jobs:
+            # Skip if already handled by cancel_two_phase_downloads
+            if job_id in handled_jobs:
+                continue
+
             try:
-                job = db.get_job(job_id)
-                if not job:
-                    continue
-
-                # Skip if already handled by cancel_two_phase_downloads
-                if job['status'] in ['interrupted', 'cancelled']:
-                    continue
-
                 # Get log text before marking as interrupted
                 log_text = rclone.job_log_text(job_id)
 
