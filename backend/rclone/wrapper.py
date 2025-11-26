@@ -662,10 +662,10 @@ class RcloneWrapper:
             job_id=job_id,
             operation='download',
             src_path=', '.join(paths[:3]) + ('...' if len(paths) > 3 else ''),
-            dst_path=zip_path,
-            status='pending',
-            progress=0
+            dst_path=zip_path
         )
+        # Set initial status to pending
+        db.update_job(job_id, status='pending', progress=0)
 
         # Worker function
         def zip_worker():
