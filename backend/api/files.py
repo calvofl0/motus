@@ -5,7 +5,7 @@ Handles ls, mkdir, delete, download operations
 import logging
 import os
 import secrets
-from flask import Blueprint, request, jsonify, send_file, current_app
+from flask import Blueprint, request, jsonify, send_file, current_app, after_this_request
 
 from ..auth import token_required
 from ..rclone.wrapper import RcloneWrapper
@@ -384,7 +384,7 @@ def download_direct():
             if ':' in filename:
                 filename = filename.split(':', 1)[-1]
 
-            @current_app.after_this_request
+            @after_this_request
             def cleanup(response):
                 try:
                     if os.path.exists(temp_file):
@@ -456,7 +456,7 @@ def download_zip(download_token):
         logging.info(f"Sending zip file: {zip_path}")
 
         # Clean up after download
-        @current_app.after_this_request
+        @after_this_request
         def cleanup(response):
             try:
                 if os.path.exists(zip_path):
