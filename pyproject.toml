@@ -7,9 +7,9 @@ name = "motus"
 version = "1.0.0"
 description = "A simplified, single-user web application for file transfers using rclone with Vue.js interface"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 license = "MIT"
-keywords = ["rclone", "file-transfer", "ondemand", "ood", "web-interface"]
+keywords = ["rclone", "file-transfer", "web-interface", "vue", "flask"]
 authors = [
     { name = "Motus Contributors" },
 ]
@@ -22,6 +22,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -46,10 +48,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/calvofl0/ood-motuz"
-Documentation = "https://github.com/calvofl0/ood-motuz#readme"
-Issues = "https://github.com/calvofl0/ood-motuz/issues"
-Source = "https://github.com/calvofl0/ood-motuz"
+Homepage = "https://github.com/calvofl0/motus"
+Documentation = "https://github.com/calvofl0/motus#readme"
+Issues = "https://github.com/calvofl0/motus/issues"
+Source = "https://github.com/calvofl0/motus"
 
 [project.scripts]
 motus = "motus.cli:main"

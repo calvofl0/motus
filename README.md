@@ -1,6 +1,6 @@
 # Motus
 
-A simplified, single-user web application for file transfers using rclone with a modern Vue.js interface, designed for integration with Open OnDemand (OOD). Based on the [Motus](https://github.com/FredHutch/motuz) project (MIT License), but with a streamlined, token-based authentication backend suitable for OOD deployment.
+A simplified, single-user web application for file transfers using rclone with a modern Vue.js interface. Based on the [Motus](https://github.com/FredHutch/motuz) project (MIT License), with a streamlined, token-based authentication backend similar to Jupyter notebooks.
 
 ## Features
 
@@ -12,7 +12,6 @@ A simplified, single-user web application for file transfers using rclone with a
 - **REST API**: Clean REST API for file operations and job management
 - **Server-Sent Events**: Real-time progress updates via SSE
 - **Single-User Design**: No complex authentication or multi-tenancy
-- **OOD-Ready**: Easy integration with Open OnDemand
 
 ## Architecture
 
@@ -28,12 +27,12 @@ A simplified, single-user web application for file transfers using rclone with a
 - **Pinia** for state management
 - **Vite** for development and building
 - **Responsive design** with keyboard navigation
-- **Easy Mode**: Simplified interface for basic copy/move operations
-- **Expert Mode**: Advanced dual-pane file browser with contextual menus
+- **Easy Mode**: Advanced dual-pane file browser with contextual menus
+- **Expert Mode**: Simplified interface for basic operations
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.8+
 - Node.js 18+ and npm (for building the frontend)
 - rclone ([installation instructions](https://rclone.org/downloads/))
 - pip
@@ -176,17 +175,18 @@ The development server:
 Motus provides two interface modes:
 
 **Easy Mode** (default):
-- Simple, wizard-like interface
-- Step-by-step file transfer process
-- Perfect for basic copy/move operations
-- Minimal learning curve
-
-**Expert Mode**:
 - Dual-pane file browser
 - Keyboard navigation (arrow keys, Enter, ESC)
 - Contextual menus (right-click or Shift+F10)
 - Advanced features: aliases, custom remotes
 - Keyboard shortcuts (Ctrl+C to copy, etc.)
+
+**Expert Mode**:
+- Simple, streamlined interface
+- Direct access to authentication and remote operations
+- Basic file operations
+- Manual command-line style workflow
+- Minimal GUI overhead
 
 Toggle between modes using the button in the header (if enabled with `--allow-expert-mode`).
 
@@ -502,85 +502,6 @@ data: {"progress": 45, "text": "...", "finished": false}
 
 For complete API documentation, see the backend source code in `backend/api/`.
 
-## Open OnDemand Integration
-
-### 1. Install Motus
-
-```bash
-cd ~
-git clone <repository-url> motus
-cd motus
-
-# Install in virtual environment
-python3 -m venv venv
-source venv/bin/activate
-pip install .
-```
-
-### 2. Create OOD App Directory
-
-```bash
-cd ~/ondemand/dev
-mkdir motus
-cd motus
-```
-
-### 3. Create manifest.yml
-
-```yaml
----
-name: Motus File Transfer
-description: Web-based file transfer interface using rclone
-category: Files
-subcategory: Utilities
-role: batch_connect
-```
-
-### 4. Create form.yml
-
-```yaml
----
-cluster: "your_cluster"
-attributes:
-  bc_num_hours:
-    value: 2
-  bc_num_slots:
-    value: 1
-  node_type:
-    widget: select
-    options:
-      - "standard"
-```
-
-### 5. Create template/script.sh.erb
-
-```bash
-#!/bin/bash
-
-# Load Python module (adjust for your system)
-module load python/3.10
-
-# Activate virtual environment
-source <%= ENV['HOME'] %>/motus/venv/bin/activate
-
-# Start Motus
-cd <%= ENV['HOME'] %>/motus
-python run.py \
-  --port ${port} \
-  --host 0.0.0.0 \
-  --token <%= password %> \
-  --no-browser \
-  --data-dir <%= ENV['HOME'] %>/.motus
-```
-
-### 6. Create template/connection.yml.erb
-
-```yaml
----
-port: <%= port %>
-password: <%= password %>
-```
-
 ## Development
 
 ### Project Structure
@@ -750,7 +671,6 @@ Contributions welcome! Please:
 
 - Based on [Motus](https://github.com/FredHutch/motuz) by Fred Hutchinson Cancer Research Center
 - Uses [rclone](https://rclone.org/) for file operations
-- Designed for [Open OnDemand](https://openondemand.org/)
 - Built with [Vue.js](https://vuejs.org/) and [Flask](https://flask.palletsprojects.com/)
 
 ## Support
@@ -758,4 +678,3 @@ Contributions welcome! Please:
 For issues and questions:
 - Open an issue on GitHub
 - Check the [rclone documentation](https://rclone.org/docs/)
-- Review [Open OnDemand documentation](https://osc.github.io/ood-documentation/latest/)
