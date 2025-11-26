@@ -468,6 +468,12 @@ function watchJobForDownload(jobId) {
       } else if (job.status === 'failed') {
         handleFailure(job.error_text)
         window.removeEventListener('job-completed', handleJobComplete)
+      } else if (job.status === 'interrupted') {
+        // Job was cancelled - stop polling and cleanup
+        if (pollInterval) clearInterval(pollInterval)
+        if (eventHandled) return
+        eventHandled = true
+        window.removeEventListener('job-completed', handleJobComplete)
       }
     }
   }
@@ -485,8 +491,14 @@ function watchJobForDownload(jobId) {
       } else if (job.status === 'failed') {
         handleFailure(job.error_text)
         window.removeEventListener('job-completed', handleJobComplete)
+      } else if (job.status === 'interrupted') {
+        // Job was cancelled - stop polling and cleanup
+        if (pollInterval) clearInterval(pollInterval)
+        if (eventHandled) return
+        eventHandled = true
+        window.removeEventListener('job-completed', handleJobComplete)
       }
-      // If still running, keep polling
+      // If still running or pending, keep polling
     } catch (error) {
       console.error(`Error polling job ${jobId}:`, error)
     }
