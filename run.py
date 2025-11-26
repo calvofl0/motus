@@ -264,6 +264,11 @@ def main():
         help='Maximum total upload size per operation (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_UPLOAD_SIZE env var)'
     )
     parser.add_argument(
+        '--max-uncompressed-download-size',
+        type=str,
+        help='Maximum uncompressed download size before zipping (e.g., 50M, 1G, default: 100M, or MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE env var)'
+    )
+    parser.add_argument(
         '--allow-expert-mode',
         action='store_true',
         help='Show Expert/Easy Mode toggle in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
@@ -301,6 +306,12 @@ def main():
             config.max_upload_size = parse_size(args.max_upload_size)
         except ValueError as e:
             print(f"Error: Invalid --max-upload-size: {e}", file=sys.stderr)
+            sys.exit(1)
+    if args.max_uncompressed_download_size:
+        try:
+            config.max_uncompressed_download_size = parse_size(args.max_uncompressed_download_size)
+        except ValueError as e:
+            print(f"Error: Invalid --max-uncompressed-download-size: {e}", file=sys.stderr)
             sys.exit(1)
     if args.allow_expert_mode:
         config.allow_expert_mode = True

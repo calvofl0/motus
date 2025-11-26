@@ -509,6 +509,246 @@ class RcloneWrapper:
             False
         )
 
+    def size(self, path: str, remote_config: Optional[Dict] = None) -> Dict:
+        """
+        Get size of a path (file or directory)
+
+        Args:
+            path: Path to check (local, remote syntax, or with remote_config)
+            remote_config: Optional remote configuration dict (legacy support)
+
+        Returns:
+            dict: {'bytes': <size_in_bytes>, 'count': <file_count>}
+        """
+        credentials = {}
+        config_arg = self.rclone_config_file
+
+        # Parse path to detect remote
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            # Use named remote from rclone config
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            # Legacy: use provided credentials
+            credentials = self._format_credentials(remote_config)
+            remote_path = f":backend:{path}"
+            config_arg = '/dev/null'
+        else:
+            # Local path
+            remote_path = clean_path
+
+        command = [
+            self.rclone_path,
+            '--config', config_arg if config_arg else DEVNULL,
+            'size',
+            remote_path,
+            '--json'
+        ]
+
+        self._log_command(command, credentials)
+
+        try:
+            output = self._execute(command, credentials)
+            import json
+            result = json.loads(output)
+            return {
+                'bytes': result.get('bytes', 0),
+                'count': result.get('count', 0)
+            }
+        except Exception as e:
+            logging.error(f"Failed to get size for {path}: {e}")
+            return {'bytes': 0, 'count': 0}
+
+    def download_to_temp(self, path: str, remote_config: Optional[Dict] = None) -> str:
+        """
+        Download a remote file to a temporary location
+
+        Args:
+            path: Remote path (e.g., 'remote:/path/to/file')
+            remote_config: Optional remote configuration dict (legacy support)
+
+        Returns:
+            str: Path to temporary file
+        """
+        import tempfile
+
+        credentials = {}
+        config_arg = self.rclone_config_file
+
+        # Parse path
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name:
+            remote_path = f"{remote_name}:{clean_path}"
+        elif remote_config:
+            credentials = self._format_credentials(remote_config)
+            remote_path = f":backend:{path}"
+            config_arg = '/dev/null'
+        else:
+            raise RcloneException("download_to_temp requires a remote path")
+
+        # Create temp file
+        fd, temp_path = tempfile.mkstemp(suffix=os.path.basename(clean_path) or '.tmp')
+        os.close(fd)
+
+        try:
+            command = [
+                self.rclone_path,
+                '--config', config_arg if config_arg else DEVNULL,
+                'copyto',
+                remote_path,
+                temp_path
+            ]
+
+            self._log_command(command, credentials)
+            self._execute(command, credentials)
+
+            logging.info(f"Downloaded {path} to {temp_path}")
+            return temp_path
+
+        except Exception as e:
+            # Clean up temp file on error
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise RcloneException(f"Failed to download {path} to temp: {e}")
+
+    def create_download_zip_job(
+        self,
+        paths: List[str],
+        remote_config: Optional[Dict] = None,
+        estimated_size: int = 0
+    ) -> int:
+        """
+        Create a background job to zip files/folders for download
+
+        Args:
+            paths: List of paths to include in zip
+            remote_config: Optional remote configuration
+            estimated_size: Estimated total size in bytes
+
+        Returns:
+            int: job_id for tracking progress
+        """
+        import zipfile
+        import threading
+        import secrets
+
+        # Thread-safe job ID generation
+        with self._job_id_lock:
+            job_id = self._next_job_id
+            self._next_job_id += 1
+
+        # Generate secure random filename for zip
+        zip_filename = f"download_{secrets.token_urlsafe(16)}.zip"
+
+        # Get download cache directory
+        from ..config import Config
+        config = Config()  # This will use existing data_dir
+        cache_dir = os.path.join(config.data_dir, '.download-cache')
+        os.makedirs(cache_dir, exist_ok=True)
+
+        zip_path = os.path.join(cache_dir, zip_filename)
+
+        # Generate download token
+        download_token = secrets.token_urlsafe(32)
+
+        logging.info(f"Creating zip job {job_id} for {len(paths)} paths -> {zip_path}")
+
+        # Create database entry
+        from ..models import Database
+        db = Database(config.database_path)
+        db.create_job(
+            job_id=job_id,
+            operation='download',
+            src_path=', '.join(paths[:3]) + ('...' if len(paths) > 3 else ''),
+            dst_path=zip_path,
+            status='pending',
+            progress=0
+        )
+
+        # Worker function
+        def zip_worker():
+            try:
+                logging.info(f"[Job {job_id}] Starting zip creation...")
+                db.update_job(job_id, status='running', progress=0)
+
+                total_bytes_processed = 0
+
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for idx, path in enumerate(paths):
+                        try:
+                            # Parse path
+                            remote_name, clean_path = self._parse_path(path)
+                            is_remote = bool(remote_name) or bool(remote_config)
+
+                            if is_remote:
+                                # Download remote file/folder to temp first
+                                logging.info(f"[Job {job_id}] Downloading remote: {path}")
+                                temp_path = self.download_to_temp(path, remote_config)
+
+                                # Add to zip
+                                arcname = os.path.basename(clean_path) or f"file_{idx}"
+                                zf.write(temp_path, arcname=arcname)
+
+                                # Clean up temp file
+                                os.remove(temp_path)
+                            else:
+                                # Local path
+                                if os.path.isfile(clean_path):
+                                    # Single file
+                                    arcname = os.path.basename(clean_path)
+                                    zf.write(clean_path, arcname=arcname)
+                                elif os.path.isdir(clean_path):
+                                    # Directory - add recursively
+                                    base_name = os.path.basename(clean_path.rstrip('/'))
+                                    for root, dirs, files in os.walk(clean_path):
+                                        for file in files:
+                                            file_path = os.path.join(root, file)
+                                            # Calculate relative path for archive
+                                            rel_path = os.path.relpath(file_path, os.path.dirname(clean_path))
+                                            zf.write(file_path, arcname=rel_path)
+
+                            # Update progress
+                            progress = int(((idx + 1) / len(paths)) * 100)
+                            db.update_job(job_id, progress=progress)
+
+                        except Exception as e:
+                            logging.error(f"[Job {job_id}] Error processing {path}: {e}")
+                            # Continue with other files
+
+                logging.info(f"[Job {job_id}] Zip creation complete: {zip_path}")
+
+                # Mark job as completed with download token and zip info
+                db.update_job(
+                    job_id,
+                    status='completed',
+                    progress=100,
+                    download_token=download_token,
+                    zip_path=zip_path,
+                    zip_filename=zip_filename
+                )
+
+            except Exception as e:
+                logging.error(f"[Job {job_id}] Zip creation failed: {e}")
+                db.update_job(
+                    job_id,
+                    status='failed',
+                    error_text=str(e)
+                )
+                # Clean up partial zip
+                if os.path.exists(zip_path):
+                    try:
+                        os.remove(zip_path)
+                    except:
+                        pass
+
+        # Start worker thread
+        thread = threading.Thread(target=zip_worker, daemon=True, name=f"ZipJob-{job_id}")
+        thread.start()
+
+        return job_id
+
     def _path_exists(self, path: str, remote_config: Optional[Dict] = None) -> bool:
         """
         Check if a path exists (local or remote)

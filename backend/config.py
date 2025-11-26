@@ -243,6 +243,29 @@ class Config:
         except ValueError as e:
             raise ValueError(f"Invalid max_upload_size: {e}")
 
+        # Max uncompressed download size before creating zip
+        # If total size exceeds this, files will be zipped
+        # Supports formats: 50M, 1G, 1024 (bytes)
+        # Default: 100M
+        max_uncompressed_download_size_str = self._get_config(
+            'max_uncompressed_download_size',
+            env_var='MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE',
+            default='100M'
+        )
+        try:
+            self.max_uncompressed_download_size = parse_size(max_uncompressed_download_size_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid max_uncompressed_download_size: {e}")
+
+        # Download cache max age (in seconds)
+        # How long to keep zip files before cleanup
+        # Default: 3600 (1 hour)
+        self.download_cache_max_age = int(self._get_config(
+            'download_cache_max_age',
+            env_var='MOTUS_DOWNLOAD_CACHE_MAX_AGE',
+            default=3600
+        ) or 3600)
+
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""
         # Check environment variable first

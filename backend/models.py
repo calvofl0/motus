@@ -52,6 +52,22 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_status ON jobs(status)
             ''')
 
+            # Add download-specific columns (migration for existing databases)
+            try:
+                cursor.execute('ALTER TABLE jobs ADD COLUMN download_token TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            try:
+                cursor.execute('ALTER TABLE jobs ADD COLUMN zip_path TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            try:
+                cursor.execute('ALTER TABLE jobs ADD COLUMN zip_filename TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
             conn.commit()
 
     @contextmanager
@@ -102,6 +118,9 @@ class Database:
         progress: Optional[int] = None,
         error_text: Optional[str] = None,
         log_text: Optional[str] = None,
+        download_token: Optional[str] = None,
+        zip_path: Optional[str] = None,
+        zip_filename: Optional[str] = None,
     ):
         """Update job status"""
         updates = []
@@ -122,6 +141,18 @@ class Database:
         if log_text is not None:
             updates.append('log_text = ?')
             values.append(log_text)
+
+        if download_token is not None:
+            updates.append('download_token = ?')
+            values.append(download_token)
+
+        if zip_path is not None:
+            updates.append('zip_path = ?')
+            values.append(zip_path)
+
+        if zip_filename is not None:
+            updates.append('zip_filename = ?')
+            values.append(zip_filename)
 
         if status in ['completed', 'failed', 'cancelled', 'interrupted', 'resumed']:
             updates.append('finished_at = ?')
