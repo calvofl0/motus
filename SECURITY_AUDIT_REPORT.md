@@ -497,7 +497,129 @@ def list_files():
 
 ---
 
-### 13. Information Disclosure in Error Messages
+### 13. File Download Security via Token-Based Access
+**Files**: `backend/api/files.py`, `backend/rclone/wrapper.py`
+**CVSS**: 6.5 (Medium)
+
+**Issue**: The download feature allows users to download files/folders to their laptop with automatic ZIP compression. While the implementation includes security measures, there are several considerations:
+
+**Security Measures Implemented**:
+- **Single-use download tokens**: Each download gets a unique, cryptographically secure token (32-byte URL-safe)
+- **Token stored in database**: Download tokens are associated with specific jobs and files
+- **Auto-cleanup**: ZIP files are automatically deleted after download, on shutdown, and when expired
+- **Authentication required**: All download endpoints require token authentication
+- **File path validation**: Paths are validated through rclone's path parsing
+- **Cancellation support**: Jobs can be cancelled, preventing download trigger
+
+**Current Implementation**:
+```python
+# backend/rclone/wrapper.py
+download_token = secrets.token_urlsafe(32)  # Cryptographically secure
+
+# backend/api/files.py
+@files_bp.route('/api/files/download/zip/<download_token>', methods=['GET'])
+@token_required
+def download_zip(download_token):
+    # Find job by download token
+    job = db.find_job_by_download_token(download_token)
+
+    # Send file and cleanup after
+    @after_this_request
+    def cleanup(response):
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        return response
+
+    return send_file(zip_path, as_attachment=True, download_name=zip_filename)
+```
+
+**Potential Security Concerns**:
+
+1. **Download Token in URL**: Download token is passed as URL parameter:
+   - Could leak in browser history
+   - Could leak in server logs
+   - Could be shared inadvertently via URL sharing
+
+2. **Temporary File Race Conditions**:
+   - ZIP file exists on disk temporarily before cleanup
+   - If cleanup fails, file persists until next startup
+   - File permissions could allow unauthorized local access
+
+3. **Resource Exhaustion**:
+   - Large downloads could fill disk space
+   - Multiple concurrent download jobs could exhaust memory
+   - No rate limiting on download job creation
+
+4. **Path Traversal Risk**:
+   - Relies on rclone path parsing for validation
+   - ZIP creation walks directories which could follow symlinks
+
+**Recommendations**:
+
+```python
+# ENHANCED SECURITY
+from werkzeug.security import safe_join
+import hashlib
+
+class DownloadSecurityManager:
+    def create_download(self, paths, user_id):
+        # 1. Validate paths don't escape allowed boundaries
+        for path in paths:
+            if '..' in path or path.startswith('/'):
+                raise SecurityError("Path traversal attempt")
+
+        # 2. Check total size against quota
+        total_size = calculate_size(paths)
+        if total_size > MAX_DOWNLOAD_SIZE:
+            raise QuotaExceeded(f"Download size {total_size} exceeds limit")
+
+        # 3. Rate limit download job creation
+        recent_downloads = count_user_downloads(user_id, last_minutes=10)
+        if recent_downloads >= MAX_DOWNLOADS_PER_10MIN:
+            raise RateLimitExceeded("Too many download requests")
+
+        # 4. Use secure temporary directory
+        secure_temp = tempfile.mkdtemp(prefix='.download-', dir=SECURE_TEMP_DIR)
+        os.chmod(secure_temp, 0o700)  # Owner-only access
+
+        return create_zip_job(paths, secure_temp)
+
+    def serve_download(self, download_token):
+        # 5. Log download access for audit trail
+        audit_log.info(f"Download accessed",
+                      extra={'token': hash(download_token), 'ip': request.remote_addr})
+
+        # 6. One-time token invalidation
+        job = db.get_and_invalidate_download_token(download_token)
+        if not job:
+            raise NotFound("Download expired or invalid")
+
+        # 7. Set secure headers
+        response = send_file(job.zip_path)
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Content-Security-Policy'] = "default-src 'none'"
+        return response
+```
+
+**Additional Recommendations**:
+- Implement download quotas per user/session
+- Add rate limiting on download endpoint
+- Use POST requests with token in body instead of URL parameter
+- Add audit logging for all download operations
+- Set restrictive file permissions on ZIP files (0600)
+- Implement timeout for download token validity (not just cache age)
+- Add virus scanning for downloaded content (if applicable)
+- Monitor disk space and reject downloads if low
+
+**Risk Assessment**: Medium severity due to:
+- Token leakage potential (URL-based)
+- Resource exhaustion risk
+- Temporary file security concerns
+- Mitigated by: single-use tokens, auto-cleanup, authentication requirement
+
+---
+
+### 14. Information Disclosure in Error Messages
 **Files**: Multiple API endpoints
 **CVSS**: 5.8 (Medium)
 
@@ -540,7 +662,7 @@ except Exception as e:
 
 ## MEDIUM Severity Findings
 
-### 14. Vue.js XSS via Unsafe HTML Rendering
+### 15. Vue.js XSS via Unsafe HTML Rendering
 **Risk Assessment**: Currently LOW (no known instances)
 **Potential CVSS**: 7.2 if vulnerability found
 
@@ -562,7 +684,7 @@ except Exception as e:
 
 ---
 
-### 15. No Input Sanitization for Logs
+### 16. No Input Sanitization for Logs
 **File**: Multiple
 **CVSS**: 5.3 (Medium)
 
@@ -597,7 +719,7 @@ logging.info(f"Listing files at {sanitize_for_log(path)}")
 
 ---
 
-### 16. No Session Timeout
+### 17. No Session Timeout
 **File**: `backend/auth.py`
 **CVSS**: 4.5 (Medium)
 
@@ -647,7 +769,7 @@ class TokenManager:
 
 ---
 
-### 17. Weak File Permissions on Data Directory
+### 18. Weak File Permissions on Data Directory
 **File**: `backend/config.py`, `run.py`
 **CVSS**: 4.3 (Medium)
 
@@ -683,7 +805,7 @@ ensure_secure_permissions(data_dir / 'jobs.db')
 
 ---
 
-### 18. No Audit Logging
+### 19. No Audit Logging
 **File**: All
 **CVSS**: 4.0 (Medium)
 
@@ -732,7 +854,7 @@ def delete_file():
 
 ## LOW Severity Findings
 
-### 19. Missing Security Headers
+### 20. Missing Security Headers
 **File**: `backend/app.py`
 **CVSS**: 3.7 (Low)
 
@@ -740,7 +862,7 @@ def delete_file():
 
 ---
 
-### 20. Verbose Debug Mode
+### 21. Verbose Debug Mode
 **File**: Configuration
 **CVSS**: 3.5 (Low)
 
@@ -765,7 +887,7 @@ app.run(
 
 ---
 
-### 21. Job ID Predictability
+### 22. Job ID Predictability
 **File**: `backend/models.py`
 **CVSS**: 3.2 (Low)
 
@@ -786,7 +908,7 @@ job_id = str(uuid.uuid4())
 
 ---
 
-### 22. Frontend Build Security
+### 23. Frontend Build Security
 **File**: `build_frontend.py`, `frontend-vue/package.json`
 **CVSS**: 3.0 (Low)
 
@@ -810,7 +932,7 @@ npm ci  # Uses package-lock.json, more secure than npm install
 
 ## INFORMATIONAL Findings
 
-### 23. Dependency Security Scanning
+### 24. Dependency Security Scanning
 **Files**: `requirements.txt`, `frontend-vue/package.json`
 
 **Recommendation**:
@@ -828,7 +950,7 @@ npm audit
 
 ---
 
-### 24. Security Documentation
+### 25. Security Documentation
 **File**: Missing `SECURITY.md`
 
 **Recommendation**: Add `SECURITY.md` with:
@@ -859,7 +981,7 @@ Expected response time: 48 hours
 
 ---
 
-### 25. Security Testing
+### 26. Security Testing
 **File**: No security-focused tests exist
 
 **Recommendation**:
