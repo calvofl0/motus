@@ -44,39 +44,42 @@ def cancel_two_phase_downloads(rclone: RcloneWrapper, db: Database, job_ids, sta
     Args:
         rclone: RcloneWrapper instance
         db: Database instance
-        job_ids: List of job IDs to process
+        job_ids: List of job IDs to process (from rclone.get_running_jobs())
         status: Status to set ('cancelled' or 'interrupted')
     """
     cancelled_jobs = set()
 
+    # Fetch all job details for the provided job_ids
+    jobs = {}
     for job_id in job_ids:
-        try:
-            job = db.get_job(job_id)
-            if not job:
-                continue
+        job = db.get_job(job_id)
+        if job:
+            jobs[job_id] = job
 
+    # Identify zip jobs and their associated copy jobs
+    for job_id, job in jobs.items():
+        try:
             # If it's a zip job, find and cancel associated copy job
             if job['operation'] == 'zip':
-                # Find copy jobs with destination in cache/temp/
-                all_jobs = db.list_jobs(status='running', limit=1000)
-                for potential_copy in all_jobs:
-                    if (potential_copy['operation'] == 'copy' and
-                        potential_copy['dst_path'] and
-                        '/cache/download/temp/download_temp_' in potential_copy['dst_path']):
+                # Find copy jobs in the same job_ids list with destination in cache/temp/
+                for other_id, other_job in jobs.items():
+                    if (other_job['operation'] == 'copy' and
+                        other_job['dst_path'] and
+                        '/cache/download/temp/download_temp_' in other_job['dst_path']):
 
                         # Get log text
-                        log_text = rclone.job_log_text(potential_copy['job_id'])
+                        log_text = rclone.job_log_text(other_id)
 
                         # Cancel the copy job
                         db.update_job(
-                            job_id=potential_copy['job_id'],
+                            job_id=other_id,
                             status=status,
-                            error_text=f'Associated with cancelled zip job {job_id}',
+                            error_text=f'Associated with {status} zip job {job_id}',
                             log_text=log_text
                         )
-                        rclone.job_cleanup_log(potential_copy['job_id'])
-                        cancelled_jobs.add(potential_copy['job_id'])
-                        logging.info(f"Cancelled copy job {potential_copy['job_id']} associated with zip job {job_id}")
+                        rclone.job_cleanup_log(other_id)
+                        cancelled_jobs.add(other_id)
+                        logging.info(f"Cancelled copy job {other_id} associated with zip job {job_id}")
 
                 # Get log text for zip job
                 log_text = rclone.job_log_text(job_id)
