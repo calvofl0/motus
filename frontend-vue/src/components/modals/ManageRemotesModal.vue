@@ -654,7 +654,6 @@ function handleCustomMethodSelected(method) {
 async function handleCustomRemoteCreated(remoteName) {
   // Reload remotes list
   await loadRemotesList()
-  console.log(`Custom remote '${remoteName}' created successfully`)
 
   // Notify other components that remotes have changed
   window.dispatchEvent(new CustomEvent('remotes-changed'))
@@ -900,8 +899,6 @@ async function createRemote() {
     const createdRemote = remotes.value.find(r => r.name === newRemoteName)
     let needsOAuth = false
 
-    console.log(`[ManageRemotesModal] Created remote: ${newRemoteName}, is_oauth=${createdRemote?.is_oauth}`)
-
     if (createdRemote && createdRemote.is_oauth) {
       // Check if token is empty by fetching the raw config
       try {
@@ -920,8 +917,6 @@ async function createRemote() {
             break
           }
         }
-
-        console.log(`[ManageRemotesModal] Token check for ${newRemoteName}: token="${token}", isEmpty=${!token || token.trim() === ''}`)
 
         // If token is empty, we'll need to open OAuth modal
         if (!token || token.trim() === '') {

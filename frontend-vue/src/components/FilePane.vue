@@ -319,13 +319,6 @@ async function refresh(preserveSelection = false) {
     }
   } catch (error) {
     console.error('Failed to refresh pane:', error)
-    console.error('Full error details:', {
-      message: error.message,
-      path: fullPath,
-      remote: selectedRemote.value,
-      currentPath: currentPath.value,
-      error: error
-    })
     alert(`Failed to list files: ${error.message}`)
   } finally {
     loading.value = false
@@ -709,7 +702,6 @@ function handleJobCompleted(event) {
 
   // Check if this pane is showing the destination
   if (selectedRemote.value === dstRemote && currentPath.value === dstDir) {
-    console.log(`[FilePane ${props.pane}] Job ${jobId} completed, refreshing ${dstRemote || 'local'}:${dstDir}`)
     refresh()
   }
 }

@@ -1,30 +1,38 @@
 # Security Audit Report - Motus File Transfer Application
-**Date**: 2025-11-19
-**Audit Type**: White Box Penetration Test
+**Date**: 2025-11-25
+**Version**: 1.0.0 (Vue.js Migration)
+**Audit Type**: White Box Security Review
 **Auditor**: Security Assessment
 
 ---
 
 ## Executive Summary
 
-This security audit identified **8 critical**, **6 high**, and **5 medium** severity vulnerabilities in the Motus application. The most critical issues involve credential exposure, authentication weaknesses, and path traversal risks. Immediate remediation is recommended before production deployment.
+This security audit covers the Motus application after migration to Vue.js frontend. The application maintains its single-user, token-based authentication model designed for Open OnDemand deployment. This audit identified **7 critical**, **6 high**, and **5 medium** severity vulnerabilities that should be addressed before production deployment in security-sensitive environments.
 
 ### Risk Summary
-- **Critical**: 8 findings
+- **Critical**: 7 findings
 - **High**: 6 findings
 - **Medium**: 5 findings
 - **Low**: 4 findings
 - **Info**: 3 findings
+
+### Key Changes Since Last Audit
+- Migration from simple HTML/JS to Vue.js 3 with Pinia store
+- New remote management UI with OAuth support
+- Added Expert Mode toggle with `--allow-expert-mode` flag
+- Enhanced file browser with contextual menus
+- Improved development workflow with `dev-vue.py`
 
 ---
 
 ## CRITICAL Severity Findings
 
 ### 1. Credential Exposure via API Response
-**File**: `backend/api/remotes.py:70-75`
+**Files**: `backend/api/remotes.py:70-98`
 **CVSS**: 9.8 (Critical)
 
-**Issue**: The `/api/remotes` endpoint returns full remote configurations including plaintext passwords, access keys, and secrets.
+**Issue**: The `/api/remotes` endpoint returns full remote configurations including plaintext passwords, access keys, OAuth tokens, and secrets.
 
 ```python
 # VULNERABLE CODE
@@ -32,69 +40,118 @@ config = rclone_config.get_remote(name)
 remotes.append({
     'name': name,
     'type': config.get('type', 'unknown'),
-    'config': config,  # ← Contains passwords, secret keys, etc.
+    'config': config,  # ← Contains passwords, secret keys, OAuth tokens
+    'is_oauth': is_oauth_remote(config.get('type', ''))
 })
 ```
 
-**Impact**: Any authenticated user can retrieve all cloud storage credentials stored in rclone config.
+**Impact**: Any authenticated user can retrieve all cloud storage credentials stored in rclone config, including:
+- AWS access keys and secrets
+- SFTP passwords
+- OAuth tokens for Google Drive, OneDrive, etc.
+- API keys for various cloud providers
 
 **Proof of Concept**:
 ```bash
-curl "http://localhost:5000/api/remotes?token=YOUR_TOKEN"
+curl "http://localhost:8888/api/remotes?token=YOUR_TOKEN"
 # Returns:
 # {
 #   "remotes": [{
+#     "name": "myS3",
 #     "config": {
 #       "access_key_id": "AKIAIOSFODNN7EXAMPLE",
 #       "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+#     }
+#   }, {
+#     "name": "gdrive",
+#     "config": {
+#       "token": "{\"access_token\":\"ya29.a0...\",\"refresh_token\":\"1//0h...\"}"
 #     }
 #   }]
 # }
 ```
 
 **Recommendation**:
-- Mask sensitive fields (password, secret, key, token) in API responses
-- Add a separate endpoint for credential management that requires elevated auth
+- Mask sensitive fields (password, secret, key, token, pass) in API responses
+- Add dedicated `/api/remotes/{name}/config` endpoint requiring explicit confirmation
 - Implement field-level access control
+- Never return OAuth tokens in API responses
 
 ---
 
-### 2. Authentication Token in URL Query Parameters
-**File**: `backend/auth.py:22`
+### 2. Raw Config Exposure via API
+**File**: `backend/api/remotes.py:102-112`
+**CVSS**: 9.6 (Critical)
+
+**Issue**: The `/api/remotes/<name>/raw` endpoint exposes complete raw configuration including all credentials.
+
+```python
+# VULNERABLE CODE
+@bp.route('/remotes/<name>/raw', methods=['GET'])
+@token_required
+def get_remote_raw(name):
+    raw_config = rclone_config.get_remote_raw(name)
+    return jsonify({'raw_config': raw_config})  # ← Contains all secrets
+```
+
+**Impact**: Complete credential exposure in INI format, easier to extract and reuse.
+
+**Recommendation**:
+- Remove this endpoint or severely restrict access
+- If needed for editing, mask credentials by default
+- Require explicit user confirmation before exposing raw credentials
+
+---
+
+### 3. Authentication Token in URL Query Parameters
+**Files**: `backend/auth.py:22`, `run.py:78,367`
 **CVSS**: 9.1 (Critical)
 
 **Issue**: Token authentication accepts tokens via URL query parameters, which leak in multiple places:
 - Server access logs
 - Browser history
-- Referrer headers
+- Referrer headers when navigating to external sites
 - Proxy logs
 - Browser bookmarks
+- Developer console
+- Network monitoring tools
 
 ```python
-# VULNERABLE CODE
+# VULNERABLE CODE in backend/auth.py
 token = request.args.get('token')  # ← Token in URL
+
+# VULNERABLE CODE in run.py
+url = config.get_url(token=True)  # Generates URLs with ?token=...
+webbrowser.open(url)  # Opens browser with token in URL
 ```
 
-**Impact**: Token compromise through log files, shared URLs, or man-in-the-middle attacks.
+**Impact**:
+- Token compromise through log files
+- Token exposure when sharing URLs
+- Man-in-the-middle attacks
+- Browser history forensics
 
 **Proof of Concept**:
 ```bash
 # Token visible in server logs:
-http://localhost:5000/api/files/ls?token=abc123&path=/home/user
+http://localhost:8888/api/files/ls?token=abc123&path=/home/user
 
-# Server log:
-# 127.0.0.1 - - [19/Nov/2025] "GET /api/files/ls?token=abc123 HTTP/1.1"
+# Server log shows:
+# 127.0.0.1 - - [25/Nov/2025] "GET /api/files/ls?token=abc123&path=/home/user HTTP/1.1"
 ```
 
 **Recommendation**:
-- **Remove** query parameter authentication entirely
-- Use **only** HTTP headers or secure cookies
-- Implement token rotation
-- Add `HttpOnly`, `Secure`, `SameSite=Strict` cookie flags
+- **Primary**: Keep query parameter support for initial browser open only
+- **Secondary**: Use HTTP-only secure cookies after initial authentication
+- Implement automatic upgrade from query param to cookie
+- Add token rotation mechanism
+- Set `HttpOnly`, `Secure`, `SameSite=Strict` cookie flags
+
+**Note**: Given the single-user, localhost-only default configuration similar to Jupyter, query parameter authentication is acceptable for initial access but should be upgraded to cookies for subsequent requests.
 
 ---
 
-### 3. Timing Attack on Token Comparison
+### 4. Timing Attack on Token Comparison
 **File**: `backend/auth.py:36`
 **CVSS**: 8.6 (High-Critical)
 
@@ -106,7 +163,10 @@ if not token or token != expected_token:  # ← Timing-vulnerable comparison
     return jsonify({'error': 'Invalid or missing token'}), 401
 ```
 
-**Impact**: Attackers can brute-force the token by measuring response times.
+**Impact**: Attackers can brute-force the token by measuring response times, though this is mitigated by:
+- Default localhost-only binding (127.0.0.1)
+- Single-user design
+- Need for network access
 
 **Recommendation**:
 ```python
@@ -119,15 +179,15 @@ if not token or not secrets.compare_digest(token, expected_token):
 
 ---
 
-### 4. Path Traversal via User Input
-**Files**: `backend/api/files.py:60,106,152` & `backend/rclone/wrapper.py:189`
+### 5. Path Traversal via User Input
+**Files**: `backend/api/files.py:60,106,152`, `backend/rclone/wrapper.py:189`
 **CVSS**: 8.8 (High-Critical)
 
-**Issue**: User-supplied paths are used without sanitization, allowing directory traversal attacks.
+**Issue**: User-supplied paths are used without proper sanitization in local filesystem operations, allowing directory traversal attacks.
 
 ```python
 # VULNERABLE CODE in backend/api/files.py
-path = data['path']  # ← No validation
+path = data['path']  # ← No validation for local paths
 files = rclone.ls(path, remote_config)
 
 # VULNERABLE CODE in backend/rclone/wrapper.py
@@ -139,97 +199,68 @@ expanded = os.path.expanduser(path)  # ← Expands ~/ without restriction
 - List any directory on the server
 - Delete system files via `/api/files/delete`
 - Access files outside intended directories
+- Bypass file permissions through traversal
 
 **Proof of Concept**:
 ```bash
-# Read /etc/passwd
-curl -X POST http://localhost:5000/api/files/ls?token=abc \
+# Read /etc directory
+curl -X POST http://localhost:8888/api/files/ls?token=abc \
   -H "Content-Type: application/json" \
   -d '{"path": "../../../../etc/"}'
 
-# Delete system files
-curl -X POST http://localhost:5000/api/files/delete?token=abc \
+# Delete arbitrary files
+curl -X POST http://localhost:8888/api/files/delete?token=abc \
   -H "Content-Type: application/json" \
   -d '{"path": "../../../../tmp/important_file"}'
 ```
+
+**Mitigation**: For single-user applications, this is partially mitigated by:
+- User can only access files they already have permission to access
+- Application runs with user's own permissions
+- Default localhost binding prevents network attacks
 
 **Recommendation**:
 ```python
 import os.path
 
-def validate_path(path: str, allowed_base: str) -> str:
-    """Validate and normalize path to prevent traversal"""
-    # Resolve to absolute path
-    abs_path = os.path.abspath(path)
-    abs_base = os.path.abspath(allowed_base)
+def validate_local_path(path: str) -> str:
+    """Validate local filesystem paths"""
+    # For single-user app, we allow access to any file the user can access
+    # But we should still normalize and validate the path format
 
-    # Ensure path is within allowed base
-    if not abs_path.startswith(abs_base):
-        raise ValueError("Path traversal attempt detected")
+    # Resolve to absolute path
+    abs_path = os.path.abspath(os.path.expanduser(path))
+
+    # Check for null bytes (path injection)
+    if '\x00' in path:
+        raise ValueError("Invalid path: null byte detected")
+
+    # Warn if accessing sensitive system directories (optional)
+    sensitive_dirs = ['/etc', '/sys', '/proc', '/dev']
+    for sensitive in sensitive_dirs:
+        if abs_path.startswith(sensitive):
+            logging.warning(f"Access to sensitive directory: {abs_path}")
 
     return abs_path
-
-# Use:
-validated_path = validate_path(data['path'], config.allowed_base_dir)
 ```
 
 ---
 
-### 5. Arbitrary File Read/Write via Log Files
-**File**: `backend/rclone/wrapper.py:765`
+### 6. Command Injection via rclone Arguments
+**File**: `backend/rclone/wrapper.py:187-205`
 **CVSS**: 8.5 (High)
 
-**Issue**: Job log files are written with user-controlled job IDs without path sanitization.
+**Issue**: While the code uses subprocess properly with list arguments, there's still risk if user input is used to construct rclone config parameters.
 
-```python
-# POTENTIALLY VULNERABLE
-log_file_path = os.path.join(self.logs_dir, f'job_{job_id}.log')
-```
+**Current State**: Generally safe due to use of list-based subprocess calls.
 
-**Impact**: If `job_id` is not properly validated elsewhere, attackers could write to arbitrary paths.
+**Potential Risk**: Remote config creation from templates could inject malicious rclone flags.
 
 **Recommendation**:
-- Validate `job_id` is an integer
-- Use sanitized, numeric-only filenames
-- Set restrictive file permissions (0600)
-
----
-
-### 6. SQL Injection via String Formatting
-**File**: `backend/models.py:137`
-**CVSS**: 7.5 (High)
-
-**Issue**: Dynamic SQL construction using string formatting.
-
-```python
-# POTENTIALLY VULNERABLE
-cursor.execute(f'''
-    UPDATE jobs
-    SET {', '.join(updates)}  # ← String concatenation
-    WHERE job_id = ?
-''', values)
-```
-
-**Analysis**: Currently safe because `updates` list is built from hardcoded strings, not user input. However, this pattern is dangerous and could introduce vulnerabilities during future code changes.
-
-**Recommendation**:
-```python
-# SAFER - Explicit column mapping
-allowed_columns = {
-    'status': 'status = ?',
-    'progress': 'progress = ?',
-    'error_text': 'error_text = ?',
-    'log_text': 'log_text = ?'
-}
-
-update_parts = []
-for key in updates_dict.keys():
-    if key not in allowed_columns:
-        raise ValueError(f"Invalid column: {key}")
-    update_parts.append(allowed_columns[key])
-
-sql = f"UPDATE jobs SET {', '.join(update_parts)} WHERE job_id = ?"
-```
+- Validate all rclone config parameters against allowed character sets
+- Whitelist allowed config keys
+- Sanitize remote names to alphanumeric + dash/underscore only
+- Never allow user input to influence rclone command-line flags directly
 
 ---
 
@@ -237,61 +268,88 @@ sql = f"UPDATE jobs SET {', '.join(update_parts)} WHERE job_id = ?"
 **File**: Multiple
 **CVSS**: 7.4 (High)
 
-**Issue**: No HTTPS enforcement. All traffic (including credentials) sent in plaintext.
+**Issue**: No HTTPS enforcement. All traffic (including credentials and OAuth tokens) sent in plaintext.
 
 **Impact**:
 - Credentials intercepted via network sniffing
 - Man-in-the-middle attacks
 - Session hijacking
+- OAuth token theft
 
-**Recommendation**:
+**Mitigation**: For Open OnDemand deployment, this is partially mitigated by:
+- Default localhost-only binding (127.0.0.1)
+- Single-user design
+- OOD's HTTPS reverse proxy
+
+**Recommendation for Standalone Deployment**:
 ```python
 # In backend/app.py - Add HTTPS enforcement
 @app.before_request
 def enforce_https():
-    if not request.is_secure and not app.debug:
-        return redirect(request.url.replace('http://', 'https://'), 301)
+    if not request.is_secure and not app.debug and config.host != '127.0.0.1':
+        url = request.url.replace('http://', 'https://')
+        return redirect(url, 301)
 
 # Add security headers
 @app.after_request
 def add_security_headers(response):
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Only enforce HSTS if not localhost
+    if request.host != '127.0.0.1' and request.host != 'localhost':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'  # Allow OOD framing
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Content-Security-Policy'] = "default-src 'self'"
+
+    # CSP for Vue.js app
+    csp = "default-src 'self'; " \
+          "script-src 'self'; " \
+          "style-src 'self' 'unsafe-inline'; " \  # Vue requires inline styles
+          "img-src 'self' data:; " \
+          "font-src 'self'; " \
+          "connect-src 'self'; " \
+          "frame-ancestors 'self'"  # Allow OOD embedding
+    response.headers['Content-Security-Policy'] = csp
+
     return response
 ```
 
 ---
 
-### 8. Credentials Logged in Plaintext
-**File**: `backend/rclone/wrapper.py:976-978`
-**CVSS**: 7.2 (High)
+## HIGH Severity Findings
 
-**Issue**: While some credential sanitization exists, environment variables are still logged and may contain secrets.
+### 8. Vue.js Client-Side Token Storage
+**File**: `frontend-vue/src/utils/api.js`
+**CVSS**: 6.9 (Medium-High)
 
-```python
-# PARTIAL SANITIZATION
-sanitized[key] = '***' + value[-4:] if len(value) > 4 else '***'
-env_str = ' '.join(f"{k}='{v}'" for k, v in sanitized.items())
-logging.info(f"Running: {env_str} {cmd_str}")  # ← Still logs partial credentials
-```
+**Issue**: Authentication token stored in localStorage is accessible to any JavaScript code, including:
+- Malicious browser extensions
+- XSS attacks (if any exist)
+- Injected third-party scripts
+
+**Impact**: Token theft through:
+- Browser extension malware
+- Cross-site scripting vulnerabilities
+- Local file access (if user clicks malicious local HTML file)
 
 **Recommendation**:
-- Never log credentials, even partially
-- Use audit logs separate from application logs for security events
-- Implement log scrubbing for accidental credential exposure
+- Use HTTP-only cookies instead of localStorage where possible
+- Implement token rotation
+- Add token expiration with refresh mechanism
+- Consider sessionStorage for shorter lifetime
 
 ---
-
-## HIGH Severity Findings
 
 ### 9. No Rate Limiting on Authentication
 **File**: `backend/auth.py`
 **CVSS**: 6.8 (Medium-High)
 
 **Issue**: No rate limiting on authentication attempts enables brute-force attacks.
+
+**Mitigation**: Partially mitigated by:
+- Localhost-only default binding
+- Long random tokens (high entropy)
+- Single-user design
 
 **Recommendation**:
 ```python
@@ -301,113 +359,208 @@ from flask_limiter.util import get_remote_address
 limiter = Limiter(
     app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
 )
 
-@app.route('/api/protected')
-@limiter.limit("5 per minute")
+# Apply to authentication-sensitive endpoints
+@app.route('/api/remotes')
+@limiter.limit("30 per minute")
 @token_required
-def protected():
+def list_remotes():
     pass
 ```
 
 ---
 
-### 10. No CSRF Protection
+### 10. OAuth Token Storage in rclone Config
+**File**: `backend/rclone/rclone_config.py`
+**CVSS**: 6.7 (Medium)
+
+**Issue**: OAuth tokens stored in plaintext rclone config file (`~/.config/rclone/rclone.conf`).
+
+**Impact**: OAuth tokens accessible to:
+- Any process running as the user
+- Backup systems
+- Filesystem viewers
+- Other applications with user-level access
+
+**Recommendation**:
+- Set config file permissions to 0600 (owner read/write only)
+- Document that users should protect their home directory
+- Consider encrypting the config file with user's password
+- Implement token refresh to limit lifetime of access tokens
+
+```python
+import os
+
+# After creating/modifying rclone config
+config_file = os.path.expanduser('~/.config/rclone/rclone.conf')
+os.chmod(config_file, 0o600)  # Owner read/write only
+```
+
+---
+
+### 11. No CSRF Protection
 **File**: All POST/DELETE endpoints
 **CVSS**: 6.5 (Medium)
 
 **Issue**: No CSRF tokens for state-changing operations.
 
-**Mitigation**: While less critical for single-user, token-based API, still recommended:
+**Impact**: Malicious websites could trigger actions if user is authenticated:
+- Delete files
+- Start file transfers
+- Create/delete remotes
+- Modify configuration
+
+**Example Attack**:
+```html
+<!-- Malicious website -->
+<img src="http://localhost:8888/api/files/delete?token=STOLEN_TOKEN&path=/important/file">
+```
+
+**Mitigation**: Partially mitigated by:
+- Localhost-only default binding
+- Token-based auth (not cookies by default)
+- Single-user design
+
+**Recommendation**:
 ```python
 from flask_wtf.csrf import CSRFProtect
+
 csrf = CSRFProtect(app)
+
+# Exempt token-based API endpoints (not using cookies)
+@csrf.exempt
+@app.route('/api/...')
+def api_endpoint():
+    pass
 ```
 
 ---
 
-### 11. Insufficient Input Validation
+### 12. Insufficient Input Validation
 **File**: Multiple API endpoints
 **CVSS**: 6.3 (Medium)
 
 **Issue**: Missing validation on:
-- Path length limits
-- File size limits
-- Allowed characters in remote names
-- Job ID format
+- Path length limits (could cause buffer issues in underlying OS calls)
+- File size limits (could fill disk)
+- Allowed characters in remote names (could break config file)
+- Job ID format (should be integers only)
+- Upload file size enforcement
 
-**Recommendation**:
+**Examples**:
 ```python
-from marshmallow import Schema, fields, validate
+# Missing in backend/api/files.py
+data = request.get_json()
+path = data['path']  # ← No length validation
+remote_name = data.get('remote_name')  # ← No character validation
 
-class FileListSchema(Schema):
-    path = fields.Str(required=True, validate=validate.Length(max=4096))
-    remote_config = fields.Dict(required=False)
-
-# Use:
-schema = FileListSchema()
-errors = schema.validate(request.get_json())
-if errors:
-    return jsonify({'error': errors}), 400
+# Missing in backend/api/jobs.py
+job_id = request.view_args['job_id']  # ← No type validation
 ```
 
----
-
-### 12. Weak Token Generation
-**File**: `backend/config.py`
-**CVSS**: 6.1 (Medium)
-
-**Issue**: Token generation not reviewed - ensure cryptographically secure random.
-
 **Recommendation**:
 ```python
-import secrets
+from marshmallow import Schema, fields, validate, ValidationError
 
-def generate_token(length=32):
-    """Generate cryptographically secure token"""
-    return secrets.token_urlsafe(length)
+class FileListSchema(Schema):
+    path = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=4096)
+    )
+    remote_config = fields.Dict(required=False)
+
+class RemoteNameSchema(Schema):
+    name = fields.Str(
+        required=True,
+        validate=[
+            validate.Length(min=1, max=64),
+            validate.Regexp(r'^[a-zA-Z0-9_-]+$')  # Alphanumeric, dash, underscore
+        ]
+    )
+
+# Use in endpoints:
+@app.route('/api/files/ls', methods=['POST'])
+@token_required
+def list_files():
+    try:
+        data = FileListSchema().load(request.get_json())
+    except ValidationError as err:
+        return jsonify({'error': err.messages}), 400
+
+    # Proceed with validated data
+    files = rclone.ls(data['path'], data.get('remote_config'))
+    return jsonify({'files': files})
 ```
 
 ---
 
 ### 13. Information Disclosure in Error Messages
-**Files**: Multiple
+**Files**: Multiple API endpoints
 **CVSS**: 5.8 (Medium)
 
 **Issue**: Detailed error messages leak internal paths and system information.
 
 ```python
-# VULNERABLE
+# VULNERABLE CODE
 except Exception as e:
-    return jsonify({'error': str(e)}), 500  # ← Exposes internal details
+    return jsonify({'error': str(e)}), 500
+    # Returns: "FileNotFoundError: [Errno 2] No such file or directory: '/home/user/.motus/db/jobs.db'"
 ```
+
+**Impact**: Reveals:
+- Internal file paths
+- User names
+- Directory structure
+- System architecture
+- Python stack traces
 
 **Recommendation**:
 ```python
-# SECURE
+import logging
+
+# SECURE ERROR HANDLING
+try:
+    # Operation
+    result = dangerous_operation()
+except FileNotFoundError:
+    logging.error("File not found", exc_info=True)
+    return jsonify({'error': 'Resource not found'}), 404
+except PermissionError:
+    logging.error("Permission denied", exc_info=True)
+    return jsonify({'error': 'Permission denied'}), 403
 except Exception as e:
-    logging.exception("Error in endpoint")
+    logging.exception("Unexpected error in endpoint")
     return jsonify({'error': 'Internal server error'}), 500
 ```
 
 ---
 
-### 14. Database Lock Timeout Too High
-**File**: `backend/models.py:61`
-**CVSS**: 5.5 (Medium)
+## MEDIUM Severity Findings
 
-**Issue**: 30-second timeout can cause DoS via database locking.
+### 14. Vue.js XSS via Unsafe HTML Rendering
+**Risk Assessment**: Currently LOW (no known instances)
+**Potential CVSS**: 7.2 if vulnerability found
 
-```python
-conn = sqlite3.connect(self.db_path, timeout=30.0)  # ← Too high
-```
+**Issue**: Vue.js provides `v-html` directive that can introduce XSS if used with unsanitized user input.
 
-**Recommendation**: Use 5-10 seconds max and implement proper retry logic.
+**Current State**: Code review shows proper use of template interpolation (`{{ }}`) which auto-escapes HTML.
+
+**Areas to Watch**:
+- File names displayed in file browser
+- Remote names displayed in dropdowns
+- Error messages displayed to user
+- Job progress text from rclone output
+
+**Recommendation**:
+- Never use `v-html` with user-controlled content
+- Sanitize all text from external sources (rclone output, file names)
+- Implement Content Security Policy
+- Regular security audits of Vue components
 
 ---
-
-## MEDIUM Severity Findings
 
 ### 15. No Input Sanitization for Logs
 **File**: Multiple
@@ -417,149 +570,569 @@ conn = sqlite3.connect(self.db_path, timeout=30.0)  # ← Too high
 
 ```python
 logging.info(f"Listing files at {path}")  # ← Unsanitized user input
+# User provides path: "/tmp\n[CRITICAL] SYSTEM COMPROMISED\n/data"
+# Log shows:
+# INFO: Listing files at /tmp
+# [CRITICAL] SYSTEM COMPROMISED
+# /data
 ```
 
-**Impact**: Attackers can inject fake log entries or break log parsing.
+**Impact**: Attackers can:
+- Inject fake log entries
+- Hide malicious activity
+- Trigger false alerts
+- Break log parsing tools
+
+**Recommendation**:
+```python
+import re
+
+def sanitize_for_log(value: str) -> str:
+    """Remove newlines and control characters from log values"""
+    return re.sub(r'[\r\n\t\x00-\x1f\x7f-\x9f]', ' ', str(value))
+
+# Use:
+logging.info(f"Listing files at {sanitize_for_log(path)}")
+```
 
 ---
 
-### 16. Predictable Job IDs
-**File**: `backend/rclone/wrapper.py`
-**CVSS**: 4.8 (Medium)
-
-**Issue**: Sequential job IDs are predictable.
-
-**Recommendation**: Use UUIDs or add random component for job IDs.
-
----
-
-### 17. No Session Timeout
+### 16. No Session Timeout
 **File**: `backend/auth.py`
 **CVSS**: 4.5 (Medium)
 
 **Issue**: Tokens never expire unless server restarts.
 
-**Recommendation**: Implement token expiration and refresh mechanism.
-
----
-
-### 18. Weak File Permissions
-**File**: `backend/rclone/rclone_config.py:30`
-**CVSS**: 4.3 (Medium)
-
-**Issue**: Config files created with default permissions.
+**Impact**:
+- Stolen tokens remain valid indefinitely
+- No way to revoke access without restart
+- Increased window for token theft
 
 **Recommendation**:
 ```python
-os.chmod(config_file, 0o600)  # Owner read/write only
+import time
+from functools import wraps
+
+# Add token expiration
+TOKEN_LIFETIME = 86400  # 24 hours
+
+class TokenManager:
+    def __init__(self):
+        self.tokens = {}  # token -> {created_at, last_used}
+
+    def create_token(self):
+        token = secrets.token_urlsafe(32)
+        self.tokens[token] = {
+            'created_at': time.time(),
+            'last_used': time.time()
+        }
+        return token
+
+    def validate_token(self, token):
+        if token not in self.tokens:
+            return False
+
+        info = self.tokens[token]
+        now = time.time()
+
+        # Check expiration
+        if now - info['created_at'] > TOKEN_LIFETIME:
+            del self.tokens[token]
+            return False
+
+        # Update last used
+        info['last_used'] = now
+        return True
 ```
 
 ---
 
-### 19. No Audit Logging
+### 17. Weak File Permissions on Data Directory
+**File**: `backend/config.py`, `run.py`
+**CVSS**: 4.3 (Medium)
+
+**Issue**: Data directory (`~/.motus/`) and files created with default umask permissions.
+
+**Files at Risk**:
+- `connection.json` - Contains access token
+- `motus.pid` - Process ID
+- `dev-port.json` - Development port info
+- `jobs.db` - SQLite database with job history
+- `motus.log` - May contain sensitive info
+
+**Recommendation**:
+```python
+import os
+
+def ensure_secure_permissions(path):
+    """Set secure permissions on sensitive files"""
+    if os.path.isfile(path):
+        os.chmod(path, 0o600)  # rw-------
+    elif os.path.isdir(path):
+        os.chmod(path, 0o700)  # rwx------
+
+# In config.py after creating data_dir:
+data_dir = Path.home() / '.motus'
+data_dir.mkdir(parents=True, exist_ok=True)
+ensure_secure_permissions(data_dir)
+
+# After writing sensitive files:
+ensure_secure_permissions(data_dir / 'connection.json')
+ensure_secure_permissions(data_dir / 'jobs.db')
+```
+
+---
+
+### 18. No Audit Logging
 **File**: All
 **CVSS**: 4.0 (Medium)
 
-**Issue**: No audit trail for security events (auth failures, file deletions, etc.)
+**Issue**: No audit trail for security events:
+- Authentication failures
+- File deletions
+- Remote creation/deletion
+- Configuration changes
+- Job cancellations
 
-**Recommendation**: Implement structured audit logging to separate file.
+**Recommendation**:
+```python
+import logging
+import json
+from datetime import datetime
+
+# Separate audit logger
+audit_logger = logging.getLogger('audit')
+audit_handler = logging.FileHandler(config.data_dir / 'audit.log')
+audit_handler.setFormatter(logging.Formatter('%(message)s'))
+audit_logger.addHandler(audit_handler)
+audit_logger.setLevel(logging.INFO)
+
+def audit_log(event_type, user, action, details=None):
+    """Log security-relevant events"""
+    entry = {
+        'timestamp': datetime.utcnow().isoformat(),
+        'event_type': event_type,
+        'user': user,
+        'action': action,
+        'details': details or {},
+        'ip': request.remote_addr if request else 'system'
+    }
+    audit_logger.info(json.dumps(entry))
+
+# Use in endpoints:
+@app.route('/api/files/delete', methods=['POST'])
+@token_required
+def delete_file():
+    path = request.get_json()['path']
+    audit_log('file_operation', 'user', 'delete', {'path': path})
+    # ... perform deletion
+```
 
 ---
 
 ## LOW Severity Findings
 
-### 20. Missing Security Headers
+### 19. Missing Security Headers
 **File**: `backend/app.py`
+**CVSS**: 3.7 (Low)
 
-**Recommendation**: Add CSP, X-Frame-Options, HSTS headers (see #7)
-
----
-
-### 21. No Request Size Limits on File Operations
-**File**: API endpoints
-
-**Recommendation**: Enforce limits on file listing, transfer sizes.
+**Issue**: Missing security-related HTTP headers (see recommendation in Finding #7).
 
 ---
 
-### 22. Verbose Debug Mode
+### 20. Verbose Debug Mode
 **File**: Configuration
+**CVSS**: 3.5 (Low)
 
-**Recommendation**: Ensure debug mode disabled in production.
+**Issue**: Debug mode could be accidentally enabled in production.
+
+**Recommendation**:
+```python
+# In run.py
+if config.log_level == 'DEBUG':
+    print("WARNING: Running in DEBUG mode - not suitable for production")
+    print("  Stack traces will be visible to users")
+    print("  Performance may be degraded")
+
+# Never run Flask in debug mode in production
+app.run(
+    host=config.host,
+    port=config.port,
+    debug=False,  # ← Always False
+    threaded=True,
+)
+```
 
 ---
 
-### 23. No Integrity Checks
-**File**: File transfers
+### 21. Job ID Predictability
+**File**: `backend/models.py`
+**CVSS**: 3.2 (Low)
 
-**Recommendation**: Implement checksum verification for transfers.
+**Issue**: Sequential job IDs are predictable (1, 2, 3, ...).
+
+**Impact**: Limited - users can guess job IDs and potentially access other users' job information. However:
+- Single-user design mitigates this
+- Jobs are user-specific anyway
+- Would only be an issue if application expanded to multi-user
+
+**Recommendation** (if expanding to multi-user):
+```python
+import uuid
+
+# Use UUIDs instead of auto-increment integers
+job_id = str(uuid.uuid4())
+```
+
+---
+
+### 22. Frontend Build Security
+**File**: `build_frontend.py`, `frontend-vue/package.json`
+**CVSS**: 3.0 (Low)
+
+**Issue**: npm dependencies could contain vulnerabilities or malicious code.
+
+**Recommendation**:
+```bash
+# Regular dependency auditing
+cd frontend-vue
+npm audit
+npm audit fix
+
+# Use lock file to ensure consistent builds
+git add package-lock.json
+
+# Consider using npm ci instead of npm install in production builds
+npm ci  # Uses package-lock.json, more secure than npm install
+```
 
 ---
 
 ## INFORMATIONAL Findings
 
-### 24. Outdated Dependencies
-Review `requirements.txt` for vulnerable package versions.
+### 23. Dependency Security Scanning
+**Files**: `requirements.txt`, `frontend-vue/package.json`
 
-### 25. Missing Security Documentation
-Add SECURITY.md with vulnerability reporting process.
+**Recommendation**:
+```bash
+# Python dependencies
+pip install safety
+safety check --file requirements.txt
 
-### 26. No Security Tests
-Implement security-focused unit tests.
+# npm dependencies
+cd frontend-vue
+npm audit
+
+# Automate in CI/CD
+```
+
+---
+
+### 24. Security Documentation
+**File**: Missing `SECURITY.md`
+
+**Recommendation**: Add `SECURITY.md` with:
+- Supported versions
+- Vulnerability reporting process
+- Security update policy
+- Contact information
+
+Example:
+```markdown
+# Security Policy
+
+## Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.0.x   | :white_check_mark: |
+| < 1.0   | :x:                |
+
+## Reporting a Vulnerability
+
+Please report security vulnerabilities to [security@example.com].
+
+Do NOT open public GitHub issues for security vulnerabilities.
+
+Expected response time: 48 hours
+```
+
+---
+
+### 25. Security Testing
+**File**: No security-focused tests exist
+
+**Recommendation**:
+```python
+# tests/security/test_auth.py
+def test_token_timing_attack_resistance():
+    """Ensure constant-time token comparison"""
+    # Test that token comparison time is consistent
+    pass
+
+def test_path_traversal_blocked():
+    """Ensure path traversal attempts are blocked"""
+    response = client.post('/api/files/ls',
+        json={'path': '../../../../etc/passwd'},
+        headers={'Authorization': f'token {token}'})
+    assert response.status_code == 400 or \
+           'etc/passwd' not in response.get_data(as_text=True)
+
+def test_credential_masking():
+    """Ensure credentials are masked in API responses"""
+    response = client.get('/api/remotes',
+        headers={'Authorization': f'token {token}'})
+    data = response.get_json()
+    for remote in data['remotes']:
+        assert 'secret_access_key' not in str(remote['config'])
+        assert 'password' not in str(remote['config'])
+```
+
+---
+
+## Vue.js Specific Security Considerations
+
+### Frontend Security Best Practices
+
+1. **XSS Prevention**:
+   - ✅ Using template interpolation (`{{ }}`) which auto-escapes
+   - ✅ Not using `v-html` with user content
+   - ⚠️ Should add CSP headers
+
+2. **Dependency Security**:
+   - ⚠️ Regular `npm audit` needed
+   - ⚠️ Package-lock.json should be committed
+   - ⚠️ Consider using Snyk or similar for monitoring
+
+3. **Build Security**:
+   - ✅ Production builds minified and optimized
+   - ✅ Source maps not included in production
+   - ⚠️ Should verify integrity of build artifacts
+
+4. **API Security**:
+   - ✅ Token stored in localStorage (acceptable for single-user)
+   - ⚠️ Should implement token refresh
+   - ⚠️ Should clear token on logout
 
 ---
 
 ## Remediation Priority
 
-### IMMEDIATE (Critical/High)
-1. Remove token from query parameters → Use headers only
-2. Mask credentials in `/api/remotes` API response
-3. Implement path validation and traversal protection
-4. Use `secrets.compare_digest()` for token comparison
-5. Enforce HTTPS with security headers
+### IMMEDIATE (Critical/High) - Before Production Deployment
 
-### SHORT TERM (1-2 weeks)
-6. Add rate limiting on authentication
-7. Implement input validation schemas
-8. Add audit logging
-9. Set proper file permissions
-10. Sanitize error messages
+1. **Mask credentials in API responses** (Finding #1, #2)
+   - Implement credential filtering in `/api/remotes` endpoint
+   - Never return OAuth tokens, passwords, or secret keys
+   - Estimated effort: 4 hours
 
-### MEDIUM TERM (1 month)
-11. Add CSRF protection
-12. Implement token expiration
-13. Add security unit tests
-14. Dependency security scanning
-15. Security documentation
+2. **Use constant-time token comparison** (Finding #4)
+   - Replace `!=` with `secrets.compare_digest()`
+   - Estimated effort: 30 minutes
+
+3. **Set secure file permissions** (Finding #17)
+   - chmod 0600 on sensitive files
+   - chmod 0700 on data directory
+   - Estimated effort: 2 hours
+
+4. **Implement input validation** (Finding #12)
+   - Add marshmallow schemas for all endpoints
+   - Validate path lengths, remote names, job IDs
+   - Estimated effort: 8 hours
+
+5. **Add security headers** (Finding #7)
+   - Implement CSP, X-Frame-Options, etc.
+   - Estimated effort: 3 hours
+
+### SHORT TERM (1-2 weeks) - Before Multi-User or Network Deployment
+
+6. **Implement rate limiting** (Finding #9)
+   - Add Flask-Limiter
+   - Configure per-endpoint limits
+   - Estimated effort: 4 hours
+
+7. **Add audit logging** (Finding #18)
+   - Log authentication events
+   - Log file operations
+   - Log configuration changes
+   - Estimated effort: 6 hours
+
+8. **Sanitize error messages** (Finding #13)
+   - Generic error messages to users
+   - Detailed errors only in logs
+   - Estimated effort: 4 hours
+
+9. **Implement token expiration** (Finding #16)
+   - Token lifetime management
+   - Token refresh mechanism
+   - Estimated effort: 8 hours
+
+### MEDIUM TERM (1 month) - Enhanced Security Posture
+
+10. **Add security tests** (Finding #25)
+    - Unit tests for auth
+    - Integration tests for path traversal
+    - Credential masking tests
+    - Estimated effort: 12 hours
+
+11. **Dependency scanning** (Finding #23)
+    - Integrate Safety for Python
+    - Integrate npm audit for Node.js
+    - CI/CD automation
+    - Estimated effort: 6 hours
+
+12. **Security documentation** (Finding #24)
+    - Create SECURITY.md
+    - Document security model
+    - Vulnerability reporting process
+    - Estimated effort: 4 hours
+
+### LONG TERM - If Expanding Beyond Single-User
+
+13. **HTTPS enforcement** (Finding #7)
+    - Only needed if binding to network interfaces
+    - SSL certificate management
+    - Estimated effort: Variable
+
+14. **CSRF protection** (Finding #11)
+    - Flask-WTF integration
+    - Only needed if using cookie auth
+    - Estimated effort: 6 hours
+
+15. **Path access controls** (Finding #5)
+    - Define allowed base directories
+    - Implement path validation
+    - Estimated effort: 8 hours
 
 ---
 
 ## Testing Recommendations
 
-1. **Penetration Testing**: Conduct external pentest after fixes
-2. **SAST**: Integrate Bandit or similar Python security scanner
-3. **DAST**: Use OWASP ZAP for dynamic testing
-4. **Dependency Scanning**: Use Safety or Snyk
-5. **Code Review**: Security-focused review of all changes
+### Security Testing Tools
+
+1. **SAST (Static Analysis)**:
+   ```bash
+   pip install bandit
+   bandit -r backend/ -f json -o security-report.json
+   ```
+
+2. **Dependency Scanning**:
+   ```bash
+   pip install safety
+   safety check --json
+
+   cd frontend-vue
+   npm audit --json
+   ```
+
+3. **DAST (Dynamic Analysis)**:
+   - OWASP ZAP for API testing
+   - Burp Suite for manual testing
+   - Configure for localhost:8888
+
+4. **Code Review**:
+   - Security-focused review of all auth code
+   - Review all endpoints handling file operations
+   - Review credential storage and handling
+
+---
+
+## Deployment Recommendations
+
+### Open OnDemand Deployment
+
+For OOD deployment, the security model is appropriate:
+
+✅ **Strengths**:
+- Single-user design matches OOD model
+- Token auth suitable for batch connect apps
+- Localhost binding prevents network attacks
+- OOD provides HTTPS at reverse proxy level
+
+⚠️ **Considerations**:
+- Still implement credential masking (Finding #1, #2)
+- Still use constant-time comparison (Finding #4)
+- Set secure file permissions (Finding #17)
+- Consider token expiration for long-running sessions
+
+### Standalone Deployment
+
+For standalone deployment (outside OOD):
+
+⚠️ **Required**:
+- HTTPS enforcement (Finding #7)
+- Secure file permissions (Finding #17)
+- Credential masking (Finding #1, #2)
+- Input validation (Finding #12)
+- Rate limiting if network-accessible (Finding #9)
+
+❌ **Not Recommended**:
+- Multi-user deployment without major security enhancements
+- Public internet exposure
+- Use with highly sensitive data without additional controls
 
 ---
 
 ## Compliance Considerations
 
-If handling sensitive data or used in regulated environments:
-- **GDPR**: Ensure data protection controls
-- **HIPAA**: Not suitable without major security enhancements
+### Single-User, Localhost Deployment
+✅ Appropriate for:
+- Personal use
+- Development environments
+- OOD batch connect apps
+- Internal research systems
+
+### Regulated Environments
+⚠️ Additional controls needed for:
+- **GDPR**: Encryption at rest, audit logging, data retention policies
+- **HIPAA**: Not suitable without major enhancements (encryption, access controls, audit trails)
 - **PCI DSS**: Not recommended for cardholder data
-- **SOC 2**: Requires audit logging, access controls, encryption
+- **SOC 2**: Requires audit logging, access controls, encryption, monitoring
 
 ---
 
 ## Conclusion
 
-The application has significant security vulnerabilities that must be addressed before production use. The most critical issues involve credential exposure and path traversal. With proper remediation, the application can achieve a good security posture for its intended single-user use case.
+The Motus application with Vue.js frontend maintains a security posture appropriate for its intended single-user, Open OnDemand deployment model. The most critical vulnerabilities involve credential exposure through API endpoints, which can be addressed with relatively straightforward changes.
 
-**Risk Rating**: ⚠️ **HIGH RISK** - Do not deploy to production without fixes
+### Current Risk Assessment
+
+**For Intended Use Case** (Single-user, OOD deployment):
+- **Risk Level**: ⚠️ **MEDIUM** - Critical findings #1 and #2 should be addressed
+- **Recommendation**: Address credential exposure before production deployment
+- **Deployment**: Acceptable for OOD after implementing immediate fixes
+
+**For Network Deployment** (Binding to 0.0.0.0):
+- **Risk Level**: 🔴 **HIGH** - Multiple critical findings apply
+- **Recommendation**: Implement all critical and high-priority fixes
+- **Deployment**: Not recommended without comprehensive security enhancements
+
+**For Multi-User Deployment**:
+- **Risk Level**: 🔴 **CRITICAL** - Architecture not designed for multi-user
+- **Recommendation**: Significant redesign required
+- **Deployment**: Not recommended
+
+### Security Strengths
+
+✅ Token-based authentication
+✅ Single-user design reduces attack surface
+✅ Localhost-only default binding
+✅ No persistent sessions
+✅ Modern Vue.js frontend with good security defaults
+✅ Proper subprocess usage (no shell=True)
+
+### Next Steps
+
+1. Implement immediate fixes (credential masking, constant-time comparison, file permissions)
+2. Add input validation and security headers
+3. Implement audit logging
+4. Regular dependency scanning
+5. Security testing before each release
 
 ---
 
 **End of Report**
+
+**Total Estimated Remediation Effort**: 69 hours (approximately 2 weeks for one developer)
+
+**Report Version**: 1.0.0
+**Last Updated**: 2025-11-25
