@@ -766,9 +766,6 @@ class RcloneWrapper:
                                     temp_path = self._download_file_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_path)
 
-                                    # Update zip job to show actual source being zipped (temp file, not remote)
-                                    db.update_job(job_id, src_path=temp_path)
-
                                     # Phase 2: Compress to ZIP
                                     db.update_job(job_id, progress=80)
                                     current_log = db.get_job(job_id).get('log_text', '')
@@ -792,9 +789,6 @@ class RcloneWrapper:
                                     # Phase 1 is handled inside _download_dir_to_temp_with_progress
                                     temp_dir = self._download_dir_to_temp_with_progress(path, job_id, remote_config)
                                     temp_items_to_cleanup.append(temp_dir)
-
-                                    # Update zip job to show actual source being zipped (temp dir, not remote)
-                                    db.update_job(job_id, src_path=temp_dir)
 
                                     # Phase 2: Compress to ZIP
                                     db.update_job(job_id, progress=80)
