@@ -238,6 +238,31 @@ motus
 # rclone_config_file: /path/to/rclone.conf
 ```
 
+#### Merging Remotes at Startup
+
+You can merge remotes from another rclone config file at startup using `--add-remotes`. This is useful for:
+- Sharing common remotes across multiple users
+- Maintaining a separate config file with standard remotes
+- Pre-configuring remotes for your team
+
+```bash
+# Add remotes from another config file at startup
+motus --add-remotes /path/to/shared-remotes.conf
+
+# Via environment variable
+export MOTUS_ADD_REMOTES=/path/to/shared-remotes.conf
+motus
+
+# Or in ~/.motus/config.yml:
+# add_remotes_file: /path/to/shared-remotes.conf
+```
+
+**Behavior:**
+- Only remotes that don't already exist are added
+- Existing remotes are never overwritten
+- Happens once at startup
+- Changes are persisted to your rclone config
+
 ### Managing Remotes via UI
 
 The graphical remote management interface allows you to:
@@ -308,6 +333,7 @@ motus --no-browser                                # Don't open browser
 motus --expert-mode                               # Start in Expert mode (auto-enables --allow-expert-mode)
 motus --allow-expert-mode                         # Show mode toggle in UI
 motus --remote-templates templates.conf           # Remote templates file
+motus --add-remotes /path/to/rclone.conf          # Merge remotes from another config file at startup
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
 motus --max-upload-size 1G                        # Limit upload size
@@ -326,6 +352,7 @@ export MOTUS_HOST=0.0.0.0                                # Bind to all interface
 export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf
+export MOTUS_ADD_REMOTES=/path/to/rclone.conf            # Merge remotes from another config file
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
@@ -347,6 +374,7 @@ host: 127.0.0.1
 default_mode: expert
 allow_expert_mode: true
 remote_templates_file: /path/to/templates.conf
+add_remotes_file: /path/to/rclone.conf          # Merge remotes from another config file
 max_idle_time: 3600
 auto_cleanup_db: true
 max_upload_size: 1073741824                     # 1GB in bytes
