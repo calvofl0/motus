@@ -277,12 +277,20 @@ function formatDate(dateStr) {
 }
 
 // API functions
-async function loadRemotes() {
+async function loadRemotes(retries = 3, delay = 100) {
   try {
     const data = await apiCall('/api/remotes')
     remotes.value = data.remotes || []
   } catch (error) {
-    console.error('Failed to load remotes:', error)
+    console.error(`Failed to load remotes (${retries} retries left):`, error)
+
+    // Retry with exponential backoff if retries remaining
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return loadRemotes(retries - 1, delay * 2)
+    } else {
+      console.error('Failed to load remotes after all retries')
+    }
   }
 }
 
