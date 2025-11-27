@@ -1024,29 +1024,30 @@ class RcloneWrapper:
                     # Update log with Phase 1 header + copy progress
                     log_text = "Phase 1/2: Downloading from remote...\n\n" + text
                     db.update_job(download_job_id, log_text=log_text)
+                else:
+                    # Job no longer in running list - check if it finished successfully
+                    finished = self.job_finished(copy_job_id)
+                    exit_status = self.job_exitstatus(copy_job_id)
+                    error_text = self.job_error_text(copy_job_id)
 
-                # Get copy job status from database
-                copy_job = db.get_job(copy_job_id)
-                if not copy_job:
-                    raise RcloneException(f"Copy job {copy_job_id} not found")
+                    if not finished:
+                        # Still pending/queued - continue waiting
+                        continue
 
-                # Check if copy job finished
-                if copy_job['status'] == 'completed':
-                    logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
-                    break
-                elif copy_job['status'] == 'failed':
-                    error_text = copy_job.get('error_text', 'Unknown error')
-                    logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
-                    # Clean up temp file
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                    raise RcloneException(f"Remote download failed: {error_text}")
-                elif copy_job['status'] == 'interrupted':
-                    logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
-                    # Clean up temp file
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                    raise RcloneException("Remote download interrupted")
+                    # Job finished - check exit status
+                    if exit_status == 0:
+                        logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed successfully")
+                        # Update database status
+                        db.update_job(copy_job_id, status='completed', progress=100)
+                        break
+                    else:
+                        logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed with exit status {exit_status}")
+                        # Update database status
+                        db.update_job(copy_job_id, status='failed', error_text=error_text or f"Exit status: {exit_status}")
+                        # Clean up temp file
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                        raise RcloneException(f"Remote download failed: {error_text or f'Exit status {exit_status}'}")
 
             return temp_file
 
@@ -1161,29 +1162,30 @@ class RcloneWrapper:
                     # Update log with Phase 1 header + copy progress
                     log_text = "Phase 1/2: Downloading from remote...\n\n" + text
                     db.update_job(download_job_id, log_text=log_text)
+                else:
+                    # Job no longer in running list - check if it finished successfully
+                    finished = self.job_finished(copy_job_id)
+                    exit_status = self.job_exitstatus(copy_job_id)
+                    error_text = self.job_error_text(copy_job_id)
 
-                # Get copy job status from database
-                copy_job = db.get_job(copy_job_id)
-                if not copy_job:
-                    raise RcloneException(f"Copy job {copy_job_id} not found")
+                    if not finished:
+                        # Still pending/queued - continue waiting
+                        continue
 
-                # Check if copy job finished
-                if copy_job['status'] == 'completed':
-                    logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed")
-                    break
-                elif copy_job['status'] == 'failed':
-                    error_text = copy_job.get('error_text', 'Unknown error')
-                    logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed: {error_text}")
-                    # Clean up temp directory
-                    if os.path.exists(temp_dir):
-                        shutil.rmtree(temp_dir)
-                    raise RcloneException(f"Remote download failed: {error_text}")
-                elif copy_job['status'] == 'interrupted':
-                    logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} was interrupted")
-                    # Clean up temp directory
-                    if os.path.exists(temp_dir):
-                        shutil.rmtree(temp_dir)
-                    raise RcloneException("Remote download interrupted")
+                    # Job finished - check exit status
+                    if exit_status == 0:
+                        logging.info(f"[Job {download_job_id}] Copy job {copy_job_id} completed successfully")
+                        # Update database status
+                        db.update_job(copy_job_id, status='completed', progress=100)
+                        break
+                    else:
+                        logging.error(f"[Job {download_job_id}] Copy job {copy_job_id} failed with exit status {exit_status}")
+                        # Update database status
+                        db.update_job(copy_job_id, status='failed', error_text=error_text or f"Exit status: {exit_status}")
+                        # Clean up temp directory
+                        if os.path.exists(temp_dir):
+                            shutil.rmtree(temp_dir)
+                        raise RcloneException(f"Remote download failed: {error_text or f'Exit status {exit_status}'}")
 
             return temp_dir
 
