@@ -735,7 +735,7 @@ class RcloneWrapper:
         def zip_worker():
             try:
                 logging.info(f"[Job {job_id}] Starting zip creation...")
-                db.update_job(job_id, status='running', progress=0)
+                db.update_job(job_id, status='running', progress=5, log_text="Waiting for downloads to complete...")
 
                 total_bytes_processed = 0
                 temp_items_to_cleanup = []  # Track temp files/dirs to cleanup
@@ -751,9 +751,10 @@ class RcloneWrapper:
                                 # Truly a remote path (or using remote_config)
                                 # Still need to parse path for arcname purposes
                                 remote_name, clean_path = self._parse_path(path)
-                                # Update progress to show download starting
-                                base_progress = int((idx / len(paths)) * 80)  # Reserve 80% for downloads
-                                db.update_job(job_id, progress=base_progress + 5)
+
+                                # Keep progress low during download phase
+                                # The internal copy job shows real progress
+                                db.update_job(job_id, progress=5, log_text="Waiting for downloads to complete...")
 
                                 # Check if it's a file or directory
                                 is_file = self._is_remote_file(path, remote_config)
@@ -767,9 +768,8 @@ class RcloneWrapper:
                                     temp_items_to_cleanup.append(temp_path)
 
                                     # Phase 2: Compress to ZIP
-                                    db.update_job(job_id, progress=80)
-                                    current_log = db.get_job(job_id).get('log_text', '')
-                                    db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
+                                    db.update_job(job_id, progress=95, log_text="Compressing to ZIP...")
+                                    logging.info(f"[Job {job_id}] Starting compression to ZIP...")
 
                                     # Verify temp file exists and has content
                                     if not os.path.exists(temp_path):
@@ -791,9 +791,8 @@ class RcloneWrapper:
                                     temp_items_to_cleanup.append(temp_dir)
 
                                     # Phase 2: Compress to ZIP
-                                    db.update_job(job_id, progress=80)
-                                    current_log = db.get_job(job_id).get('log_text', '')
-                                    db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
+                                    db.update_job(job_id, progress=95, log_text="Compressing to ZIP...")
+                                    logging.info(f"[Job {job_id}] Starting compression to ZIP...")
 
                                     # Verify temp directory exists
                                     if not os.path.exists(temp_dir):
@@ -818,6 +817,10 @@ class RcloneWrapper:
 
                             else:
                                 # Local path (resolved through alias chain if necessary)
+                                # No download needed - directly compress
+                                db.update_job(job_id, progress=95, log_text="Compressing to ZIP...")
+                                logging.info(f"[Job {job_id}] Compressing local path: {local_path}")
+
                                 if os.path.isfile(local_path):
                                     # Single file
                                     arcname = os.path.basename(local_path)
@@ -832,9 +835,8 @@ class RcloneWrapper:
                                             rel_path = os.path.relpath(file_path, os.path.dirname(local_path))
                                             zf.write(file_path, arcname=rel_path)
 
-                            # Update overall progress
-                            progress = int(80 + ((idx + 1) / len(paths)) * 20)  # 80-100% for final processing
-                            db.update_job(job_id, progress=progress)
+                            # Keep progress at 95% during compression (we can't track zip progress)
+                            # Don't update per file as it causes UI flickering
 
                         except Exception as e:
                             logging.error(f"[Job {job_id}] Error processing {path}: {e}")
