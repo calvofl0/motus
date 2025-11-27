@@ -382,7 +382,7 @@ class RcloneConfig:
         if not target:
             raise ValueError(f"Alias remote '{remote_name}' has no target configured")
 
-        # Parse target (format: "remote:path" or just "remote")
+        # Parse target (format: "remote:path" or just "remote" or local path)
         if ':' in target:
             target_remote, target_path = target.split(':', 1)
         else:
@@ -397,7 +397,14 @@ class RcloneConfig:
         else:
             combined_path = path
 
-        # Recursively resolve the target
+        # Check if target_remote is a configured remote or a local path
+        # If it's not in the list of configured remotes, it's a local path
+        configured_remotes = self.list_remotes()
+        if target_remote not in configured_remotes:
+            # Target is a local path, not another remote - end of chain
+            return target_remote, combined_path
+
+        # Target is another remote - recursively resolve it
         return self.resolve_alias_chain(target_remote, combined_path, visited)
 
 
