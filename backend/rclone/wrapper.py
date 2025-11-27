@@ -774,6 +774,14 @@ class RcloneWrapper:
                                     current_log = db.get_job(job_id).get('log_text', '')
                                     db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
 
+                                    # Verify temp file exists and has content
+                                    if not os.path.exists(temp_path):
+                                        raise Exception(f"Temp file does not exist: {temp_path}")
+                                    file_size = os.path.getsize(temp_path)
+                                    logging.info(f"[Job {job_id}] Adding temp file to zip: {temp_path} (size: {file_size} bytes)")
+                                    if file_size == 0:
+                                        logging.warning(f"[Job {job_id}] Temp file is empty: {temp_path}")
+
                                     # Add to zip
                                     arcname = os.path.basename(clean_path) or f"file_{idx}"
                                     zf.write(temp_path, arcname=arcname)
@@ -793,8 +801,15 @@ class RcloneWrapper:
                                     current_log = db.get_job(job_id).get('log_text', '')
                                     db.update_job(job_id, log_text=current_log + "\n\nPhase 2/2: Compressing to ZIP...\n")
 
+                                    # Verify temp directory exists
+                                    if not os.path.exists(temp_dir):
+                                        raise Exception(f"Temp directory does not exist: {temp_dir}")
+                                    if not os.path.isdir(temp_dir):
+                                        raise Exception(f"Temp path is not a directory: {temp_dir}")
+
                                     # Add directory contents to zip
                                     base_name = os.path.basename(clean_path.rstrip('/')) or 'folder'
+                                    file_count = 0
                                     for root, dirs, files in os.walk(temp_dir):
                                         for file in files:
                                             file_path = os.path.join(root, file)
@@ -802,6 +817,10 @@ class RcloneWrapper:
                                             rel_path = os.path.relpath(file_path, temp_dir)
                                             arcname = os.path.join(base_name, rel_path)
                                             zf.write(file_path, arcname=arcname)
+                                            file_count += 1
+                                    logging.info(f"[Job {job_id}] Added {file_count} files from directory {temp_dir} to zip")
+                                    if file_count == 0:
+                                        logging.warning(f"[Job {job_id}] Temp directory is empty: {temp_dir}")
 
                             else:
                                 # Local path (resolved through alias chain if necessary)
