@@ -172,6 +172,7 @@ const { handleExternalFileUpload } = useUpload()
 // Reactive state
 const refreshHover = ref(false)
 const selectedRemote = ref('')
+const previousRemote = ref('') // Track last working remote
 const currentPath = ref('~/')
 const files = ref([])
 const remotes = ref([])
@@ -306,6 +307,9 @@ async function refresh(preserveSelection = false) {
     appStore.setPanePath(props.pane, currentPath.value)
     appStore.setPaneRemote(props.pane, selectedRemote.value)
 
+    // Update previous remote on success
+    previousRemote.value = selectedRemote.value
+
     // Restore selection if preserving
     if (preserveSelection && selectedFileNames.length > 0) {
       const newSelection = []
@@ -320,6 +324,9 @@ async function refresh(preserveSelection = false) {
   } catch (error) {
     console.error('Failed to refresh pane:', error)
     alert(`Failed to list files: ${error.message}`)
+
+    // Revert to previous working remote on error
+    selectedRemote.value = previousRemote.value
   } finally {
     loading.value = false
   }
