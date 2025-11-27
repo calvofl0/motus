@@ -338,6 +338,68 @@ class RcloneConfig:
             self.parser.write(f)
         logging.info(f"Saved rclone config to {self.config_file}")
 
+    def resolve_alias_chain(self, remote_name: str, path: str = '', visited: set = None) -> Tuple[str, str]:
+        """
+        Recursively resolve an alias remote to its underlying remote
+
+        This method follows alias chains to find the actual remote that stores the data.
+        For example, if you have:
+            - MyAlias -> points to MyAlias2:/folder1
+            - MyAlias2 -> points to onedrive:/folder2
+        Then resolve_alias_chain('MyAlias', '/mypath') returns ('onedrive', '/folder2/folder1/mypath')
+
+        Args:
+            remote_name: Name of the remote to resolve
+            path: Path within the remote
+            visited: Set of visited remotes (used internally to prevent infinite loops)
+
+        Returns:
+            Tuple of (resolved_remote_name, resolved_path)
+
+        Raises:
+            ValueError: If remote not found or circular alias reference detected
+        """
+        if visited is None:
+            visited = set()
+
+        # Prevent infinite loops
+        if remote_name in visited:
+            raise ValueError(f"Circular alias reference detected: {remote_name}")
+        visited.add(remote_name)
+
+        # Get remote config
+        config = self.get_remote(remote_name)
+        if not config:
+            raise ValueError(f"Remote not found: {remote_name}")
+
+        # Check if this is an alias
+        if config.get('type') != 'alias':
+            # Not an alias, return as-is
+            return remote_name, path
+
+        # Get the target remote from alias config
+        target = config.get('remote', '')
+        if not target:
+            raise ValueError(f"Alias remote '{remote_name}' has no target configured")
+
+        # Parse target (format: "remote:path" or just "remote")
+        if ':' in target:
+            target_remote, target_path = target.split(':', 1)
+        else:
+            target_remote = target
+            target_path = ''
+
+        # Combine paths: target path + our path
+        if target_path and path:
+            combined_path = f"{target_path.rstrip('/')}/{path.lstrip('/')}"
+        elif target_path:
+            combined_path = target_path
+        else:
+            combined_path = path
+
+        # Recursively resolve the target
+        return self.resolve_alias_chain(target_remote, combined_path, visited)
+
 
 
 class RemoteTemplate:

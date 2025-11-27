@@ -66,6 +66,14 @@ watch(() => props.show, async (newVal) => {
   }
 })
 
+// Also auto-scroll when log content changes
+watch(() => props.job?.log_text, async () => {
+  if (props.show && logContainer.value) {
+    await nextTick()
+    logContainer.value.scrollTop = logContainer.value.scrollHeight
+  }
+})
+
 // Download log as text file
 function downloadLog() {
   if (!props.job || !props.job.log_text) return

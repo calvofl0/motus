@@ -643,8 +643,8 @@ def resolve_alias():
         # Reload config to get latest remotes
         rclone_config.reload()
 
-        # Recursively resolve alias chain
-        resolved_remote, resolved_path = resolve_alias_chain(remote_name, path)
+        # Recursively resolve alias chain using RcloneConfig method
+        resolved_remote, resolved_path = rclone_config.resolve_alias_chain(remote_name, path)
 
         # Construct resolved path
         resolved_full_path = f"{resolved_remote}:{resolved_path}"
@@ -655,63 +655,13 @@ def resolve_alias():
             'resolved_path': resolved_full_path
         })
 
+    except ValueError as e:
+        # ValueError is raised by resolve_alias_chain for validation errors
+        logging.error(f"Resolve alias error: {e}")
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         logging.error(f"Resolve alias error: {e}")
         return jsonify({'error': str(e)}), 500
-
-
-def resolve_alias_chain(remote_name: str, path: str, visited=None):
-    """
-    Recursively resolve an alias remote to its underlying remote
-
-    Args:
-        remote_name: Name of the remote to resolve
-        path: Path within the remote
-        visited: Set of visited remotes (to prevent infinite loops)
-
-    Returns:
-        Tuple of (resolved_remote_name, resolved_path)
-    """
-    if visited is None:
-        visited = set()
-
-    # Prevent infinite loops
-    if remote_name in visited:
-        raise RcloneException(f"Circular alias reference detected: {remote_name}")
-    visited.add(remote_name)
-
-    # Get remote config
-    config = rclone_config.get_remote(remote_name)
-    if not config:
-        raise RcloneException(f"Remote not found: {remote_name}")
-
-    # Check if this is an alias
-    if config.get('type') != 'alias':
-        # Not an alias, return as-is
-        return remote_name, path
-
-    # Get the target remote from alias config
-    target = config.get('remote', '')
-    if not target:
-        raise RcloneException(f"Alias remote '{remote_name}' has no target configured")
-
-    # Parse target (format: "remote:path" or just "remote")
-    if ':' in target:
-        target_remote, target_path = target.split(':', 1)
-    else:
-        target_remote = target
-        target_path = ''
-
-    # Combine paths: target path + our path
-    if target_path and path:
-        combined_path = f"{target_path.rstrip('/')}/{path.lstrip('/')}"
-    elif target_path:
-        combined_path = target_path
-    else:
-        combined_path = path
-
-    # Recursively resolve the target
-    return resolve_alias_chain(target_remote, combined_path, visited)
 
 
 @remotes_bp.route('/', methods=['GET'])
