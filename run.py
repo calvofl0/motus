@@ -195,7 +195,8 @@ def write_connection_info(config: Config):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Motus et bouche cousue — A Web-based File Transfer Interface'
+        description='Motus et bouche cousue — A Web-based File Transfer Interface',
+        allow_abbrev=False  # Require full argument names (no abbreviations)
     )
     parser.add_argument(
         '--port',
