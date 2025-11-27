@@ -252,16 +252,34 @@ def calculate_total_size(paths: list, remote_config: dict = None) -> int:
 
 
 def is_remote_path(path: str) -> bool:
-    """Check if path is a remote path (contains ':')"""
-    return ':' in path and not (len(path) > 1 and path[1] == ':')  # Not Windows path like C:
+    """
+    Check if path is truly a remote path after resolving alias chains
+
+    This properly handles alias chains: if an alias points to another alias that
+    eventually points to the local filesystem, this will return False.
+
+    Args:
+        path: Path to check (e.g., "myalias:/folder/file.txt" or "/local/file.txt")
+
+    Returns:
+        True if the path resolves to a remote, False if it's local
+    """
+    # Try to resolve to local path using alias chain resolution
+    local_path = rclone.resolve_to_local_path(path)
+
+    # If resolve_to_local_path returns None, it's a remote path
+    # If it returns a path, it's local
+    return local_path is None
 
 
 def is_single_file(path: str, remote_config: dict = None) -> bool:
     """Check if path is a single file (not a directory)"""
     try:
-        # For local paths, use os.path directly
-        if not is_remote_path(path):
-            return os.path.isfile(path)
+        # Try to resolve to local path first
+        local_path = rclone.resolve_to_local_path(path)
+        if local_path is not None:
+            # It's a local path (or resolves to one) - use os.path directly
+            return os.path.isfile(local_path)
 
         # For remote paths, try to list it
         # If it's a file, rclone will fail or return empty list
@@ -379,8 +397,11 @@ def download_direct():
         path = data['path']
         remote_config = data.get('remote_config')
 
-        # If it's a remote path, we need to download to temp first
-        if is_remote_path(path):
+        # Resolve alias chains to check if it's truly a remote or local path
+        local_path = rclone.resolve_to_local_path(path)
+
+        if local_path is None:
+            # Truly a remote path - download to temp first
             logging.info(f"Downloading remote file to temp: {path}")
             temp_file = rclone.download_to_temp(path, remote_config)
 
@@ -405,18 +426,18 @@ def download_direct():
                 download_name=filename
             )
         else:
-            # Local file - direct send
-            logging.info(f"Direct download of local file: {path}")
-            if not os.path.exists(path):
+            # Resolved to local filesystem - direct send
+            logging.info(f"Direct download of local file (resolved from {path} to {local_path})")
+            if not os.path.exists(local_path):
                 return jsonify({'error': 'File not found'}), 404
 
-            if not os.path.isfile(path):
+            if not os.path.isfile(local_path):
                 return jsonify({'error': 'Path is not a file'}), 400
 
             return send_file(
-                path,
+                local_path,
                 as_attachment=True,
-                download_name=os.path.basename(path)
+                download_name=os.path.basename(local_path)
             )
 
     except Exception as e:

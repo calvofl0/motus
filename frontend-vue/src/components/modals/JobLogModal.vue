@@ -60,17 +60,14 @@ const logContainer = ref(null)
 
 // Auto-scroll to bottom when log is displayed
 watch(() => props.show, async (newVal) => {
-  if (newVal && logContainer.value) {
+  if (newVal) {
     await nextTick()
-    logContainer.value.scrollTop = logContainer.value.scrollHeight
-  }
-})
-
-// Also auto-scroll when log content changes
-watch(() => props.job?.log_text, async () => {
-  if (props.show && logContainer.value) {
-    await nextTick()
-    logContainer.value.scrollTop = logContainer.value.scrollHeight
+    // Use setTimeout to ensure content is fully rendered
+    setTimeout(() => {
+      if (logContainer.value) {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight
+      }
+    }, 50)
   }
 })
 

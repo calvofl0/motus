@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 
 from .exceptions import RcloneException, RcloneNotFoundError
 from .job_queue import JobQueue
+from .rclone_config import RcloneConfig
 
 # Cross-platform null device
 DEVNULL = 'NUL' if sys.platform == 'win32' else '/dev/null'
@@ -56,6 +57,9 @@ class RcloneWrapper:
             self.rclone_config_file = self._get_rclone_config_path()
 
         logging.info(f"Using rclone config: {self.rclone_config_file}")
+
+        # Initialize RcloneConfig for alias resolution
+        self.rclone_config = RcloneConfig(self.rclone_config_file)
 
     def initialize_job_counter(self, db):
         """
@@ -161,6 +165,55 @@ class RcloneWrapper:
             raise RcloneException("List remotes command timed out")
         except Exception as e:
             raise RcloneException(f"Failed to list remotes: {e}")
+
+    def resolve_to_local_path(self, path: str) -> Optional[str]:
+        """
+        Resolve a path through alias chains and return local filesystem path if applicable
+
+        This handles alias chains properly: if you have alias1 -> alias2 -> alias3 -> /local/path,
+        it will follow the chain and return the final local path.
+
+        Args:
+            path: Path to resolve (e.g., "myalias:/folder/file.txt" or "/local/file.txt")
+
+        Returns:
+            Local filesystem path if the resolved remote is local, None otherwise
+
+        Example:
+            # If MyAlias -> AnotherAlias:/folder1 and AnotherAlias -> /mnt/data
+            resolve_to_local_path("MyAlias:/folder2/file.txt")
+            # Returns: "/mnt/data/folder1/folder2/file.txt"
+        """
+        # Check if it's a Windows path (C:, D:, etc.)
+        if len(path) > 1 and path[1] == ':' and path[0].isalpha():
+            return path  # Windows absolute path
+
+        # If no colon, it's already a local path
+        if ':' not in path:
+            return path
+
+        # Parse the path to extract remote and path components
+        remote_name, remote_path = path.split(':', 1)
+
+        try:
+            # Reload config to get latest remotes
+            self.rclone_config.reload()
+
+            # Resolve alias chain
+            resolved_remote, resolved_path = self.rclone_config.resolve_alias_chain(remote_name, remote_path)
+
+            # Check if the resolved remote is actually local (no colon means local)
+            if ':' not in resolved_remote:
+                # It's a local path
+                return f"{resolved_remote}{resolved_path}" if resolved_path else resolved_remote
+
+            # Still a remote path after resolution
+            return None
+
+        except (ValueError, Exception) as e:
+            # If resolution fails, treat as remote
+            logging.debug(f"Failed to resolve alias chain for {path}: {e}")
+            return None
 
     def _parse_path(self, path: str) -> tuple[Optional[str], str]:
         """
