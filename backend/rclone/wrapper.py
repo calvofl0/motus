@@ -202,13 +202,21 @@ class RcloneWrapper:
             # Resolve alias chain
             resolved_remote, resolved_path = self.rclone_config.resolve_alias_chain(remote_name, remote_path)
 
-            # Check if the resolved remote is actually local (no colon means local)
-            if ':' not in resolved_remote:
-                # It's a local path
-                return f"{resolved_remote}{resolved_path}" if resolved_path else resolved_remote
+            # Check if the resolved remote is actually a configured remote or local path
+            # If it's a configured remote name, it's still remote
+            # If it's a local path, it won't be in the list of configured remotes
+            configured_remotes = self.rclone_config.list_remotes()
 
-            # Still a remote path after resolution
-            return None
+            if resolved_remote in configured_remotes:
+                # It's still a configured remote (not local)
+                return None
+
+            # Not a configured remote - must be a local path
+            # Construct the full local path
+            if resolved_path:
+                return f"{resolved_remote}{resolved_path}"
+            else:
+                return resolved_remote
 
         except (ValueError, Exception) as e:
             # If resolution fails, treat as remote
@@ -735,11 +743,14 @@ class RcloneWrapper:
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for idx, path in enumerate(paths):
                         try:
-                            # Parse path
-                            remote_name, clean_path = self._parse_path(path)
-                            is_remote = bool(remote_name) or bool(remote_config)
+                            # Check if path is truly remote after resolving alias chains
+                            # This handles aliases that point to local filesystem
+                            local_path = self.resolve_to_local_path(path) if not remote_config else None
 
-                            if is_remote:
+                            if local_path is None:
+                                # Truly a remote path (or using remote_config)
+                                # Still need to parse path for arcname purposes
+                                remote_name, clean_path = self._parse_path(path)
                                 # Update progress to show download starting
                                 base_progress = int((idx / len(paths)) * 80)  # Reserve 80% for downloads
                                 db.update_job(job_id, progress=base_progress + 5)
@@ -793,19 +804,19 @@ class RcloneWrapper:
                                             zf.write(file_path, arcname=arcname)
 
                             else:
-                                # Local path
-                                if os.path.isfile(clean_path):
+                                # Local path (resolved through alias chain if necessary)
+                                if os.path.isfile(local_path):
                                     # Single file
-                                    arcname = os.path.basename(clean_path)
-                                    zf.write(clean_path, arcname=arcname)
-                                elif os.path.isdir(clean_path):
+                                    arcname = os.path.basename(local_path)
+                                    zf.write(local_path, arcname=arcname)
+                                elif os.path.isdir(local_path):
                                     # Directory - add recursively
-                                    base_name = os.path.basename(clean_path.rstrip('/'))
-                                    for root, dirs, files in os.walk(clean_path):
+                                    base_name = os.path.basename(local_path.rstrip('/'))
+                                    for root, dirs, files in os.walk(local_path):
                                         for file in files:
                                             file_path = os.path.join(root, file)
                                             # Calculate relative path for archive
-                                            rel_path = os.path.relpath(file_path, os.path.dirname(clean_path))
+                                            rel_path = os.path.relpath(file_path, os.path.dirname(local_path))
                                             zf.write(file_path, arcname=rel_path)
 
                             # Update overall progress
