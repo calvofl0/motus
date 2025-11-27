@@ -338,6 +338,55 @@ class RcloneConfig:
             self.parser.write(f)
         logging.info(f"Saved rclone config to {self.config_file}")
 
+    def merge_remotes_from_file(self, source_config_file: str) -> int:
+        """
+        Merge remotes from another rclone config file into this config
+
+        Only adds remotes that don't already exist. Existing remotes are not overwritten.
+
+        Args:
+            source_config_file: Path to rclone config file to merge from
+
+        Returns:
+            int: Number of remotes added
+
+        Raises:
+            FileNotFoundError: If source_config_file doesn't exist
+        """
+        import configparser
+
+        if not os.path.exists(source_config_file):
+            raise FileNotFoundError(f"Source config file not found: {source_config_file}")
+
+        # Parse source config file
+        source_parser = configparser.ConfigParser()
+        source_parser.read(source_config_file)
+
+        # Get existing remotes
+        existing_remotes = set(self.list_remotes())
+
+        # Add new remotes
+        added_count = 0
+        for section in source_parser.sections():
+            if section not in existing_remotes:
+                # Add this remote
+                self.parser.add_section(section)
+                for key, value in source_parser.items(section):
+                    self.parser.set(section, key, value)
+                logging.info(f"Added remote '{section}' from {source_config_file}")
+                added_count += 1
+            else:
+                logging.debug(f"Skipping remote '{section}' - already exists")
+
+        # Save if any remotes were added
+        if added_count > 0:
+            self.save()
+            logging.info(f"Merged {added_count} remote(s) from {source_config_file}")
+        else:
+            logging.info(f"No new remotes to add from {source_config_file}")
+
+        return added_count
+
     def resolve_alias_chain(self, remote_name: str, path: str = '', visited: set = None) -> Tuple[str, str]:
         """
         Recursively resolve an alias remote to its underlying remote

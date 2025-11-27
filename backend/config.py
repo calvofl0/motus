@@ -181,6 +181,14 @@ class Config:
             default=None
         )
 
+        # Additional remotes config file to merge at startup
+        # Remotes from this file will be added to rclone config (existing remotes are not overwritten)
+        self.add_remotes_file = self._get_config(
+            'add_remotes_file',
+            env_var='MOTUS_ADD_REMOTES',
+            default=None
+        )
+
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
             'base_url',

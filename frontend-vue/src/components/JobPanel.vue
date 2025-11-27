@@ -15,6 +15,7 @@
             <span class="job-id">Job #{{ job.job_id }} - {{ job.operation }}</span>
             <span class="job-path">{{ job.src_path }} → {{ job.dst_path }} ({{ formatTime(getElapsedTime(job.created_at)) }})</span>
             <span class="job-time-info">{{ getTransferStatus(job) }}</span>
+            <div v-if="job.log_text" class="job-log-text">{{ job.log_text }}</div>
             <div class="progress-bar-container">
               <div class="progress-bar" :style="{ width: `${job.progress || 0}%` }">
                 {{ job.progress || 0 }}%
@@ -540,6 +541,16 @@ onUnmounted(() => {
   white-space: nowrap;
   min-width: 280px;
   text-align: right;
+}
+
+.job-log-text {
+  font-size: 11px;
+  color: #007bff;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
 }
 
 .progress-bar-container {

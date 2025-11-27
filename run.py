@@ -254,6 +254,11 @@ def main():
         help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
     )
     parser.add_argument(
+        '--add-remotes',
+        type=str,
+        help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_ADD_REMOTES env var)'
+    )
+    parser.add_argument(
         '--max-idle-time',
         type=int,
         help='Auto-quit after N seconds of inactivity (0=disabled, default: 0, or MOTUS_MAX_IDLE_TIME env var)'
@@ -314,6 +319,8 @@ def main():
         config.allow_expert_mode = True
     if args.remote_templates:
         config.remote_templates_file = args.remote_templates
+    if args.add_remotes:
+        config.add_remotes_file = args.add_remotes
     if args.max_idle_time is not None:
         config.max_idle_time = args.max_idle_time
     if args.auto_cleanup_db:

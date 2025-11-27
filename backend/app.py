@@ -502,6 +502,20 @@ def create_app(config: Config = None):
     init_remote_management(rclone.rclone_config_file, config.remote_templates_file, rclone.rclone_path)
     init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
+    # Merge additional remotes if configured
+    if config.add_remotes_file:
+        try:
+            logging.info(f"Merging remotes from {config.add_remotes_file}")
+            added_count = rclone.rclone_config.merge_remotes_from_file(config.add_remotes_file)
+            if added_count > 0:
+                logging.info(f"Successfully added {added_count} remote(s) from {config.add_remotes_file}")
+            else:
+                logging.info(f"All remotes from {config.add_remotes_file} already exist")
+        except FileNotFoundError as e:
+            logging.error(f"Failed to merge remotes: {e}")
+        except Exception as e:
+            logging.error(f"Error merging remotes from {config.add_remotes_file}: {e}")
+
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()
     interrupted_job_ids = [job['job_id'] for job in db.list_aborted_jobs()]
