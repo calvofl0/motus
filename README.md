@@ -380,9 +380,9 @@ remote_templates_file: /path/to/templates.conf
 add_remotes_file: /path/to/rclone.conf          # Merge remotes from another config file
 max_idle_time: 3600
 auto_cleanup_db: true
-max_upload_size: 1073741824                     # 1GB in bytes
-max_download_size: 5368709120                   # 5GB in bytes (0=unlimited)
-max_uncompressed_download_size: 104857600       # 100MB in bytes
+max_upload_size: "1G"                           # 1GB (also accepts bytes: 1073741824, or 0 for unlimited)
+max_download_size: "5G"                         # 5GB (also accepts bytes: 5368709120, or 0 for unlimited)
+max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104857600)
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
 
