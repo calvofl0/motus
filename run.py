@@ -199,7 +199,7 @@ def main():
         allow_abbrev=False  # Require full argument names (no abbreviations)
     )
     parser.add_argument(
-        '--port',
+        '-p', '--port',
         type=int,
         help='Port to run on (default: 8888, or MOTUS_PORT env var)'
     )
@@ -214,7 +214,7 @@ def main():
         help='Access token (default: auto-generated, or MOTUS_TOKEN env var)'
     )
     parser.add_argument(
-        '--data-dir',
+        '-d', '--data-dir',
         type=str,
         help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
@@ -224,7 +224,7 @@ def main():
         help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_PATH env var)'
     )
     parser.add_argument(
-        '--config',
+        '-c', '--config',
         type=str,
         help='Path to config file (YAML)'
     )
@@ -255,7 +255,7 @@ def main():
         help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
     )
     parser.add_argument(
-        '--add-remotes',
+        '-r', '--add-remotes',
         type=str,
         help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_ADD_REMOTES env var)'
     )
@@ -280,7 +280,12 @@ def main():
         help='Maximum uncompressed download size before zipping (e.g., 50M, 1G, default: 100M, or MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE env var)'
     )
     parser.add_argument(
-        '--allow-expert-mode',
+        '-m', '--max-download-size',
+        type=str,
+        help='Maximum total download size allowed (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_DOWNLOAD_SIZE env var)'
+    )
+    parser.add_argument(
+        '-e', '--allow-expert-mode',
         action='store_true',
         help='Show Expert/Easy Mode toggle in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
     )
@@ -337,6 +342,12 @@ def main():
             config.max_uncompressed_download_size = parse_size(args.max_uncompressed_download_size)
         except ValueError as e:
             print(f"Error: Invalid --max-uncompressed-download-size: {e}", file=sys.stderr)
+            sys.exit(1)
+    if args.max_download_size:
+        try:
+            config.max_download_size = parse_size(args.max_download_size)
+        except ValueError as e:
+            print(f"Error: Invalid --max-download-size: {e}", file=sys.stderr)
             sys.exit(1)
     if args.allow_expert_mode:
         config.allow_expert_mode = True

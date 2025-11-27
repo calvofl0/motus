@@ -274,6 +274,20 @@ class Config:
         except ValueError as e:
             raise ValueError(f"Invalid max_uncompressed_download_size: {e}")
 
+        # Max total download size (before compression)
+        # If total size exceeds this limit, download will be rejected
+        # Supports formats: 50M, 1G, 1024 (bytes), 0 or "unlimited" = no limit
+        # Default: 0 (unlimited)
+        max_download_size_str = self._get_config(
+            'max_download_size',
+            env_var='MOTUS_MAX_DOWNLOAD_SIZE',
+            default='0'
+        )
+        try:
+            self.max_download_size = parse_size(max_download_size_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid max_download_size: {e}")
+
         # Download cache max age (in seconds)
         # How long to keep zip files before cleanup
         # Default: 3600 (1 hour)

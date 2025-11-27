@@ -347,6 +347,14 @@ def prepare_download():
         total_size = calculate_total_size(paths, remote_config)
         logging.info(f"Total size: {total_size} bytes")
 
+        # Check max download size limit
+        if config.max_download_size > 0 and total_size > config.max_download_size:
+            from ..config import format_size
+            logging.warning(f"Download rejected: size {total_size} exceeds limit {config.max_download_size}")
+            return jsonify({
+                'error': f'Download size ({format_size(total_size)}) exceeds maximum allowed size ({format_size(config.max_download_size)})'
+            }), 400
+
         # Check if we can do direct download
         # Only for single file AND size < threshold
         if (len(paths) == 1 and

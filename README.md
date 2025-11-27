@@ -323,20 +323,22 @@ When adding a remote from this template, users will be prompted for:
 ```bash
 motus --help
 
-# Common options:
-motus --port 5000                                 # Use specific port
+# Common options (short variants available for some):
+motus -p 5000                                     # Use specific port (--port)
 motus --token mysecrettoken                       # Use specific token
-motus --data-dir /path/to/data                    # Custom data directory
+motus -d /path/to/data                            # Custom data directory (--data-dir)
 motus --cache-path /path/to/cache                 # Custom cache directory (default: {data_dir}/cache)
+motus -c config.yml                               # Path to config file (--config)
 motus --log-level INFO                            # Set log level
 motus --no-browser                                # Don't open browser
 motus --expert-mode                               # Start in Expert mode (auto-enables --allow-expert-mode)
-motus --allow-expert-mode                         # Show mode toggle in UI
+motus -e                                          # Show mode toggle in UI (--allow-expert-mode)
 motus --remote-templates templates.conf           # Remote templates file
-motus --add-remotes /path/to/rclone.conf          # Merge remotes from another config file at startup
+motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
 motus --max-upload-size 1G                        # Limit upload size
+motus -m 5G                                       # Maximum download size allowed (--max-download-size, default: 0/unlimited)
 motus --max-uncompressed-download-size 100M       # ZIP threshold for downloads (default: 100M)
 ```
 
@@ -356,6 +358,7 @@ export MOTUS_ADD_REMOTES=/path/to/rclone.conf            # Merge remotes from an
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
+export MOTUS_MAX_DOWNLOAD_SIZE=5G                        # Maximum download size allowed (0=unlimited)
 export MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE=100M         # ZIP threshold for downloads
 
 motus
@@ -378,6 +381,7 @@ add_remotes_file: /path/to/rclone.conf          # Merge remotes from another con
 max_idle_time: 3600
 auto_cleanup_db: true
 max_upload_size: 1073741824                     # 1GB in bytes
+max_download_size: 5368709120                   # 5GB in bytes (0=unlimited)
 max_uncompressed_download_size: 104857600       # 100MB in bytes
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
@@ -437,6 +441,50 @@ For development with hot-reload:
 ```bash
 python dev-vue.py  # Starts Vite dev server on port 3000
 ```
+
+### Node.js/npm Dependencies
+
+**Important**: Node.js and npm are **build-time dependencies only**, not runtime dependencies.
+
+- **Runtime**: Only Python is required. The built frontend is static files served by Flask.
+- **Build-time**: npm is required to build the Vue.js frontend during `pip install`.
+
+### Distributing Pre-built Packages
+
+To distribute Motus without requiring npm at installation time, you can create a pre-built package:
+
+1. **Build the frontend first**:
+   ```bash
+   cd frontend-vue
+   npm install
+   npm run build
+   cd ..
+   ```
+
+2. **Create a source distribution** (includes built frontend):
+   ```bash
+   python -m build --sdist
+   # Creates: dist/motus-X.Y.Z.tar.gz
+   ```
+
+3. **Or create a wheel** (binary distribution):
+   ```bash
+   python -m build --wheel
+   # Creates: dist/motus-X.Y.Z-py3-none-any.whl
+   ```
+
+4. **Install the pre-built package**:
+   ```bash
+   # From wheel (fastest, no build needed):
+   pip install dist/motus-X.Y.Z-py3-none-any.whl
+
+   # From source tarball (includes built frontend):
+   pip install dist/motus-X.Y.Z.tar.gz
+   ```
+
+The `pyproject.toml` configuration ensures that `frontend-dist/` (the built frontend) is included in the package, so end users don't need Node.js or npm installed.
+
+**Note**: If distributing the source tarball, the build hook in `build_frontend.py` will still attempt to build the frontend if `frontend-dist/` doesn't exist. To avoid this, always include the pre-built frontend in your distribution.
 
 ## API Documentation
 
