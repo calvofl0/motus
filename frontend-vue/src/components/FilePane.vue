@@ -748,8 +748,15 @@ onMounted(async () => {
       // Use local filesystem (empty string) as default
       selectedRemote.value = ''
       previousRemote.value = ''
-      currentPath.value = '~/'
-      await expandHomePath()
+
+      // Get the expanded home path directly
+      try {
+        const response = await apiCall('/api/files/expand-home', 'POST', { path: '~/' })
+        currentPath.value = response.expanded_path || '~/'
+      } catch (error) {
+        console.error('Failed to expand home path:', error)
+        currentPath.value = '~/'  // Fallback to tilde if expansion fails
+      }
     }
 
     await refresh()
