@@ -241,13 +241,17 @@ def calculate_path_size(path: str, remote_config: dict = None) -> int:
     try:
         # First, try to resolve to local path (handles aliases)
         local_path = rclone.resolve_to_local_path(path)
+        logging.debug(f"calculate_path_size: path={path}, resolved_local_path={local_path}")
 
         if local_path is not None:
             # It's a local path - use os.path for efficiency
             if os.path.isfile(local_path):
-                return os.path.getsize(local_path)
+                size = os.path.getsize(local_path)
+                logging.debug(f"calculate_path_size: local file size={size}")
+                return size
             elif os.path.isdir(local_path):
                 # Calculate directory size
+                logging.debug(f"calculate_path_size: calculating directory size for {local_path}")
                 total_size = 0
                 for dirpath, dirnames, filenames in os.walk(local_path):
                     for filename in filenames:
@@ -256,15 +260,20 @@ def calculate_path_size(path: str, remote_config: dict = None) -> int:
                             total_size += os.path.getsize(filepath)
                         except OSError:
                             pass  # Skip files we can't read
+                logging.debug(f"calculate_path_size: directory total size={total_size}")
                 return total_size
             else:
+                logging.debug(f"calculate_path_size: path exists but is neither file nor directory")
                 return 0
 
         # Remote path - use rclone size command to get accurate size
+        logging.debug(f"calculate_path_size: using rclone size for remote path")
         result = rclone.size(path, remote_config)
-        return result.get('bytes', 0)
+        size = result.get('bytes', 0)
+        logging.debug(f"calculate_path_size: remote size={size}")
+        return size
     except Exception as e:
-        logging.warning(f"Could not calculate size for {path}: {e}")
+        logging.warning(f"Could not calculate size for {path}: {e}", exc_info=True)
         return 0
 
 
@@ -342,7 +351,7 @@ def is_single_file(path: str, remote_config: dict = None) -> bool:
         logging.debug(f"is_single_file: defaulting to False (directory or unknown)")
         return False
     except Exception as e:
-        logging.warning(f"Could not determine if {path} is file: {e}")
+        logging.warning(f"Could not determine if {path} is file: {e}", exc_info=True)
         # Default to false (assume directory) to be safe
         return False
 
