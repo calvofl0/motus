@@ -46,11 +46,6 @@
       <!-- Loading State -->
       <div v-if="loading" class="empty-state">Loading...</div>
 
-      <!-- Empty State -->
-      <div v-else-if="sortedFiles.length === 0 && currentPath !== '/..' " class="empty-state">
-        No files
-      </div>
-
       <!-- Grid View -->
       <template v-else-if="viewMode === 'grid'">
         <!-- Parent Directory -->
@@ -79,6 +74,11 @@
         >
           <div class="file-icon">{{ file.IsDir ? '📁' : '📄' }}</div>
           <div class="file-name">{{ file.Name }}</div>
+        </div>
+
+        <!-- Empty State for Grid -->
+        <div v-if="sortedFiles.length === 0" class="empty-state">
+          No files
         </div>
       </template>
 
@@ -141,6 +141,11 @@
             </td>
             <td class="file-size-col">{{ file.IsDir ? '' : formatSize(file.Size) }}</td>
             <td class="file-date-col">{{ formatDate(file.ModTime) }}</td>
+          </tr>
+
+          <!-- Empty State for List -->
+          <tr v-if="sortedFiles.length === 0">
+            <td colspan="3" class="empty-state">No files</td>
           </tr>
         </tbody>
       </table>
