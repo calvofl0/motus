@@ -311,13 +311,18 @@ def is_single_file(path: str, remote_config: dict = None) -> bool:
     try:
         # Try to resolve to local path first
         local_path = rclone.resolve_to_local_path(path)
+        logging.debug(f"is_single_file: path={path}, resolved_local_path={local_path}")
+
         if local_path is not None:
             # It's a local path (or resolves to one) - use os.path directly
-            return os.path.isfile(local_path)
+            is_file = os.path.isfile(local_path)
+            logging.debug(f"is_single_file: local path check os.path.isfile({local_path}) = {is_file}")
+            return is_file
 
         # For remote paths, try to list it
         # If it's a file, rclone will fail or return empty list
         # If it's a directory, rclone will return contents
+        logging.debug(f"is_single_file: remote path, listing {path}")
         files = rclone.ls(path, remote_config)
 
         # If ls returns empty or fails, might be a file
@@ -326,12 +331,15 @@ def is_single_file(path: str, remote_config: dict = None) -> bool:
             parts = path.rsplit('/', 1)
             if len(parts) == 2:
                 parent_path, filename = parts
+                logging.debug(f"is_single_file: checking parent {parent_path} for file {filename}")
                 parent_files = rclone.ls(parent_path, remote_config)
                 for item in parent_files:
                     if item.get('Name') == filename and not item.get('IsDir', False):
+                        logging.debug(f"is_single_file: found file in parent directory")
                         return True
 
         # If we got here and files is not empty, it's a directory
+        logging.debug(f"is_single_file: defaulting to False (directory or unknown)")
         return False
     except Exception as e:
         logging.warning(f"Could not determine if {path} is file: {e}")
@@ -391,16 +399,29 @@ def prepare_download():
 
         # Check if we can do direct download
         # Only for single file AND size < threshold
-        if (len(paths) == 1 and
-            is_single_file(paths[0], remote_config) and
-            total_size < config.max_uncompressed_download_size):
+        logging.debug(f"Direct download check: paths={len(paths)}, threshold={config.max_uncompressed_download_size}")
 
-            logging.info(f"Direct download for {paths[0]}")
-            return jsonify({
-                'type': 'direct',
-                'path': paths[0],
-                'size': total_size
-            })
+        if len(paths) == 1:
+            single_file = is_single_file(paths[0], remote_config)
+            logging.debug(f"is_single_file({paths[0]}) = {single_file}")
+            logging.debug(f"total_size ({total_size}) < threshold ({config.max_uncompressed_download_size}) = {total_size < config.max_uncompressed_download_size}")
+
+            if single_file and total_size < config.max_uncompressed_download_size:
+                logging.info(f"Direct download for {paths[0]} (size: {total_size} bytes)")
+                return jsonify({
+                    'type': 'direct',
+                    'path': paths[0],
+                    'size': total_size
+                })
+            else:
+                reason = []
+                if not single_file:
+                    reason.append("not a single file")
+                if total_size >= config.max_uncompressed_download_size:
+                    reason.append(f"size {total_size} >= threshold {config.max_uncompressed_download_size}")
+                logging.info(f"Cannot do direct download for {paths[0]}: {', '.join(reason)}")
+        else:
+            logging.debug(f"Multiple paths ({len(paths)}), skipping direct download")
 
         # Need to create zip job
         logging.info(f"Creating zip job for {len(paths)} paths (total size: {total_size} bytes)")
