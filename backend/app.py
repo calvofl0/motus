@@ -5,6 +5,7 @@ Single-user rclone GUI with token authentication
 import json
 import logging
 import os
+import shutil
 import signal
 import sys
 import time
@@ -31,6 +32,21 @@ from .api.upload import upload_bp, init_upload, cleanup_cache
 _last_activity_time = None
 _idle_timer_thread = None
 _idle_timer_stop_event = None
+
+
+def safe_remove(path):
+    """
+    Safely remove a file or directory
+
+    Handles both files and directories (recursively)
+    """
+    try:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    except Exception:
+        raise  # Re-raise for caller to handle
 
 
 def cancel_two_phase_downloads(rclone: RcloneWrapper, db: Database, job_ids, status='cancelled'):
@@ -402,15 +418,15 @@ def cleanup_download_cache(config: Config, clean_all: bool = False):
             zip_path = os.path.join(cache_dir, zip_file)
             try:
                 if clean_all:
-                    # On shutdown: remove all ZIPs
-                    os.remove(zip_path)
+                    # On shutdown: remove all ZIPs (files or directories)
+                    safe_remove(zip_path)
                     cleaned += 1
                     logging.info(f"Cleaned up zip file on shutdown: {zip_file}")
                 else:
                     # On startup: only remove expired ZIPs
                     file_age = now - os.path.getmtime(zip_path)
                     if file_age > max_age:
-                        os.remove(zip_path)
+                        safe_remove(zip_path)
                         cleaned += 1
                         logging.info(f"Cleaned up expired zip file: {zip_file} (age: {int(file_age)}s)")
             except Exception as e:

@@ -4,6 +4,7 @@ Handles ls, mkdir, delete, download operations
 """
 import logging
 import os
+import shutil
 import secrets
 from flask import Blueprint, request, jsonify, send_file, current_app, after_this_request
 
@@ -15,6 +16,18 @@ files_bp = Blueprint('files', __name__)
 
 # Global rclone wrapper instance (initialized by app)
 rclone = None
+
+
+def safe_remove(path):
+    """
+    Safely remove a file or directory
+
+    Handles both files and directories (recursively)
+    """
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
 
 
 def init_rclone(rclone_instance: RcloneWrapper):
@@ -494,7 +507,7 @@ def download_zip(download_token):
         def cleanup(response):
             try:
                 if os.path.exists(zip_path):
-                    os.remove(zip_path)
+                    safe_remove(zip_path)
                     logging.info(f"Cleaned up zip file: {zip_path}")
             except Exception as e:
                 logging.error(f"Failed to cleanup zip file: {e}")

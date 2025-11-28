@@ -21,6 +21,18 @@ from .rclone_config import RcloneConfig
 DEVNULL = 'NUL' if sys.platform == 'win32' else '/dev/null'
 
 
+def safe_remove(path):
+    """
+    Safely remove a file or directory
+
+    Handles both files and directories (recursively)
+    """
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
+
+
 class RcloneWrapper:
     """
     Wrapper around rclone command-line tool for file operations.
@@ -861,7 +873,7 @@ class RcloneWrapper:
                     logging.info(f"[Job {job_id}] Job was cancelled, cleaning up ZIP")
                     try:
                         if os.path.exists(zip_path):
-                            os.remove(zip_path)
+                            safe_remove(zip_path)
                     except Exception as e:
                         logging.warning(f"[Job {job_id}] Failed to cleanup cancelled ZIP: {e}")
                     return  # Don't mark as completed
@@ -886,7 +898,7 @@ class RcloneWrapper:
                 # Clean up partial zip
                 if os.path.exists(zip_path):
                     try:
-                        os.remove(zip_path)
+                        safe_remove(zip_path)
                     except:
                         pass
 
