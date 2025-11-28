@@ -182,19 +182,27 @@ class RcloneWrapper:
         """
         Resolve a path through alias chains and return local filesystem path if applicable
 
-        This handles alias chains properly: if you have alias1 -> alias2 -> alias3 -> /local/path,
+        This handles both:
+        - Type 'alias' remotes that point to local paths
+        - Type 'local' remotes (rclone local filesystem remotes)
+
+        Follows alias chains: if you have alias1 -> alias2 -> alias3 -> /local/path,
         it will follow the chain and return the final local path.
 
         Args:
-            path: Path to resolve (e.g., "myalias:/folder/file.txt" or "/local/file.txt")
+            path: Path to resolve (e.g., "myalias:/folder/file.txt" or "localremote:/path")
 
         Returns:
             Local filesystem path if the resolved remote is local, None otherwise
 
         Example:
-            # If MyAlias -> AnotherAlias:/folder1 and AnotherAlias -> /mnt/data
+            # If MyAlias (type=alias) -> AnotherAlias:/folder1 and AnotherAlias -> /mnt/data
             resolve_to_local_path("MyAlias:/folder2/file.txt")
             # Returns: "/mnt/data/folder1/folder2/file.txt"
+
+            # If localtest (type=local) has root=/home/user
+            resolve_to_local_path("localtest:/documents/file.txt")
+            # Returns: "/home/user/documents/file.txt"
         """
         # Check if it's a Windows path (C:, D:, etc.)
         if len(path) > 1 and path[1] == ':' and path[0].isalpha():
@@ -224,15 +232,38 @@ class RcloneWrapper:
             logging.debug(f"resolve_to_local_path: checking if '{resolved_remote}' in configured_remotes: {resolved_remote in configured_remotes}")
 
             if resolved_remote in configured_remotes:
-                # It's still a configured remote (not local)
-                logging.debug(f"resolve_to_local_path: {resolved_remote} is a configured remote, returning None")
-                return None
+                # It's a configured remote - check if it's type 'local'
+                remote_config = self.rclone_config.get_remote(resolved_remote)
+                logging.debug(f"resolve_to_local_path: remote_config for {resolved_remote}: {remote_config}")
 
-            # Not a configured remote - must be a local path
+                if remote_config and remote_config.get('type') == 'local':
+                    # It's a local filesystem remote!
+                    # Get the root path from the remote config (defaults to / if not specified)
+                    root_path = remote_config.get('root', '/')
+                    logging.debug(f"resolve_to_local_path: type=local remote with root={root_path}")
+
+                    # Construct full local path
+                    if resolved_path:
+                        # Combine root path with resolved path
+                        if root_path.endswith('/'):
+                            full_path = f"{root_path.rstrip('/')}{resolved_path}"
+                        else:
+                            full_path = f"{root_path}{resolved_path}"
+                        logging.debug(f"resolve_to_local_path: constructed local path from type=local: {full_path}")
+                        return full_path
+                    else:
+                        logging.debug(f"resolve_to_local_path: returning root path for type=local: {root_path}")
+                        return root_path
+                else:
+                    # It's a different type of configured remote (s3, onedrive, etc.)
+                    logging.debug(f"resolve_to_local_path: {resolved_remote} is a non-local configured remote, returning None")
+                    return None
+
+            # Not a configured remote - must be a local path string
             # Construct the full local path
             if resolved_path:
                 full_path = f"{resolved_remote}{resolved_path}"
-                logging.debug(f"resolve_to_local_path: constructed local path: {full_path}")
+                logging.debug(f"resolve_to_local_path: constructed local path from non-configured remote: {full_path}")
                 return full_path
             else:
                 logging.debug(f"resolve_to_local_path: returning resolved_remote as-is: {resolved_remote}")
