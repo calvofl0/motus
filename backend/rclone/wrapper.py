@@ -757,7 +757,8 @@ class RcloneWrapper:
                         try:
                             # Check if path is truly remote after resolving alias chains
                             # This handles aliases that point to local filesystem
-                            local_path = self.resolve_to_local_path(path) if not remote_config else None
+                            # Always resolve aliases regardless of remote_config
+                            local_path = self.resolve_to_local_path(path)
 
                             if local_path is None:
                                 # Truly a remote path (or using remote_config)
