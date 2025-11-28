@@ -206,6 +206,7 @@ class RcloneWrapper:
 
         # Parse the path to extract remote and path components
         remote_name, remote_path = path.split(':', 1)
+        logging.debug(f"resolve_to_local_path: parsed {path} -> remote_name={remote_name}, remote_path={remote_path}")
 
         try:
             # Reload config to get latest remotes
@@ -213,26 +214,33 @@ class RcloneWrapper:
 
             # Resolve alias chain
             resolved_remote, resolved_path = self.rclone_config.resolve_alias_chain(remote_name, remote_path)
+            logging.debug(f"resolve_to_local_path: after resolve_alias_chain -> resolved_remote={resolved_remote}, resolved_path={resolved_path}")
 
             # Check if the resolved remote is actually a configured remote or local path
             # If it's a configured remote name, it's still remote
             # If it's a local path, it won't be in the list of configured remotes
             configured_remotes = self.rclone_config.list_remotes()
+            logging.debug(f"resolve_to_local_path: configured_remotes={configured_remotes}")
+            logging.debug(f"resolve_to_local_path: checking if '{resolved_remote}' in configured_remotes: {resolved_remote in configured_remotes}")
 
             if resolved_remote in configured_remotes:
                 # It's still a configured remote (not local)
+                logging.debug(f"resolve_to_local_path: {resolved_remote} is a configured remote, returning None")
                 return None
 
             # Not a configured remote - must be a local path
             # Construct the full local path
             if resolved_path:
-                return f"{resolved_remote}{resolved_path}"
+                full_path = f"{resolved_remote}{resolved_path}"
+                logging.debug(f"resolve_to_local_path: constructed local path: {full_path}")
+                return full_path
             else:
+                logging.debug(f"resolve_to_local_path: returning resolved_remote as-is: {resolved_remote}")
                 return resolved_remote
 
         except (ValueError, Exception) as e:
             # If resolution fails, treat as remote
-            logging.debug(f"Failed to resolve alias chain for {path}: {e}")
+            logging.debug(f"Failed to resolve alias chain for {path}: {e}", exc_info=True)
             return None
 
     def _parse_path(self, path: str) -> tuple[Optional[str], str]:
