@@ -189,6 +189,15 @@ class Config:
             default=None
         )
 
+        # Local filesystem alias remote
+        # If set, this alias remote (which must resolve to local filesystem) replaces
+        # the "Local Filesystem" option in the UI and becomes the default
+        self.local_filesystem_alias = self._get_config(
+            'local_filesystem_alias',
+            env_var='MOTUS_LOCAL_FILESYSTEM_ALIAS',
+            default=None
+        )
+
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
             'base_url',

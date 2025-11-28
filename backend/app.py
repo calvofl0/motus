@@ -516,6 +516,30 @@ def create_app(config: Config = None):
         except Exception as e:
             logging.error(f"Error merging remotes from {config.add_remotes_file}: {e}")
 
+    # Validate local filesystem alias (must be done after add_remotes merge)
+    if config.local_filesystem_alias:
+        try:
+            logging.info(f"Validating local_filesystem_alias '{config.local_filesystem_alias}'")
+            resolved_remote, resolved_path = rclone.rclone_config.resolve_alias_chain(config.local_filesystem_alias, '')
+            configured_remotes = rclone.rclone_config.list_remotes()
+
+            if resolved_remote in configured_remotes:
+                # It's still a remote, not local filesystem
+                logging.warning(
+                    f"local_filesystem_alias '{config.local_filesystem_alias}' does not resolve to local filesystem "
+                    f"(resolves to remote '{resolved_remote}'). Ignoring."
+                )
+                config.local_filesystem_alias = None
+            else:
+                # It's local filesystem - valid
+                logging.info(
+                    f"local_filesystem_alias '{config.local_filesystem_alias}' validated "
+                    f"(resolves to local path: {resolved_remote}{resolved_path})"
+                )
+        except Exception as e:
+            logging.warning(f"Failed to validate local_filesystem_alias '{config.local_filesystem_alias}': {e}. Ignoring.")
+            config.local_filesystem_alias = None
+
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()
     interrupted_job_ids = [job['job_id'] for job in db.list_aborted_jobs()]
@@ -612,6 +636,7 @@ def register_routes(app: Flask, config: Config):
             'max_upload_size_formatted': format_size(config.max_upload_size),
             'max_idle_time': config.max_idle_time,
             'allow_expert_mode': config.allow_expert_mode,
+            'local_filesystem_alias': config.local_filesystem_alias,
         })
 
     @app.route('/api/preferences', methods=['GET'])

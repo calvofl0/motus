@@ -7,7 +7,7 @@
     <div class="pane-toolbar">
       <div class="toolbar-row">
         <select v-model="selectedRemote" @change="onRemoteChange">
-          <option value="">Local Filesystem</option>
+          <option v-if="!localFilesystemAlias" value="">Local Filesystem</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
           </option>
@@ -179,6 +179,7 @@ const remotes = ref([])
 const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
+const localFilesystemAlias = ref(null) // Alias for local filesystem (replaces "Local Filesystem")
 
 // Computed
 const title = computed(() => props.pane === 'left' ? 'Server A' : 'Server B')
@@ -727,10 +728,26 @@ function handleJobCompleted(event) {
 // Initialize
 onMounted(async () => {
   try {
+    // Load config to get local filesystem alias
+    try {
+      const config = await apiCall('/api/config')
+      localFilesystemAlias.value = config.local_filesystem_alias || null
+    } catch (error) {
+      console.error('Failed to load config:', error)
+    }
+
     await loadRemotes()
 
-    // Set initial path for local filesystem and expand home directory
-    if (selectedRemote.value === '') {
+    // Initialize selected remote
+    if (localFilesystemAlias.value) {
+      // Use the configured alias as default
+      selectedRemote.value = localFilesystemAlias.value
+      previousRemote.value = localFilesystemAlias.value
+      currentPath.value = '/'
+    } else {
+      // Use local filesystem (empty string) as default
+      selectedRemote.value = ''
+      previousRemote.value = ''
       currentPath.value = '~/'
       await expandHomePath()
     }

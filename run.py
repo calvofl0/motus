@@ -235,6 +235,12 @@ def main():
         help='Log level (default: WARNING, or MOTUS_LOG_LEVEL env var)'
     )
     parser.add_argument(
+        '-v', '--verbose',
+        action='count',
+        default=0,
+        help='Increase verbosity: -v for INFO, -vv for DEBUG (--log-level takes precedence)'
+    )
+    parser.add_argument(
         '--no-browser',
         action='store_true',
         help='Do not open browser automatically'
@@ -258,6 +264,11 @@ def main():
         '-r', '--add-remotes',
         type=str,
         help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_ADD_REMOTES env var)'
+    )
+    parser.add_argument(
+        '-l', '--local-filesystem-alias',
+        type=str,
+        help='Alias remote that resolves to local filesystem (replaces "Local Filesystem" in UI, MOTUS_LOCAL_FILESYSTEM_ALIAS env var)'
     )
     parser.add_argument(
         '--max-idle-time',
@@ -317,6 +328,10 @@ def main():
         os.makedirs(config.log_cache_dir, exist_ok=True)
     if args.log_level:
         config.log_level = args.log_level
+    elif args.verbose == 1:
+        config.log_level = 'INFO'
+    elif args.verbose >= 2:
+        config.log_level = 'DEBUG'
     if args.allow_cors:
         config.allow_cors = True
     if args.expert_mode:
@@ -327,6 +342,8 @@ def main():
         config.remote_templates_file = args.remote_templates
     if args.add_remotes:
         config.add_remotes_file = args.add_remotes
+    if args.local_filesystem_alias:
+        config.local_filesystem_alias = args.local_filesystem_alias
     if args.max_idle_time is not None:
         config.max_idle_time = args.max_idle_time
     if args.auto_cleanup_db:

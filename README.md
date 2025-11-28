@@ -263,6 +263,46 @@ motus
 - Happens once at startup
 - Changes are persisted to your rclone config
 
+#### Using an Alias for Local Filesystem
+
+You can configure a specific alias remote to represent the local filesystem instead of using the default "Local Filesystem" option. This is useful when:
+- You want a more descriptive name for your local storage
+- You're using an alias that points to a specific local path
+- You want to standardize the interface across different deployments
+
+```bash
+# Set a local filesystem alias
+motus -l mylocal
+
+# Via environment variable
+export MOTUS_LOCAL_FILESYSTEM_ALIAS=mylocal
+motus
+
+# Or in ~/.motus/config.yml:
+# local_filesystem_alias: mylocal
+```
+
+**Requirements and Behavior:**
+- The specified alias **must** resolve to a local filesystem path (not another remote)
+- Validation happens after `--add-remotes` is processed
+- If the alias doesn't exist or resolves to a remote (not local), it's ignored with a warning in the logs
+- When valid:
+  - The "Local Filesystem" option is hidden in the UI
+  - The specified alias becomes the default remote at startup
+  - The alias appears in the dropdown like any other remote
+
+**Example:**
+```ini
+# In your rclone config:
+[mylocal]
+type = alias
+remote = /home/user/Documents
+```
+
+Then run: `motus -l mylocal`
+
+The UI will show "mylocal" instead of "Local Filesystem", and it will default to browsing `/home/user/Documents`.
+
 ### Managing Remotes via UI
 
 The graphical remote management interface allows you to:
@@ -330,11 +370,14 @@ motus -d /path/to/data                            # Custom data directory (--dat
 motus --cache-path /path/to/cache                 # Custom cache directory (default: {data_dir}/cache)
 motus -c config.yml                               # Path to config file (--config)
 motus --log-level INFO                            # Set log level
+motus -v                                          # Verbose mode (INFO level, --log-level takes precedence)
+motus -vv                                         # Very verbose mode (DEBUG level)
 motus --no-browser                                # Don't open browser
 motus --expert-mode                               # Start in Expert mode (auto-enables --allow-expert-mode)
 motus -e                                          # Show mode toggle in UI (--allow-expert-mode)
 motus --remote-templates templates.conf           # Remote templates file
 motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
+motus -l mylocal                                  # Use alias remote for local filesystem (--local-filesystem-alias)
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
 motus --max-upload-size 1G                        # Limit upload size
@@ -355,6 +398,7 @@ export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf
 export MOTUS_ADD_REMOTES=/path/to/rclone.conf            # Merge remotes from another config file
+export MOTUS_LOCAL_FILESYSTEM_ALIAS=mylocal              # Use alias remote for local filesystem
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
@@ -378,6 +422,7 @@ default_mode: expert
 allow_expert_mode: true
 remote_templates_file: /path/to/templates.conf
 add_remotes_file: /path/to/rclone.conf          # Merge remotes from another config file
+local_filesystem_alias: mylocal                 # Use alias remote for local filesystem
 max_idle_time: 3600
 auto_cleanup_db: true
 max_upload_size: "1G"                           # 1GB (also accepts bytes: 1073741824, or 0 for unlimited)
