@@ -59,6 +59,11 @@
       @create="handleCreateAlias"
     />
 
+    <DownloadPreparingModal
+      v-model="showDownloadPreparingModal"
+      :message="downloadPreparingMessage"
+    />
+
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
@@ -84,6 +89,7 @@ import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
+import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.vue'
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import { apiCall, getAuthToken } from '../services/api'
@@ -108,6 +114,10 @@ const showCreateAliasModal = ref(false)
 const aliasTargetPath = ref('')
 const aliasResolvedPath = ref('')
 const aliasPane = ref(null)
+
+// Download preparing modal state
+const showDownloadPreparingModal = ref(false)
+const downloadPreparingMessage = ref('Downloading file from remote server...')
 
 // Computed
 const canCopyRight = computed(() =>
@@ -231,8 +241,13 @@ async function handleDownload(pane) {
     })
 
     if (response.type === 'direct') {
-      // Direct download - trigger file download
-      await downloadDirect(response.path)
+      // Direct download - show modal and trigger file download
+      showDownloadPreparingModal.value = true
+      try {
+        await downloadDirect(response.path)
+      } finally {
+        showDownloadPreparingModal.value = false
+      }
     } else if (response.type === 'zip_job') {
       // ZIP job created - show notification
       alert(`Download preparation started. Job ID: ${response.job_id}\nYour download will start automatically when ready.`)
