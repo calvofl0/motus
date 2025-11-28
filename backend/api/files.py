@@ -239,7 +239,28 @@ def calculate_path_size(path: str, remote_config: dict = None) -> int:
         int: Size in bytes
     """
     try:
-        # Use rclone size command to get accurate size
+        # First, try to resolve to local path (handles aliases)
+        local_path = rclone.resolve_to_local_path(path)
+
+        if local_path is not None:
+            # It's a local path - use os.path for efficiency
+            if os.path.isfile(local_path):
+                return os.path.getsize(local_path)
+            elif os.path.isdir(local_path):
+                # Calculate directory size
+                total_size = 0
+                for dirpath, dirnames, filenames in os.walk(local_path):
+                    for filename in filenames:
+                        filepath = os.path.join(dirpath, filename)
+                        try:
+                            total_size += os.path.getsize(filepath)
+                        except OSError:
+                            pass  # Skip files we can't read
+                return total_size
+            else:
+                return 0
+
+        # Remote path - use rclone size command to get accurate size
         result = rclone.size(path, remote_config)
         return result.get('bytes', 0)
     except Exception as e:
