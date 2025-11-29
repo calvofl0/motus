@@ -14,7 +14,7 @@ class CustomBuildHook(BuildHookInterface):
 
     def initialize(self, version, build_data):
         """Run npm build to generate frontend-dist"""
-        frontend_vue = Path(self.root) / 'frontend-vue'
+        frontend = Path(self.root) / 'frontend'
         frontend_dist = Path(self.root) / 'frontend-dist'
 
         # Check if Node.js and npm are available
@@ -71,12 +71,12 @@ class CustomBuildHook(BuildHookInterface):
             return
 
         # Install npm dependencies if needed
-        node_modules = frontend_vue / 'node_modules'
+        node_modules = frontend / 'node_modules'
         if not node_modules.exists():
             print("Installing npm dependencies...")
             subprocess.run(
                 ['npm', 'install'],
-                cwd=frontend_vue,
+                cwd=frontend,
                 check=True
             )
 
@@ -84,7 +84,7 @@ class CustomBuildHook(BuildHookInterface):
         print("Building Vue frontend...")
         subprocess.run(
             ['npm', 'run', 'build'],
-            cwd=frontend_vue,
+            cwd=frontend,
             check=True
         )
 

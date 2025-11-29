@@ -104,12 +104,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Install frontend dependencies
-cd frontend-vue
+cd frontend
 npm install
 cd ..
 
 # Build frontend (production)
-cd frontend-vue
+cd frontend
 npm run build
 cd ..
 
@@ -476,7 +476,7 @@ motus --data-dir /tmp/motus-2
 The Vue.js frontend is automatically built during `pip install`. To rebuild manually:
 
 ```bash
-cd frontend-vue
+cd frontend
 npm install      # Install dependencies (if not done)
 npm run build    # Build for production (outputs to ../frontend-dist/)
 ```
@@ -500,7 +500,7 @@ To distribute Motus without requiring npm at installation time, you can create a
 
 1. **Build the frontend first**:
    ```bash
-   cd frontend-vue
+   cd frontend
    npm install
    npm run build
    cd ..
@@ -665,7 +665,7 @@ motus/
 │   ├── config.py             # Configuration management
 │   ├── auth.py               # Token authentication
 │   └── models.py             # SQLite database models
-├── frontend-vue/             # Vue.js source code
+├── frontend/             # Vue.js source code
 │   ├── src/
 │   │   ├── components/       # Vue components
 │   │   ├── views/            # Main views (Easy/Expert modes)
@@ -699,13 +699,13 @@ motus/
    # Start dev server with hot-reload
    python dev-vue.py
 
-   # Edit files in frontend-vue/src/
+   # Edit files in frontend/src/
    # Changes appear immediately in browser
    ```
 
 3. **Build for production**:
    ```bash
-   cd frontend-vue
+   cd frontend
    npm run build
    cd ..
 
@@ -729,7 +729,7 @@ motus/
 pytest
 
 # Frontend tests (if available)
-cd frontend-vue
+cd frontend
 npm test
 ```
 
@@ -780,7 +780,7 @@ Or use the built-in instance detection - if another instance is running, Motus w
 
 ```bash
 # Clean and rebuild
-cd frontend-vue
+cd frontend
 rm -rf node_modules package-lock.json
 npm install
 npm run build

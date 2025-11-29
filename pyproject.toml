@@ -72,7 +72,7 @@ path = "build_frontend.py"
 [tool.hatch.build.targets.sdist]
 include = [
     "/backend/**/*.py",
-    "/frontend-vue/**/*",
+    "/frontend/**/*",
     "/frontend-dist/**/*",
     "/motus/**/*.py",
     "/run.py",

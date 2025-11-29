@@ -263,7 +263,7 @@ def main():
         global npm_process
         npm_process = subprocess.Popen(
             ['npm', 'run', 'dev:watch'],
-            cwd=Path(__file__).parent / 'frontend-vue',
+            cwd=Path(__file__).parent / 'frontend',
             env=os.environ.copy()
         )
         npm_process.wait()

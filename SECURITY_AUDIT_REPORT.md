@@ -319,7 +319,7 @@ def add_security_headers(response):
 ## HIGH Severity Findings
 
 ### 8. Vue.js Client-Side Token Storage
-**File**: `frontend-vue/src/utils/api.js`
+**File**: `frontend/src/utils/api.js`
 **CVSS**: 6.9 (Medium-High)
 
 **Issue**: Authentication token stored in localStorage is accessible to any JavaScript code, including:
@@ -909,7 +909,7 @@ job_id = str(uuid.uuid4())
 ---
 
 ### 23. Frontend Build Security
-**File**: `build_frontend.py`, `frontend-vue/package.json`
+**File**: `build_frontend.py`, `frontend/package.json`
 **CVSS**: 3.0 (Low)
 
 **Issue**: npm dependencies could contain vulnerabilities or malicious code.
@@ -917,7 +917,7 @@ job_id = str(uuid.uuid4())
 **Recommendation**:
 ```bash
 # Regular dependency auditing
-cd frontend-vue
+cd frontend
 npm audit
 npm audit fix
 
@@ -933,7 +933,7 @@ npm ci  # Uses package-lock.json, more secure than npm install
 ## INFORMATIONAL Findings
 
 ### 24. Dependency Security Scanning
-**Files**: `requirements.txt`, `frontend-vue/package.json`
+**Files**: `requirements.txt`, `frontend/package.json`
 
 **Recommendation**:
 ```bash
@@ -942,7 +942,7 @@ pip install safety
 safety check --file requirements.txt
 
 # npm dependencies
-cd frontend-vue
+cd frontend
 npm audit
 
 # Automate in CI/CD
@@ -1142,7 +1142,7 @@ def test_credential_masking():
    pip install safety
    safety check --json
 
-   cd frontend-vue
+   cd frontend
    npm audit --json
    ```
 
