@@ -1,6 +1,11 @@
-# Motus
-
-A simplified, single-user web application for file transfers using rclone with a modern Vue.js interface. Based on the [Motus](https://github.com/FredHutch/motuz) project (MIT License), with a streamlined, token-based authentication backend similar to Jupyter notebooks.
+<div align="center">
+    <img src="frontend/public/img/logo.png" width="100" height="100">
+    <h1>Motus</h1>
+    <p>
+        <b>A simple, single-user web application for large scale data movements between on-premise and cloud. Inspired by the <a href="https://github.com/FredHutch/motuz" target="_blank">Motuz</a> project.</b>
+    </p>
+    <br>
+</div>
 
 ## Features
 
@@ -799,7 +804,7 @@ Key security features:
 
 ## License
 
-This project is based on [Motus](https://github.com/FredHutch/motuz) (MIT License) and maintains the same MIT license.
+This project is inspired by [Motuz](https://github.com/FredHutch/motuz) (MIT License) and maintains the same MIT license.
 
 ## Contributing
 
@@ -812,7 +817,7 @@ Contributions welcome! Please:
 
 ## Acknowledgments
 
-- Based on [Motus](https://github.com/FredHutch/motuz) by Fred Hutchinson Cancer Research Center
+- Inspired by [Motuz](https://github.com/FredHutch/motuz) by Fred Hutchinson Cancer Research Center
 - Uses [rclone](https://rclone.org/) for file operations
 - Built with [Vue.js](https://vuejs.org/) and [Flask](https://flask.palletsprojects.com/)
 
