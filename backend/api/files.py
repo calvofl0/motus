@@ -241,17 +241,13 @@ def calculate_path_size(path: str, remote_config: dict = None) -> int:
     try:
         # First, try to resolve to local path (handles aliases)
         local_path = rclone.resolve_to_local_path(path)
-        logging.debug(f"calculate_path_size: path={path}, resolved_local_path={local_path}")
 
         if local_path is not None:
             # It's a local path - use os.path for efficiency
             if os.path.isfile(local_path):
-                size = os.path.getsize(local_path)
-                logging.debug(f"calculate_path_size: local file size={size}")
-                return size
+                return os.path.getsize(local_path)
             elif os.path.isdir(local_path):
                 # Calculate directory size
-                logging.debug(f"calculate_path_size: calculating directory size for {local_path}")
                 total_size = 0
                 for dirpath, dirnames, filenames in os.walk(local_path):
                     for filename in filenames:
@@ -260,20 +256,15 @@ def calculate_path_size(path: str, remote_config: dict = None) -> int:
                             total_size += os.path.getsize(filepath)
                         except OSError:
                             pass  # Skip files we can't read
-                logging.debug(f"calculate_path_size: directory total size={total_size}")
                 return total_size
             else:
-                logging.debug(f"calculate_path_size: path exists but is neither file nor directory")
                 return 0
 
         # Remote path - use rclone size command to get accurate size
-        logging.debug(f"calculate_path_size: using rclone size for remote path")
         result = rclone.size(path, remote_config)
-        size = result.get('bytes', 0)
-        logging.debug(f"calculate_path_size: remote size={size}")
-        return size
+        return result.get('bytes', 0)
     except Exception as e:
-        logging.warning(f"Could not calculate size for {path}: {e}", exc_info=True)
+        logging.warning(f"Could not calculate size for {path}: {e}")
         return 0
 
 
@@ -320,18 +311,14 @@ def is_single_file(path: str, remote_config: dict = None) -> bool:
     try:
         # Try to resolve to local path first
         local_path = rclone.resolve_to_local_path(path)
-        logging.debug(f"is_single_file: path={path}, resolved_local_path={local_path}")
 
         if local_path is not None:
             # It's a local path (or resolves to one) - use os.path directly
-            is_file = os.path.isfile(local_path)
-            logging.debug(f"is_single_file: local path check os.path.isfile({local_path}) = {is_file}")
-            return is_file
+            return os.path.isfile(local_path)
 
         # For remote paths, try to list it
         # If it's a file, rclone will fail or return empty list
         # If it's a directory, rclone will return contents
-        logging.debug(f"is_single_file: remote path, listing {path}")
         files = rclone.ls(path, remote_config)
 
         # If ls returns empty or fails, might be a file
@@ -340,18 +327,15 @@ def is_single_file(path: str, remote_config: dict = None) -> bool:
             parts = path.rsplit('/', 1)
             if len(parts) == 2:
                 parent_path, filename = parts
-                logging.debug(f"is_single_file: checking parent {parent_path} for file {filename}")
                 parent_files = rclone.ls(parent_path, remote_config)
                 for item in parent_files:
                     if item.get('Name') == filename and not item.get('IsDir', False):
-                        logging.debug(f"is_single_file: found file in parent directory")
                         return True
 
         # If we got here and files is not empty, it's a directory
-        logging.debug(f"is_single_file: defaulting to False (directory or unknown)")
         return False
     except Exception as e:
-        logging.warning(f"Could not determine if {path} is file: {e}", exc_info=True)
+        logging.warning(f"Could not determine if {path} is file: {e}")
         # Default to false (assume directory) to be safe
         return False
 
@@ -408,29 +392,16 @@ def prepare_download():
 
         # Check if we can do direct download
         # Only for single file AND size < threshold
-        logging.debug(f"Direct download check: paths={len(paths)}, threshold={config.max_uncompressed_download_size}")
+        if (len(paths) == 1 and
+            is_single_file(paths[0], remote_config) and
+            total_size < config.max_uncompressed_download_size):
 
-        if len(paths) == 1:
-            single_file = is_single_file(paths[0], remote_config)
-            logging.debug(f"is_single_file({paths[0]}) = {single_file}")
-            logging.debug(f"total_size ({total_size}) < threshold ({config.max_uncompressed_download_size}) = {total_size < config.max_uncompressed_download_size}")
-
-            if single_file and total_size < config.max_uncompressed_download_size:
-                logging.info(f"Direct download for {paths[0]} (size: {total_size} bytes)")
-                return jsonify({
-                    'type': 'direct',
-                    'path': paths[0],
-                    'size': total_size
-                })
-            else:
-                reason = []
-                if not single_file:
-                    reason.append("not a single file")
-                if total_size >= config.max_uncompressed_download_size:
-                    reason.append(f"size {total_size} >= threshold {config.max_uncompressed_download_size}")
-                logging.info(f"Cannot do direct download for {paths[0]}: {', '.join(reason)}")
-        else:
-            logging.debug(f"Multiple paths ({len(paths)}), skipping direct download")
+            logging.info(f"Direct download for {paths[0]}")
+            return jsonify({
+                'type': 'direct',
+                'path': paths[0],
+                'size': total_size
+            })
 
         # Need to create zip job
         logging.info(f"Creating zip job for {len(paths)} paths (total size: {total_size} bytes)")

@@ -214,33 +214,27 @@ class RcloneWrapper:
 
         # Parse the path to extract remote and path components
         remote_name, remote_path = path.split(':', 1)
-        logging.debug(f"resolve_to_local_path: parsed {path} -> remote_name={remote_name}, remote_path={remote_path}")
 
         try:
             # Reload config to get latest remotes
             self.rclone_config.reload()
 
-            # Resolve alias chain
+            # Resolve alias chain (follows type=alias remotes)
             resolved_remote, resolved_path = self.rclone_config.resolve_alias_chain(remote_name, remote_path)
-            logging.debug(f"resolve_to_local_path: after resolve_alias_chain -> resolved_remote={resolved_remote}, resolved_path={resolved_path}")
 
             # Check if the resolved remote is actually a configured remote or local path
             # If it's a configured remote name, it's still remote
             # If it's a local path, it won't be in the list of configured remotes
             configured_remotes = self.rclone_config.list_remotes()
-            logging.debug(f"resolve_to_local_path: configured_remotes={configured_remotes}")
-            logging.debug(f"resolve_to_local_path: checking if '{resolved_remote}' in configured_remotes: {resolved_remote in configured_remotes}")
 
             if resolved_remote in configured_remotes:
                 # It's a configured remote - check if it's type 'local'
                 remote_config = self.rclone_config.get_remote(resolved_remote)
-                logging.debug(f"resolve_to_local_path: remote_config for {resolved_remote}: {remote_config}")
 
                 if remote_config and remote_config.get('type') == 'local':
                     # It's a local filesystem remote!
                     # Get the root path from the remote config (defaults to / if not specified)
                     root_path = remote_config.get('root', '/')
-                    logging.debug(f"resolve_to_local_path: type=local remote with root={root_path}")
 
                     # Construct full local path
                     if resolved_path:
@@ -249,29 +243,23 @@ class RcloneWrapper:
                             full_path = f"{root_path.rstrip('/')}{resolved_path}"
                         else:
                             full_path = f"{root_path}{resolved_path}"
-                        logging.debug(f"resolve_to_local_path: constructed local path from type=local: {full_path}")
                         return full_path
                     else:
-                        logging.debug(f"resolve_to_local_path: returning root path for type=local: {root_path}")
                         return root_path
                 else:
                     # It's a different type of configured remote (s3, onedrive, etc.)
-                    logging.debug(f"resolve_to_local_path: {resolved_remote} is a non-local configured remote, returning None")
                     return None
 
             # Not a configured remote - must be a local path string
             # Construct the full local path
             if resolved_path:
-                full_path = f"{resolved_remote}{resolved_path}"
-                logging.debug(f"resolve_to_local_path: constructed local path from non-configured remote: {full_path}")
-                return full_path
+                return f"{resolved_remote}{resolved_path}"
             else:
-                logging.debug(f"resolve_to_local_path: returning resolved_remote as-is: {resolved_remote}")
                 return resolved_remote
 
         except (ValueError, Exception) as e:
             # If resolution fails, treat as remote
-            logging.debug(f"Failed to resolve alias chain for {path}: {e}", exc_info=True)
+            logging.debug(f"Failed to resolve alias chain for {path}: {e}")
             return None
 
     def _parse_path(self, path: str) -> tuple[Optional[str], str]:
