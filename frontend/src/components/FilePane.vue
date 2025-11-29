@@ -151,13 +151,24 @@
       </table>
     </div>
   </div>
+
+  <!-- Download Confirmation Modal -->
+  <DownloadConfirmModal
+    v-model="showDownloadConfirm"
+    :fileName="downloadConfirmFile"
+    :fileSize="downloadConfirmSize"
+    @confirm="confirmDownload"
+    @cancel="showDownloadConfirm = false"
+  />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useAppStore } from '../stores/app'
-import { apiCall } from '../services/api'
+import { apiCall, getAuthToken } from '../services/api'
 import { useUpload } from '../composables/useUpload'
+import { formatFileSize } from '../services/helpers'
+import DownloadConfirmModal from './modals/DownloadConfirmModal.vue'
 
 const props = defineProps({
   pane: {
@@ -185,6 +196,12 @@ const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
 const localFilesystemAlias = ref(null) // Alias for local filesystem (replaces "Local Filesystem")
+
+// Download confirmation modal state
+const showDownloadConfirm = ref(false)
+const downloadConfirmFile = ref('')
+const downloadConfirmSize = ref('')
+const downloadConfirmPath = ref('')
 
 // Computed
 const title = computed(() => props.pane === 'left' ? 'Server A' : 'Server B')
@@ -476,10 +493,149 @@ function handleFileClick(index, event) {
   appStore.setPaneSelection(props.pane, newSelection)
 }
 
-function handleFileDblClick(file) {
+async function handleFileDblClick(file) {
   if (file.IsDir) {
     navigateInto(file.Name)
+    return
   }
+
+  // It's a file - check if we can preview it
+  try {
+    const remote = selectedRemote.value
+    const filePath = currentPath.value === '/' ? `/${file.Name}` : `${currentPath.value}/${file.Name}`
+    const fullPath = remote ? `${remote}:${filePath}` : filePath
+
+    // Check if file can be previewed
+    const response = await apiCall('/api/files/can-preview', 'POST', {
+      path: fullPath
+    })
+
+    if (response.can_preview) {
+      // Can preview - open in new tab
+      openFilePreview(fullPath)
+    } else {
+      // Cannot preview - show download confirmation
+      downloadConfirmFile.value = file.Name
+      downloadConfirmSize.value = formatFileSize(file.Size)
+      downloadConfirmPath.value = fullPath
+      showDownloadConfirm.value = true
+    }
+  } catch (error) {
+    console.error('Error checking file preview:', error)
+    // On error, fall back to download confirmation
+    downloadConfirmFile.value = file.Name
+    downloadConfirmSize.value = formatFileSize(file.Size)
+    const remote = selectedRemote.value
+    const filePath = currentPath.value === '/' ? `/${file.Name}` : `${currentPath.value}/${file.Name}`
+    downloadConfirmPath.value = remote ? `${remote}:${filePath}` : filePath
+    showDownloadConfirm.value = true
+  }
+}
+
+function openFilePreview(path) {
+  // Open file preview in new tab
+  // We need to make a POST request to /api/files/preview and open the response in a new window
+  // Since we can't easily do this with fetch and window.open, we'll create a form and submit it
+
+  const token = getAuthToken()
+  const url = '/api/files/preview'
+
+  // Create a form
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = url
+  form.target = '_blank'  // Open in new tab
+
+  // Add path field
+  const pathInput = document.createElement('input')
+  pathInput.type = 'hidden'
+  pathInput.name = 'path'
+  pathInput.value = path
+  form.appendChild(pathInput)
+
+  // Add token field (for authentication)
+  const tokenInput = document.createElement('input')
+  tokenInput.type = 'hidden'
+  tokenInput.name = 'token'
+  tokenInput.value = token
+  form.appendChild(tokenInput)
+
+  // Submit form
+  document.body.appendChild(form)
+  form.submit()
+  document.body.removeChild(form)
+}
+
+async function confirmDownload() {
+  // User confirmed download - trigger the download
+  showDownloadConfirm.value = false
+
+  try {
+    const response = await apiCall('/api/files/download/prepare', 'POST', {
+      paths: [downloadConfirmPath.value],
+      remote_config: null
+    })
+
+    if (response.type === 'direct') {
+      // Direct download
+      await downloadDirect(downloadConfirmPath.value)
+    } else if (response.type === 'zip_job') {
+      // ZIP job created - notify user and watch for completion
+      alert(`Download preparation started. Job ID: ${response.job_id}\nYour download will start automatically when ready.`)
+      watchJobForDownload(response.job_id)
+    }
+  } catch (error) {
+    console.error('Download failed:', error)
+    alert(`Download failed: ${error.message}`)
+  }
+}
+
+async function downloadDirect(path) {
+  try {
+    const response = await fetch('/api/files/download/direct', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `token ${getAuthToken()}`
+      },
+      body: JSON.stringify({ path: path, remote_config: null })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    // Get filename from response headers or path
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = 'download'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/)
+      if (filenameMatch) filename = filenameMatch[1]
+    } else {
+      filename = path.split('/').pop() || 'download'
+    }
+
+    // Convert response to blob and trigger download
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (error) {
+    console.error('Direct download failed:', error)
+    throw error
+  }
+}
+
+function watchJobForDownload(jobId) {
+  // Watch for job completion via SSE or polling
+  // This is handled by the JobPanel component
+  // For now, just log it - the user will see it in the jobs panel
+  console.log(`Watching job ${jobId} for download completion`)
 }
 
 function handleMouseDown(index, event) {

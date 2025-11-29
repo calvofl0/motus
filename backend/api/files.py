@@ -418,6 +418,146 @@ def prepare_download():
         return jsonify({'error': str(e)}), 500
 
 
+@files_bp.route('/api/files/can-preview', methods=['POST'])
+@token_required
+def can_preview():
+    """
+    Check if a file can be previewed in the browser
+
+    A file can be previewed if:
+    - It resolves to local filesystem (via alias or direct)
+    - Its size is below max_uncompressed_download_size
+
+    Request JSON:
+    {
+        "path": "/path/to/file"
+    }
+
+    Response:
+    {
+        "can_preview": true/false,
+        "size": 1024  // optional, only if can_preview is true
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'path' not in data:
+            return jsonify({'error': 'Missing required field: path'}), 400
+
+        path = data['path']
+        config = current_app.motus_config
+
+        # Check if it resolves to local filesystem
+        local_path = rclone.resolve_to_local_path(path)
+
+        if local_path is None:
+            # Remote path - cannot preview
+            return jsonify({'can_preview': False})
+
+        # Check if it's a file (not directory)
+        if not os.path.isfile(local_path):
+            return jsonify({'can_preview': False})
+
+        # Check size
+        file_size = os.path.getsize(local_path)
+
+        if file_size >= config.max_uncompressed_download_size:
+            # Too large - cannot preview
+            return jsonify({'can_preview': False})
+
+        # Can preview!
+        return jsonify({
+            'can_preview': True,
+            'size': file_size
+        })
+
+    except Exception as e:
+        logging.error(f"Can preview check error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@files_bp.route('/api/files/preview', methods=['POST', 'GET'])
+def preview_file():
+    """
+    Serve a file for preview in the browser (opens in new tab)
+
+    Only works for local files below max_uncompressed_download_size.
+    Unlike download/direct, this does NOT set as_attachment, so the browser
+    will try to display it inline.
+
+    Accepts both JSON POST and form POST (for opening in new tab).
+
+    Request JSON:
+    {
+        "path": "/path/to/file"
+    }
+
+    OR form data:
+    path=... &token=...
+
+    Returns: File content for browser preview
+    """
+    try:
+        # Check authentication
+        # For form POST or GET, look for token in form/query params
+        token = None
+        if request.method == 'GET':
+            token = request.args.get('token')
+            path = request.args.get('path')
+        elif request.content_type and 'application/json' in request.content_type:
+            # JSON request - use header authentication
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('token '):
+                token = auth_header[6:]
+            data = request.get_json()
+            path = data.get('path') if data else None
+        else:
+            # Form request - token in form data
+            token = request.form.get('token')
+            path = request.form.get('path')
+
+        if not token:
+            return jsonify({'error': 'Missing authentication token'}), 401
+
+        # Verify token
+        from ..auth import verify_token
+        if not verify_token(token):
+            return jsonify({'error': 'Invalid token'}), 401
+
+        if not path:
+            return jsonify({'error': 'Missing required field: path'}), 400
+
+        config = current_app.motus_config
+
+        # Resolve to local path
+        local_path = rclone.resolve_to_local_path(path)
+
+        if local_path is None:
+            return jsonify({'error': 'File is not on local filesystem'}), 400
+
+        if not os.path.exists(local_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        if not os.path.isfile(local_path):
+            return jsonify({'error': 'Path is not a file'}), 400
+
+        # Check size
+        file_size = os.path.getsize(local_path)
+        if file_size >= config.max_uncompressed_download_size:
+            return jsonify({'error': 'File too large for preview'}), 400
+
+        # Serve file for inline display (not as attachment)
+        return send_file(
+            local_path,
+            as_attachment=False,  # This makes it open in browser instead of downloading
+            download_name=os.path.basename(local_path)
+        )
+
+    except Exception as e:
+        logging.error(f"Preview file error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @files_bp.route('/api/files/download/direct', methods=['POST'])
 @token_required
 def download_direct():
