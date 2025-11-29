@@ -9,6 +9,17 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-left .logo {
+            height: 50px;
+            width: auto;
+        }
+
         .header-left h1 {
             color: #333;
             margin-bottom: 5px;

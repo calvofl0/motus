@@ -1,8 +1,11 @@
 <template>
   <div class="header">
     <div class="header-left">
-      <h1>Motus</h1>
-      <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
+      <img src="/img/logo.png" alt="Motus Logo" class="logo" />
+      <div class="header-text">
+        <h1>Motus</h1>
+        <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
+      </div>
     </div>
     <div class="header-right">
       <button class="manage-remotes-button" @click="openManageRemotes">
