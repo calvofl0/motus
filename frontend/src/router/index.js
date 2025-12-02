@@ -17,8 +17,10 @@ const routes = [
   }
 ]
 
+const base = window.location.pathname.replace(/\/[^/]*$/, '/')
+
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(base),
   routes
 })
 

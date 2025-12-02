@@ -46,7 +46,11 @@ export function isAuthenticated() {
  * @throws {Error} If request fails
  */
 export async function apiCall(endpoint, method = 'GET', body = null) {
-    const options = {
+    if (endpoint.startsWith('/api')) {
+      endpoint = `.${endpoint}`;
+    }
+
+	const options = {
         method,
         headers: {
             'Content-Type': 'application/json',
