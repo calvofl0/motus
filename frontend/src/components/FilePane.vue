@@ -320,10 +320,6 @@ async function loadRemotes(retries = 3, delay = 100) {
 async function refresh(preserveSelection = false) {
   loading.value = true
 
-  // Save current state in case of error
-  const previousPath = currentPath.value
-  const previousRemoteValue = selectedRemote.value
-
   // Save selection if preserving
   const selectedFileNames = preserveSelection
     ? paneState.value.selectedIndexes.map(idx => files.value[idx]?.Name).filter(n => n)
@@ -360,15 +356,11 @@ async function refresh(preserveSelection = false) {
     console.error('Failed to refresh pane:', error)
     alert(`Failed to list files: ${error.message}`)
 
-    // Revert to previous working state on error
+    // Revert to previous working remote on error
     selectedRemote.value = previousRemote.value
-    currentPath.value = previousPath
 
-    // Restore previous files from store if available
-    const previousFiles = appStore[props.pane === 'left' ? 'leftPane' : 'rightPane'].files
-    if (previousFiles.length > 0) {
-      files.value = previousFiles
-    }
+    // Re-throw error so calling code (navigateInto/browsePath) can handle path rollback
+    throw error
   } finally {
     loading.value = false
   }

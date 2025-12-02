@@ -332,6 +332,7 @@ class RcloneWrapper:
             '--config', config_arg if config_arg else DEVNULL,
             'lsjson',
             '--fast-list',  # Use fast-list for better performance with cloud storage (S3, GCS, Azure, etc.)
+            '--no-mimetype',  # Don't fetch MIME types - we only need Name, Size, ModTime, IsDir
             remote_path,
         ]
 
