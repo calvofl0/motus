@@ -92,7 +92,7 @@ import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
 import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.vue'
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import { apiCall, getAuthToken } from '../services/api'
+import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 
 const appStore = useAppStore()
 const fileOps = useFileOperations()
@@ -263,7 +263,7 @@ async function handleDownload(pane) {
 
 async function downloadDirect(path) {
   try {
-    const response = await fetch('/api/files/download/direct', {
+    const response = await fetch(getApiUrl('/api/files/download/direct'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

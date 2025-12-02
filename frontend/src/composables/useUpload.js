@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useAppStore } from '../stores/app'
-import { apiCall } from '../services/api'
+import { apiCall, getApiUrl } from '../services/api'
 
 export function useUpload() {
   const appStore = useAppStore()
@@ -57,7 +57,7 @@ export function useUpload() {
    */
   async function cleanupCache(jobId) {
     try {
-      await fetch(`/api/upload/cleanup/${jobId}`, {
+      await fetch(getApiUrl(`/api/upload/cleanup/${jobId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `token ${appStore.authToken}`

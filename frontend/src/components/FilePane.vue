@@ -165,7 +165,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useAppStore } from '../stores/app'
-import { apiCall, getAuthToken } from '../services/api'
+import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 import { useUpload } from '../composables/useUpload'
 import { formatFileSize } from '../services/helpers'
 import DownloadConfirmModal from './modals/DownloadConfirmModal.vue'
@@ -592,7 +592,7 @@ async function confirmDownload() {
 
 async function downloadDirect(path) {
   try {
-    const response = await fetch('/api/files/download/direct', {
+    const response = await fetch(getApiUrl('/api/files/download/direct'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -168,7 +168,7 @@
 <script setup>
 import { ref, onUnmounted } from 'vue'
 import { useAppStore } from '../stores/app'
-import { apiCall, setAuthToken } from '../services/api'
+import { apiCall, setAuthToken, getApiUrl } from '../services/api'
 import { formatFileSize } from '../services/helpers'
 
 const appStore = useAppStore()
@@ -368,7 +368,7 @@ async function downloadFile() {
  */
 async function downloadDirect(path) {
   try {
-    const response = await fetch('/api/files/download/direct', {
+    const response = await fetch(getApiUrl('/api/files/download/direct'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

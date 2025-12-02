@@ -38,6 +38,19 @@ export function isAuthenticated() {
 }
 
 /**
+ * Get the correct API URL for the current environment
+ * Handles reverse proxy paths by making API URLs relative
+ * @param {string} path - API path (e.g., '/api/files/ls')
+ * @returns {string} Correct URL for fetch
+ */
+export function getApiUrl(path) {
+    if (path.startsWith('/api')) {
+        return `.${path}`;
+    }
+    return path;
+}
+
+/**
  * Make an authenticated API call
  * @param {string} endpoint - API endpoint path
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
@@ -47,10 +60,10 @@ export function isAuthenticated() {
  */
 export async function apiCall(endpoint, method = 'GET', body = null) {
     if (endpoint.startsWith('/api')) {
-      endpoint = `.${endpoint}`;
+        endpoint = `.${endpoint}`;
     }
 
-	const options = {
+    const options = {
         method,
         headers: {
             'Content-Type': 'application/json',

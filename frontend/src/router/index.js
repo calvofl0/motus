@@ -17,7 +17,13 @@ const routes = [
   }
 ]
 
-const base = window.location.pathname.replace(/\/[^/]*$/, '/')
+// Remove known route paths, handle missing trailing slash
+let base = window.location.pathname.replace(/\/(expert)?\/?$/, '')
+// Ensure we have at least '/' and add trailing slash
+base = base || '/'
+if (base !== '/' && !base.endsWith('/')) {
+  base += '/'
+}
 
 const router = createRouter({
   history: createWebHistory(base),
