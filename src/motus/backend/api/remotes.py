@@ -50,15 +50,17 @@ def init_remote_management(config_file: str, template_file: str = None, rclone_p
         if template_file:
             logging.warning(f"Remote templates file not found: {template_file}")
 
-    # Initialize OAuth manager (use merged config from RcloneConfig)
+    # Initialize OAuth manager and Custom Remote manager
+    # IMPORTANT: Use user_config_file (not merged config) because rclone writes directly to the config
+    # After rclone writes (OAuth token, new remote), the merged config is regenerated
     if rclone_path:
-        # Use the merged config file (or user config if no readonly remotes)
-        effective_config_file = rclone_config.config_file
-        oauth_manager = OAuthRefreshManager(rclone_path, effective_config_file)
+        # Use user config file for write operations (OAuth refresh, remote creation)
+        user_config_file = rclone_config.user_config_file
+        oauth_manager = OAuthRefreshManager(rclone_path, user_config_file)
         logging.info("OAuth refresh manager initialized")
 
-        # Initialize custom remote creation manager (use merged config)
-        custom_remote_manager = CustomRemoteCreationManager(rclone_path, effective_config_file)
+        # Initialize custom remote creation manager (also uses user config for writes)
+        custom_remote_manager = CustomRemoteCreationManager(rclone_path, user_config_file)
         logging.info("Custom remote creation manager initialized")
 
 
@@ -475,6 +477,11 @@ def submit_oauth_token(remote_name):
         # Continue OAuth refresh with token
         result = oauth_manager.continue_oauth_refresh(remote_name, token)
 
+        # If OAuth refresh completed successfully, regenerate merged config
+        if result.get('status') == 'complete':
+            rclone_config._regenerate_merged_config()
+            logging.info(f"Regenerated merged config after OAuth refresh for '{remote_name}'")
+
         return jsonify(result)
 
     except Exception as e:
@@ -553,6 +560,11 @@ def start_custom_remote():
         # Start creation
         result = custom_remote_manager.start_creation(remote_name, remote_type)
 
+        # If creation completed immediately, regenerate merged config
+        if result.get('status') == 'complete':
+            rclone_config._regenerate_merged_config()
+            logging.info(f"Regenerated merged config after creating remote '{remote_name}'")
+
         return jsonify(result)
 
     except Exception as e:
@@ -593,6 +605,11 @@ def continue_custom_remote():
 
         # Continue creation
         result = custom_remote_manager.continue_creation(session_id, answer)
+
+        # If creation completed, regenerate merged config
+        if result.get('status') == 'complete':
+            rclone_config._regenerate_merged_config()
+            logging.info(f"Regenerated merged config after creating remote '{session_id}'")
 
         return jsonify(result)
 
