@@ -483,12 +483,21 @@ def create_app(config: Config = None):
     logging.info(f"Initializing database at {config.database_path}")
     db = Database(config.database_path)
 
-    # Initialize rclone wrapper
+    # Initialize rclone wrapper with two-tier config support
     try:
         logging.info("Initializing rclone wrapper...")
         # Store temporary job logs in cache directory (cleaned up after storing in DB)
         logs_dir = config.log_cache_dir
-        rclone = RcloneWrapper(config.rclone_path, config.rclone_config_file, logs_dir)
+
+        # Initialize with readonly config support (from --add-remotes)
+        rclone = RcloneWrapper(
+            config.rclone_path,
+            config.rclone_config_file,
+            logs_dir,
+            readonly_config_file=config.add_remotes_file if config.add_remotes_file else None,
+            cache_dir=config.cache_path
+        )
+
         # Initialize job counter from database to avoid ID conflicts
         rclone.initialize_job_counter(db)
         logging.info("rclone initialized successfully")
@@ -518,21 +527,10 @@ def create_app(config: Config = None):
     init_remote_management(rclone.rclone_config_file, config.remote_templates_file, rclone.rclone_path)
     init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
-    # Merge additional remotes if configured
-    if config.add_remotes_file:
-        try:
-            logging.info(f"Merging remotes from {config.add_remotes_file}")
-            added_count = rclone.rclone_config.merge_remotes_from_file(config.add_remotes_file)
-            if added_count > 0:
-                logging.info(f"Successfully added {added_count} remote(s) from {config.add_remotes_file}")
-            else:
-                logging.info(f"All remotes from {config.add_remotes_file} already exist")
-        except FileNotFoundError as e:
-            logging.error(f"Failed to merge remotes: {e}")
-        except Exception as e:
-            logging.error(f"Error merging remotes from {config.add_remotes_file}: {e}")
+    # Note: add_remotes_file is now handled automatically by RcloneConfig's two-tier system
+    # Readonly remotes are merged into a temporary config at initialization
 
-    # Validate local filesystem alias (must be done after add_remotes merge)
+    # Validate local filesystem alias
     if config.local_filesystem_alias:
         try:
             logging.info(f"Validating local_filesystem_alias '{config.local_filesystem_alias}'")

@@ -87,6 +87,7 @@ def list_remotes():
                 'type': config.get('type', 'unknown'),
                 'config': config,
                 'is_oauth': is_oauth_remote(config),
+                'is_readonly': rclone_config.is_readonly_remote(name),
             })
 
         return jsonify({
@@ -125,6 +126,10 @@ def delete_remote(remote_name):
             'name': remote_name,
         })
 
+    except ValueError as e:
+        # Raised when trying to delete a readonly remote
+        logging.warning(f"Delete remote blocked: {e}")
+        return jsonify({'error': str(e)}), 403
     except Exception as e:
         logging.error(f"Delete remote error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -273,6 +278,10 @@ def update_remote_raw(remote_name):
             'new_name': new_name,
         })
 
+    except ValueError as e:
+        # Raised when trying to update a readonly remote
+        logging.warning(f"Update remote blocked: {e}")
+        return jsonify({'error': str(e)}), 403
     except Exception as e:
         logging.error(f"Update remote raw error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -402,6 +411,13 @@ def refresh_oauth_token(remote_name):
 
         if not config:
             return jsonify({'error': f'Remote not found: {remote_name}'}), 404
+
+        # Check if this is a readonly remote
+        if rclone_config.is_readonly_remote(remote_name):
+            return jsonify({
+                'error': f'Cannot refresh OAuth token for readonly remote: {remote_name}. '
+                         'This remote is from a readonly configuration file (--add-remotes).'
+            }), 403
 
         if not is_oauth_remote(config):
             return jsonify({'error': f'Remote {remote_name} is not OAuth-based (no token found)'}), 400

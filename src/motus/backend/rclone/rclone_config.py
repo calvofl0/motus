@@ -27,32 +27,133 @@ def markdown_links_to_html(text: str) -> str:
 class RcloneConfig:
     """
     Handle reading and writing rclone configuration files
+
+    Supports a two-tier configuration system:
+    - User config: Primary writable config (user's master config)
+    - Readonly config: Secondary read-only config (from --add-remotes)
+    - Merged config: Runtime-only merged config (used by rclone operations)
     """
 
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: str, readonly_config_file: str = None, cache_dir: str = None):
         """
         Initialize with path to rclone config file
 
         Args:
-            config_file: Path to rclone.conf file
+            config_file: Path to user's rclone.conf file (master config)
+            readonly_config_file: Optional path to readonly remotes config file
+            cache_dir: Optional cache directory for merged config file
         """
-        self.config_file = config_file
+        self.user_config_file = config_file  # Master writable config
+        self.readonly_config_file = readonly_config_file  # Readonly config source
+        self.readonly_remotes: set = set()  # Names of readonly remotes
+
+        # Determine which config file to use for operations
+        if readonly_config_file and cache_dir:
+            # Use merged config for rclone operations
+            self.merged_config_file = os.path.join(cache_dir, 'rclone_merged.conf')
+            self.config_file = self.merged_config_file  # Use merged for operations
+        else:
+            # No readonly config, use user config directly
+            self.merged_config_file = None
+            self.config_file = config_file
+
         self.parser = ConfigParser()
 
-        # Create config file if it doesn't exist
+        # Create user config file if it doesn't exist
         if not os.path.exists(config_file):
             os.makedirs(os.path.dirname(config_file), exist_ok=True)
             with open(config_file, 'w') as f:
                 f.write('')
 
-        # Read existing config
-        self.reload()
+        # Create merged config if needed
+        if self.merged_config_file:
+            self._create_merged_config()
+        else:
+            # Read user config directly
+            self.reload()
 
     def reload(self):
         """Reload configuration from file"""
         self.parser = ConfigParser()
         if os.path.exists(self.config_file):
             self.parser.read(self.config_file)
+
+    def _create_merged_config(self):
+        """
+        Create merged configuration file from user config + readonly config
+
+        User's remotes take precedence. Readonly remotes with duplicate names are ignored.
+        This method is called on initialization and after user config modifications.
+        """
+        import shutil
+        from configparser import ConfigParser
+
+        # Start with a copy of user's config
+        shutil.copy2(self.user_config_file, self.merged_config_file)
+        logging.info(f"Created merged config at {self.merged_config_file}")
+
+        # If no readonly config, we're done
+        if not self.readonly_config_file or not os.path.exists(self.readonly_config_file):
+            self.reload()
+            return
+
+        # Load user config to check for duplicates
+        user_parser = ConfigParser()
+        user_parser.read(self.user_config_file)
+        user_remotes = set(user_parser.sections())
+
+        # Load readonly config
+        readonly_parser = ConfigParser()
+        readonly_parser.read(self.readonly_config_file)
+
+        # Track which remotes are readonly (and not duplicates)
+        self.readonly_remotes = set()
+
+        # Append readonly remotes that don't conflict with user's remotes
+        with open(self.merged_config_file, 'a') as f:
+            for section in readonly_parser.sections():
+                if section in user_remotes:
+                    # Conflict: user's remote wins, don't add readonly version
+                    logging.warning(
+                        f"Readonly remote '{section}' conflicts with user's remote - "
+                        f"using user's version (user's remote is writable)"
+                    )
+                else:
+                    # No conflict: add readonly remote
+                    f.write(f'\n[{section}]\n')
+                    for key, value in readonly_parser.items(section):
+                        f.write(f'{key} = {value}\n')
+                    self.readonly_remotes.add(section)
+                    logging.info(f"Added readonly remote '{section}' to merged config")
+
+        # Reload merged config into parser
+        self.reload()
+        logging.info(
+            f"Merged config created: {len(user_remotes)} user remotes, "
+            f"{len(self.readonly_remotes)} readonly remotes"
+        )
+
+    def is_readonly_remote(self, name: str) -> bool:
+        """
+        Check if a remote is from the readonly configuration
+
+        Args:
+            name: Remote name
+
+        Returns:
+            True if remote is readonly, False otherwise
+        """
+        return name in self.readonly_remotes
+
+    def _regenerate_merged_config(self):
+        """
+        Regenerate merged config after user config has been modified
+
+        This ensures the merged config stays in sync with user's changes.
+        """
+        if self.merged_config_file:
+            logging.info("Regenerating merged config after user config modification")
+            self._create_merged_config()
 
     def list_remotes(self) -> List[str]:
         """
@@ -160,8 +261,18 @@ class RcloneConfig:
         Returns:
             Tuple of (success: bool, new_name: Optional[str])
             new_name will be the new remote name if it was renamed, or None if there was an error
+
+        Raises:
+            ValueError: If trying to update a readonly remote
         """
-        if not os.path.exists(self.config_file):
+        # Check if this is a readonly remote
+        if self.is_readonly_remote(old_name):
+            raise ValueError(f"Cannot update readonly remote: {old_name}")
+
+        # Determine which config file to work with
+        target_file = self.user_config_file if self.merged_config_file else self.config_file
+
+        if not os.path.exists(target_file):
             return False, None
 
         # Parse the new config to extract the new name
@@ -178,7 +289,7 @@ class RcloneConfig:
             return False, None
 
         # Read the entire file
-        with open(self.config_file, 'r') as f:
+        with open(target_file, 'r') as f:
             lines = f.readlines()
 
         # Find and replace the section
@@ -242,9 +353,12 @@ class RcloneConfig:
         # Reconstruct the file
         result_lines = lines[:comment_start] + new_lines + lines[section_end:]
 
-        # Write back
-        with open(self.config_file, 'w') as f:
+        # Write back to user config
+        with open(target_file, 'w') as f:
             f.writelines(result_lines)
+
+        # Regenerate merged config if needed
+        self._regenerate_merged_config()
 
         # Reload parser
         self.reload()
@@ -275,21 +389,27 @@ class RcloneConfig:
             logging.error("No [remote_name] section found in raw config")
             return False, None
 
+        # Determine which config file to work with
+        target_file = self.user_config_file if self.merged_config_file else self.config_file
+
         # Check if remote already exists
-        if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as f:
+        if os.path.exists(target_file):
+            with open(target_file, 'r') as f:
                 content = f.read()
             if f'[{remote_name}]' in content:
                 logging.error(f"Remote {remote_name} already exists")
                 return False, None
 
-        # Append the new remote to the config file
-        with open(self.config_file, 'a') as f:
+        # Append the new remote to the user config file
+        with open(target_file, 'a') as f:
             # Ensure there's a blank line before the new remote
             f.write('\n')
             f.write(raw_config_text)
             if not raw_config_text.endswith('\n'):
                 f.write('\n')
+
+        # Regenerate merged config if needed
+        self._regenerate_merged_config()
 
         self.reload()
         logging.info(f"Added new remote {remote_name} from raw config")
@@ -302,7 +422,14 @@ class RcloneConfig:
         Args:
             name: Remote name
             config: Dictionary of configuration options
+
+        Raises:
+            ValueError: If trying to add/update a readonly remote
         """
+        # Check if this is a readonly remote
+        if self.is_readonly_remote(name):
+            raise ValueError(f"Cannot modify readonly remote: {name}")
+
         # Remove remote if it exists
         if self.parser.has_section(name):
             self.parser.remove_section(name)
@@ -324,7 +451,14 @@ class RcloneConfig:
 
         Returns:
             True if remote was deleted, False if it didn't exist
+
+        Raises:
+            ValueError: If trying to delete a readonly remote
         """
+        # Check if this is a readonly remote
+        if self.is_readonly_remote(name):
+            raise ValueError(f"Cannot delete readonly remote: {name}")
+
         if not self.parser.has_section(name):
             return False
 
@@ -333,10 +467,26 @@ class RcloneConfig:
         return True
 
     def save(self):
-        """Save configuration to file"""
-        with open(self.config_file, 'w') as f:
+        """
+        Save configuration to file
+
+        When using merged config, this saves to the user's config file
+        and then regenerates the merged config.
+        """
+        # Determine which file to save to
+        if self.merged_config_file:
+            # Save to user's config, then regenerate merged
+            target_file = self.user_config_file
+        else:
+            # Save to the main config file
+            target_file = self.config_file
+
+        with open(target_file, 'w') as f:
             self.parser.write(f)
-        logging.info(f"Saved rclone config to {self.config_file}")
+        logging.info(f"Saved rclone config to {target_file}")
+
+        # Regenerate merged config if we're using one
+        self._regenerate_merged_config()
 
     def merge_remotes_from_file(self, source_config_file: str) -> int:
         """

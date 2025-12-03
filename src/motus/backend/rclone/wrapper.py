@@ -39,7 +39,8 @@ class RcloneWrapper:
     Supports local filesystem and cloud backends (S3, SFTP, etc.)
     """
 
-    def __init__(self, rclone_path: str = None, rclone_config_file: str = None, logs_dir: str = None):
+    def __init__(self, rclone_path: str = None, rclone_config_file: str = None, logs_dir: str = None,
+                 readonly_config_file: str = None, cache_dir: str = None):
         """
         Initialize rclone wrapper
 
@@ -47,10 +48,14 @@ class RcloneWrapper:
             rclone_path: Path to rclone executable (default: searches PATH)
             rclone_config_file: Path to rclone config file (default: rclone default)
             logs_dir: Directory to store job log files (default: None, logging disabled)
+            readonly_config_file: Path to readonly remotes config file (from --add-remotes)
+            cache_dir: Cache directory for merged config file
         """
         self.rclone_path = rclone_path or self._find_rclone()
         self.rclone_config_file = rclone_config_file
         self.logs_dir = logs_dir
+        self.readonly_config_file = readonly_config_file
+        self.cache_dir = cache_dir
         self._job_queue = JobQueue()
         self._next_job_id = 1
         self._job_id_lock = __import__('threading').Lock()  # Thread-safe job ID generation
@@ -70,8 +75,12 @@ class RcloneWrapper:
 
         logging.info(f"Using rclone config: {self.rclone_config_file}")
 
-        # Initialize RcloneConfig for alias resolution
-        self.rclone_config = RcloneConfig(self.rclone_config_file)
+        # Initialize RcloneConfig with two-tier support
+        self.rclone_config = RcloneConfig(
+            self.rclone_config_file,
+            readonly_config_file=self.readonly_config_file,
+            cache_dir=self.cache_dir
+        )
 
     def initialize_job_counter(self, db):
         """
