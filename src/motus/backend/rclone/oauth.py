@@ -192,8 +192,10 @@ class OAuthRefreshManager:
                 remote_name, remote_type, state_machine, next_response
             )
 
-        elif current_state == '*oauth-authorize,choose_type,,':
+        elif current_state.startswith('*oauth-authorize,'):
             # Extract the authorize command from the help text
+            # This matches any oauth-authorize state regardless of the second field
+            # (choose_type, teamdrive, or other remote-specific values)
             help_text = option.get('Help', '')
             authorize_command = None
 
