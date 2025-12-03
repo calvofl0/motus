@@ -172,9 +172,11 @@ class OAuthRefreshManager:
         option = response.get('Option', {})
 
         # Handle special states
-        if current_state == '*oauth-islocal,choose_type,,':
+        if current_state.startswith('*oauth-islocal,'):
             # Answer "false" (not local) and continue automatically
-            logging.info("Answering oauth-islocal=false (remote machine)")
+            # This matches any oauth-islocal state regardless of the second field
+            # (choose_type, teamdrive, or other remote-specific values)
+            logging.info(f"Answering oauth-islocal=false for state: {current_state}")
             success, next_response, error = state_machine.continue_flow(
                 remote_name, current_state, 'false'
             )
