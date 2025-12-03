@@ -13,9 +13,9 @@ class CustomBuildHook(BuildHookInterface):
     """Build Vue frontend before packaging"""
 
     def initialize(self, version, build_data):
-        """Run npm build to generate frontend-dist"""
+        """Run npm build to generate static frontend files"""
         frontend = Path(self.root) / 'frontend'
-        frontend_dist = Path(self.root) / 'frontend-dist'
+        frontend_dist = Path(self.root) / 'src' / 'motus' / 'static'
 
         # Check if Node.js and npm are available
         try:
@@ -63,11 +63,11 @@ class CustomBuildHook(BuildHookInterface):
             )
             sys.exit(1)
 
-        # Check if frontend-dist already exists and is up to date
+        # Check if static directory already exists and is up to date
         if frontend_dist.exists():
-            # If frontend-dist exists, we assume it's already built
+            # If static directory exists, we assume it's already built
             # This allows pre-building for distribution
-            print("frontend-dist/ already exists, skipping build")
+            print("src/motus/static/ already exists, skipping build")
             return
 
         # Install npm dependencies if needed
@@ -91,7 +91,7 @@ class CustomBuildHook(BuildHookInterface):
         # Verify build output
         if not frontend_dist.exists():
             print(
-                "ERROR: Vue build failed - frontend-dist/ not created",
+                "ERROR: Vue build failed - src/motus/static/ not created",
                 file=sys.stderr
             )
             sys.exit(1)

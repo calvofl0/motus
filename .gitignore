@@ -47,9 +47,10 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 
-# Webpack build output
+# Frontend build output
 frontend/dist/
 frontend/build/
+src/motus/static/
 
 # Temporary files
 /tmp/

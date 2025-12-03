@@ -25,7 +25,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../frontend-dist',
+    outDir: '../src/motus/static',
     emptyOutDir: true,
   },
   base: './',

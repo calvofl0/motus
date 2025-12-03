@@ -21,11 +21,11 @@ except ImportError:
     print("Warning: psutil not installed. Multi-instance detection disabled.")
     print("Install with: pip install psutil")
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add src to path for development (when not installed)
+sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from backend.config import Config, parse_size
-from backend.app import create_app
+from motus.backend.config import Config, parse_size
+from motus.backend.app import create_app
 
 
 def is_port_in_use(host: str, port: int) -> bool:

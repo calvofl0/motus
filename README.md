@@ -483,7 +483,7 @@ The Vue.js frontend is automatically built during `pip install`. To rebuild manu
 ```bash
 cd frontend
 npm install      # Install dependencies (if not done)
-npm run build    # Build for production (outputs to ../frontend-dist/)
+npm run build    # Build for production (outputs to ../src/motus/static/)
 ```
 
 For development with hot-reload:
@@ -532,9 +532,9 @@ To distribute Motus without requiring npm at installation time, you can create a
    pip install dist/motus-X.Y.Z.tar.gz
    ```
 
-The `pyproject.toml` configuration ensures that `frontend-dist/` (the built frontend) is included in the package, so end users don't need Node.js or npm installed.
+The `pyproject.toml` configuration ensures that `src/motus/static/` (the built frontend) is included in the package, so end users don't need Node.js or npm installed.
 
-**Note**: If distributing the source tarball, the build hook in `build_frontend.py` will still attempt to build the frontend if `frontend-dist/` doesn't exist. To avoid this, always include the pre-built frontend in your distribution.
+**Note**: If distributing the source tarball, the build hook in `build_frontend.py` will still attempt to build the frontend if `src/motus/static/` doesn't exist. To avoid this, always include the pre-built frontend in your distribution.
 
 ## API Documentation
 
@@ -656,21 +656,26 @@ For complete API documentation, see the backend source code in `backend/api/`.
 
 ```
 motus/
-├── backend/
-│   ├── api/
-│   │   ├── files.py          # File operations endpoints
-│   │   ├── jobs.py           # Job management endpoints
-│   │   ├── remotes.py        # Remote management endpoints
-│   │   └── stream.py         # SSE progress streaming
-│   ├── rclone/
-│   │   ├── wrapper.py        # rclone command wrapper
-│   │   ├── job_queue.py      # Background job queue
-│   │   └── exceptions.py     # Custom exceptions
-│   ├── app.py                # Flask application
-│   ├── config.py             # Configuration management
-│   ├── auth.py               # Token authentication
-│   └── models.py             # SQLite database models
-├── frontend/             # Vue.js source code
+├── src/
+│   └── motus/                # Main Python package
+│       ├── __init__.py
+│       ├── cli.py            # CLI entry point
+│       ├── backend/          # Backend package
+│       │   ├── api/
+│       │   │   ├── files.py      # File operations endpoints
+│       │   │   ├── jobs.py       # Job management endpoints
+│       │   │   ├── remotes.py    # Remote management endpoints
+│       │   │   └── stream.py     # SSE progress streaming
+│       │   ├── rclone/
+│       │   │   ├── wrapper.py    # rclone command wrapper
+│       │   │   ├── job_queue.py  # Background job queue
+│       │   │   └── exceptions.py # Custom exceptions
+│       │   ├── app.py            # Flask application
+│       │   ├── config.py         # Configuration management
+│       │   ├── auth.py           # Token authentication
+│       │   └── models.py         # SQLite database models
+│       └── static/           # Built Vue.js app (generated)
+├── frontend/                 # Vue.js source code
 │   ├── src/
 │   │   ├── components/       # Vue components
 │   │   ├── views/            # Main views (Easy/Expert modes)
@@ -678,10 +683,6 @@ motus/
 │   │   └── App.vue           # Root component
 │   ├── package.json          # npm dependencies
 │   └── vite.config.js        # Vite configuration
-├── frontend-dist/            # Built Vue.js app (generated)
-├── motus/                    # CLI entry point
-│   ├── __init__.py
-│   └── cli.py                # CLI wrapper
 ├── run.py                    # Production startup script
 ├── dev-vue.py                # Development helper
 ├── build_frontend.py         # Build hook for pip install
@@ -694,7 +695,7 @@ motus/
 
 1. **Backend changes**:
    ```bash
-   # Edit files in backend/
+   # Edit files in src/motus/backend/
    # Restart run.py or dev-vue.py to see changes
    python run.py --log-level DEBUG
    ```

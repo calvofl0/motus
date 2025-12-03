@@ -464,7 +464,7 @@ def create_app(config: Config = None):
 
     app = Flask(
         __name__,
-        static_folder='../frontend-dist',
+        static_folder='../static',
         static_url_path='',
     )
 
