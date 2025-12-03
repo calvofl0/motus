@@ -159,9 +159,9 @@ class RcloneWrapper:
         try:
             command = [self.rclone_path, 'listremotes']
 
-            # Use custom config file if specified
-            if self.rclone_config_file:
-                command.extend(['--config', self.rclone_config_file])
+            # Use custom config file if specified (use merged config from RcloneConfig)
+            if self.rclone_config.config_file:
+                command.extend(['--config', self.rclone_config.config_file])
 
             result = subprocess.run(
                 command,
@@ -319,7 +319,7 @@ class RcloneWrapper:
             List of file/directory dicts with 'Name', 'Size', 'IsDir', etc.
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Check if path uses remote syntax (remote_name:/path)
         remote_name, clean_path = self._parse_path(path)
@@ -366,7 +366,7 @@ class RcloneWrapper:
             remote_config: Optional remote configuration dict (legacy support)
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Check if path uses remote syntax
         remote_name, clean_path = self._parse_path(path)
@@ -475,7 +475,7 @@ class RcloneWrapper:
             remote_config: Optional remote configuration dict (legacy support)
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Check if path uses remote syntax
         remote_name, clean_path = self._parse_path(path)
@@ -529,7 +529,7 @@ class RcloneWrapper:
             job_id for tracking progress
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Thread-safe job ID generation
         with self._job_id_lock:
@@ -636,7 +636,7 @@ class RcloneWrapper:
             dict: {'bytes': <size_in_bytes>, 'count': <file_count>}
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Parse path to detect remote
         remote_name, clean_path = self._parse_path(path)
@@ -689,7 +689,7 @@ class RcloneWrapper:
         import tempfile
 
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Parse path
         remote_name, clean_path = self._parse_path(path)
@@ -1276,7 +1276,7 @@ class RcloneWrapper:
         import shutil
 
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Parse path
         remote_name, clean_path = self._parse_path(path)
@@ -1423,7 +1423,7 @@ class RcloneWrapper:
             - Legacy with config: ('/file', '/dst/', src_config, dst_config)
         """
         credentials = {}
-        config_arg = self.rclone_config_file
+        config_arg = self.rclone_config.config_file
 
         # Thread-safe job ID generation
         with self._job_id_lock:

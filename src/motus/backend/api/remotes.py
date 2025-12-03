@@ -21,18 +21,26 @@ oauth_manager = None
 custom_remote_manager = None
 
 
-def init_remote_management(config_file: str, template_file: str = None, rclone_path: str = None):
+def init_remote_management(config_file: str, template_file: str = None, rclone_path: str = None,
+                          readonly_config_file: str = None, cache_dir: str = None):
     """
-    Initialize remote management
+    Initialize remote management with two-tier config support
 
     Args:
-        config_file: Path to rclone config file
+        config_file: Path to rclone config file (user's master config or merged config)
         template_file: Optional path to remote templates file
         rclone_path: Path to rclone executable (for OAuth operations)
+        readonly_config_file: Optional path to readonly remotes config (from --add-remotes)
+        cache_dir: Cache directory for merged config file
     """
     global rclone_config, remote_template, oauth_manager, custom_remote_manager
 
-    rclone_config = RcloneConfig(config_file)
+    # Initialize RcloneConfig with two-tier support
+    rclone_config = RcloneConfig(
+        config_file,
+        readonly_config_file=readonly_config_file,
+        cache_dir=cache_dir
+    )
 
     if template_file and os.path.exists(template_file):
         remote_template = RemoteTemplate(template_file)
@@ -42,13 +50,15 @@ def init_remote_management(config_file: str, template_file: str = None, rclone_p
         if template_file:
             logging.warning(f"Remote templates file not found: {template_file}")
 
-    # Initialize OAuth manager
+    # Initialize OAuth manager (use merged config from RcloneConfig)
     if rclone_path:
-        oauth_manager = OAuthRefreshManager(rclone_path, config_file)
+        # Use the merged config file (or user config if no readonly remotes)
+        effective_config_file = rclone_config.config_file
+        oauth_manager = OAuthRefreshManager(rclone_path, effective_config_file)
         logging.info("OAuth refresh manager initialized")
 
-        # Initialize custom remote creation manager
-        custom_remote_manager = CustomRemoteCreationManager(rclone_path, config_file)
+        # Initialize custom remote creation manager (use merged config)
+        custom_remote_manager = CustomRemoteCreationManager(rclone_path, effective_config_file)
         logging.info("Custom remote creation manager initialized")
 
 

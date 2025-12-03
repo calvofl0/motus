@@ -523,8 +523,14 @@ def create_app(config: Config = None):
     init_files_rclone(rclone)
     init_jobs(rclone, db)
     init_stream(rclone, db)
-    # Use rclone's discovered config file path (not the config's, which may be None)
-    init_remote_management(rclone.rclone_config_file, config.remote_templates_file, rclone.rclone_path)
+    # Use rclone's user config file and readonly config for two-tier system
+    init_remote_management(
+        rclone.rclone_config.user_config_file,  # User's master config
+        config.remote_templates_file,
+        rclone.rclone_path,
+        readonly_config_file=config.add_remotes_file if config.add_remotes_file else None,
+        cache_dir=config.cache_path
+    )
     init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
     # Note: add_remotes_file is now handled automatically by RcloneConfig's two-tier system
