@@ -40,47 +40,47 @@
                 <button
                   v-if="remote.is_oauth"
                   @click.stop="refreshOAuth(remote.name)"
-                  :disabled="isActiveRemote(remote.name)"
+                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
                   :style="{
                     background: 'none',
                     border: 'none',
                     fontSize: '18px',
-                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
-                    color: isActiveRemote(remote.name) ? '#ccc' : '#28a745',
+                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
+                    color: (isActiveRemote(remote.name) || remote.is_readonly) ? '#ccc' : '#28a745',
                     padding: '4px 8px',
                     marginRight: '4px'
                   }"
-                  :title="isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token'"
+                  :title="remote.is_readonly ? 'Cannot refresh OAuth for read-only remote' : (isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token')"
                 >↻</button>
                 <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
 
                 <button
                   @click.stop="editRemoteConfig(remote.name)"
-                  :disabled="isActiveRemote(remote.name)"
+                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
                   :style="{
                     background: 'none',
                     border: 'none',
                     fontSize: '14px',
-                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
+                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
                     padding: '4px 8px',
                     marginRight: '4px',
-                    filter: isActiveRemote(remote.name) ? 'grayscale(100%) opacity(0.4)' : 'none'
+                    filter: (isActiveRemote(remote.name) || remote.is_readonly) ? 'grayscale(100%) opacity(0.4)' : 'none'
                   }"
-                  :title="isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote'"
+                  :title="remote.is_readonly ? 'Cannot edit read-only remote' : (isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote')"
                 >✏️</button>
 
                 <button
                   @click.stop="deleteRemote(remote.name)"
-                  :disabled="isActiveRemote(remote.name)"
+                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
                   :style="{
                     background: 'none',
                     border: 'none',
                     fontSize: '14px',
-                    cursor: isActiveRemote(remote.name) ? 'not-allowed' : 'pointer',
+                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
                     padding: '4px 8px',
-                    filter: isActiveRemote(remote.name) ? 'grayscale(100%) opacity(0.4)' : 'none'
+                    filter: (isActiveRemote(remote.name) || remote.is_readonly) ? 'grayscale(100%) opacity(0.4)' : 'none'
                   }"
-                  :title="isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote'"
+                  :title="remote.is_readonly ? 'Cannot delete read-only remote' : (isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote')"
                 >🗑️</button>
               </td>
             </tr>
@@ -1029,6 +1029,13 @@ onUnmounted(() => {
 
 // Edit remote config
 async function editRemoteConfig(name) {
+  // Check if readonly
+  const remote = remotes.value.find(r => r.name === name)
+  if (remote?.is_readonly) {
+    alert(`Cannot edit read-only remote "${name}". This remote is from a read-only configuration file.`)
+    return
+  }
+
   if (isActiveRemote(name)) {
     alert(`Cannot edit remote "${name}" while it is in use. Please select a different remote first.`)
     return
@@ -1071,6 +1078,13 @@ async function saveRemoteConfig() {
 
 // Delete remote
 async function deleteRemote(name) {
+  // Check if readonly
+  const remote = remotes.value.find(r => r.name === name)
+  if (remote?.is_readonly) {
+    alert(`Cannot delete read-only remote "${name}". This remote is from a read-only configuration file.`)
+    return
+  }
+
   if (isActiveRemote(name)) {
     alert(`Cannot delete remote "${name}" while it is in use. Please select a different remote first.`)
     return
@@ -1123,6 +1137,13 @@ function showOAuthHelp() {
 
 // Refresh OAuth
 function refreshOAuth(name) {
+  // Check if readonly
+  const remote = remotes.value.find(r => r.name === name)
+  if (remote?.is_readonly) {
+    alert(`Cannot refresh OAuth for read-only remote "${name}". This remote is from a read-only configuration file.`)
+    return
+  }
+
   oauthRemoteName.value = name
   showOAuthModal.value = true
 }
