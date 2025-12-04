@@ -265,8 +265,18 @@ function watchJobForCheck(jobId, sourcePath, destPath) {
       pollInterval = null
     }
 
+    // Refetch job details to ensure we have the complete log text
+    // The job event might arrive before the database is fully updated
+    try {
+      const fullJobDetails = await apiCall(`/api/jobs/${job.job_id}`)
+      jobLogData.value = fullJobDetails
+    } catch (error) {
+      console.error('Failed to fetch full job details:', error)
+      // Fallback to the job object from the event
+      jobLogData.value = job
+    }
+
     // Auto-open job log modal
-    jobLogData.value = job
     showJobLogModal.value = true
 
     window.removeEventListener('job-completed', handleJobComplete)
