@@ -489,12 +489,12 @@ def create_app(config: Config = None):
         # Store temporary job logs in cache directory (cleaned up after storing in DB)
         logs_dir = config.log_cache_dir
 
-        # Initialize with readonly config support (from --add-remotes)
+        # Initialize with readonly config support (from --extra-remotes)
         rclone = RcloneWrapper(
             config.rclone_path,
             config.rclone_config_file,
             logs_dir,
-            readonly_config_file=config.add_remotes_file if config.add_remotes_file else None,
+            readonly_config_file=config.extra_remotes_file if config.extra_remotes_file else None,
             cache_dir=config.cache_path
         )
 
@@ -528,12 +528,12 @@ def create_app(config: Config = None):
         rclone.rclone_config.user_config_file,  # User's master config
         config.remote_templates_file,
         rclone.rclone_path,
-        readonly_config_file=config.add_remotes_file if config.add_remotes_file else None,
+        readonly_config_file=config.extra_remotes_file if config.extra_remotes_file else None,
         cache_dir=config.cache_path
     )
     init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
-    # Note: add_remotes_file is now handled automatically by RcloneConfig's two-tier system
+    # Note: extra_remotes_file is now handled automatically by RcloneConfig's two-tier system
     # Readonly remotes are merged into a temporary config at initialization
 
     # Validate local filesystem alias

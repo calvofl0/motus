@@ -30,7 +30,7 @@ class RcloneConfig:
 
     Supports a two-tier configuration system:
     - User config: Primary writable config (user's master config)
-    - Readonly config: Secondary read-only config (from --add-remotes)
+    - Readonly config: Secondary read-only config (from --extra-remotes)
     - Merged config: Runtime-only merged config (used by rclone operations)
     """
 

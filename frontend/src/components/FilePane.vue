@@ -21,14 +21,29 @@
           placeholder="Path..."
         />
         <button
+          class="parent-btn"
+          @click="navigateUp"
+          @mouseover="parentHover = true"
+          @mouseout="parentHover = false"
+          :disabled="isAtRoot"
+          :title="isAtRoot ? 'Already at root directory' : 'Go to parent directory'"
+          :style="{
+            transform: (parentHover && !isAtRoot) ? 'scale(1.2)' : 'scale(1)',
+            opacity: isAtRoot ? '0.3' : '1',
+            cursor: isAtRoot ? 'not-allowed' : 'pointer'
+          }"
+        >
+          ↑
+        </button>
+        <button
           class="refresh-btn"
-          @click="refresh"
+          @click="loading ? abortRefresh() : refresh()"
           @mouseover="refreshHover = true"
           @mouseout="refreshHover = false"
-          title="Refresh"
+          :title="loading ? 'Abort loading' : 'Refresh'"
           :style="{ transform: refreshHover ? 'scale(1.2)' : 'scale(1)' }"
         >
-          ⟳
+          {{ loading ? '✕' : '⟳' }}
         </button>
       </div>
     </div>

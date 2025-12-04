@@ -48,7 +48,7 @@ class RcloneWrapper:
             rclone_path: Path to rclone executable (default: searches PATH)
             rclone_config_file: Path to rclone config file (default: rclone default)
             logs_dir: Directory to store job log files (default: None, logging disabled)
-            readonly_config_file: Path to readonly remotes config file (from --add-remotes)
+            readonly_config_file: Path to readonly remotes config file (from --extra-remotes)
             cache_dir: Cache directory for merged config file
         """
         self.rclone_path = rclone_path or self._find_rclone()

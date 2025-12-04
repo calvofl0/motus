@@ -183,9 +183,9 @@ class Config:
 
         # Additional remotes config file to merge at startup
         # Remotes from this file will be added to rclone config (existing remotes are not overwritten)
-        self.add_remotes_file = self._get_config(
-            'add_remotes_file',
-            env_var='MOTUS_ADD_REMOTES',
+        self.extra_remotes_file = self._get_config(
+            'extra_remotes_file',
+            env_var='MOTUS_EXTRA_REMOTES',
             default=None
         )
 

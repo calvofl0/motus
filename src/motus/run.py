@@ -261,9 +261,9 @@ def main():
         help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
     )
     parser.add_argument(
-        '-r', '--add-remotes',
+        '-r', '--extra-remotes',
         type=str,
-        help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_ADD_REMOTES env var)'
+        help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_EXTRA_REMOTES env var)'
     )
     parser.add_argument(
         '-l', '--local-filesystem-alias',
@@ -340,8 +340,8 @@ def main():
         config.allow_expert_mode = True
     if args.remote_templates:
         config.remote_templates_file = args.remote_templates
-    if args.add_remotes:
-        config.add_remotes_file = args.add_remotes
+    if args.extra_remotes:
+        config.extra_remotes_file = args.extra_remotes
     if args.local_filesystem_alias:
         config.local_filesystem_alias = args.local_filesystem_alias
     if args.max_idle_time is not None:

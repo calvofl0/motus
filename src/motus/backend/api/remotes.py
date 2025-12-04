@@ -30,7 +30,7 @@ def init_remote_management(config_file: str, template_file: str = None, rclone_p
         config_file: Path to rclone config file (user's master config or merged config)
         template_file: Optional path to remote templates file
         rclone_path: Path to rclone executable (for OAuth operations)
-        readonly_config_file: Optional path to readonly remotes config (from --add-remotes)
+        readonly_config_file: Optional path to readonly remotes config (from --extra-remotes)
         cache_dir: Cache directory for merged config file
     """
     global rclone_config, remote_template, oauth_manager, custom_remote_manager
@@ -428,7 +428,7 @@ def refresh_oauth_token(remote_name):
         if rclone_config.is_readonly_remote(remote_name):
             return jsonify({
                 'error': f'Cannot refresh OAuth token for readonly remote: {remote_name}. '
-                         'This remote is from a readonly configuration file (--add-remotes).'
+                         'This remote is from a readonly configuration file (--extra-remotes).'
             }), 403
 
         if not is_oauth_remote(config):
