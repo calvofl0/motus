@@ -193,38 +193,37 @@ async function handleIntegrityCheck() {
   const srcPaneState = appStore[`${srcPane}Pane`]
   const dstPaneState = appStore[`${dstPane}Pane`]
 
-  // Build source paths (same logic as copy)
-  const selectedFiles = srcPaneState.selectedIndexes.map(idx => {
-    const file = srcPaneState.files[idx]
-    const remote = srcPaneState.remote
-    const currentPath = srcPaneState.path
+  // Get selected files
+  const selectedFiles = srcPaneState.selectedIndexes.map(idx => srcPaneState.files[idx])
 
-    let fullPath
-    if (remote) {
-      const filePath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
-      fullPath = `${remote}:${filePath}`
-    } else {
-      fullPath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+  // Build helper function
+  function buildPath(basePath, fileName) {
+    if (basePath.endsWith('/')) {
+      return basePath + fileName
     }
-    return fullPath
-  })
-
-  // Build destination path (folder, not individual files)
-  const dstRemote = dstPaneState.remote
-  const dstPath = dstPaneState.path
-  const destFull = dstRemote ? `${dstRemote}:${dstPath}` : dstPath
+    return basePath + '/' + fileName
+  }
 
   try {
-    // Start integrity check job
-    const response = await apiCall('/api/jobs/check', 'POST', {
-      src_paths: selectedFiles,
-      dst_path: destFull,
-      remote_config: null
-    })
+    // Check each file (same pattern as copy)
+    for (const file of selectedFiles) {
+      const srcPath = srcPaneState.remote
+        ? `${srcPaneState.remote}:${buildPath(srcPaneState.path, file.Name)}`
+        : buildPath(srcPaneState.path, file.Name)
 
-    if (response.job_id) {
-      // Watch for job completion
-      watchJobForCheck(response.job_id, selectedFiles.join(', '), destFull)
+      const dstPath = dstPaneState.remote
+        ? `${dstPaneState.remote}:${dstPaneState.path}/`
+        : `${dstPaneState.path}/`
+
+      const response = await apiCall('/api/jobs/check', 'POST', {
+        src_path: srcPath,
+        dst_path: dstPath
+      })
+
+      if (response.job_id) {
+        // Watch for job completion
+        watchJobForCheck(response.job_id, srcPath, dstPath)
+      }
     }
   } catch (error) {
     console.error('Failed to start integrity check:', error)

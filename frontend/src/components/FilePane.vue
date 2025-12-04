@@ -33,7 +33,7 @@
             cursor: isAtRoot ? 'not-allowed' : 'pointer'
           }"
         >
-          ↑
+          ⬆
         </button>
         <button
           class="refresh-btn"
@@ -401,6 +401,7 @@ async function refresh(preserveSelection = false) {
     // Revert to previous working remote on error
     selectedRemote.value = previousRemote.value
 
+    // Don't restore path here - let calling function handle it
     // Re-throw error so calling code (navigateInto/browsePath) can handle path rollback
     throw error
   } finally {
@@ -430,11 +431,22 @@ function onRemoteChange() {
 }
 
 async function browsePath() {
-  // Expand ~ before refreshing (only for local filesystem)
+  // Save the current successful path before attempting navigation
+  const oldPath = previousPath.value
+
+  // Expand ~ before refreshing (only for local filesystem, not aliases)
+  // Check if remote is truly local (empty string means local)
   if (selectedRemote.value === '' && currentPath.value.includes('~')) {
     await expandHomePath()
   }
-  refresh()
+
+  try {
+    await refresh()
+  } catch (error) {
+    // Restore to the last successful path on error
+    currentPath.value = oldPath
+    console.log('Browse path failed, path restored to:', oldPath)
+  }
 }
 
 async function expandHomePath() {
