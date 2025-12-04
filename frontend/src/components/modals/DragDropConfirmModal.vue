@@ -26,10 +26,10 @@
     </div>
 
     <template #footer>
-      <button class="modal-button modal-button-secondary" @click="handleClose">
+      <button class="btn btn-secondary" @click="handleClose">
         Cancel
       </button>
-      <button class="modal-button modal-button-primary" @click="handleConfirm">
+      <button class="btn btn-primary" @click="handleConfirm">
         Copy
       </button>
     </template>
@@ -85,92 +85,64 @@ export default {
 
 <style scoped>
 .confirm-text {
-  margin: 0 0 15px 0;
-  color: #555;
-  font-size: 14px;
-  font-weight: 500;
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
 }
 
 .file-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: 8px 0;
-  margin: 8px 0;
+  padding: var(--spacing-xs) 0;
+  margin: var(--spacing-xs) 0;
 }
 
 .file-item {
-  padding: 4px 8px;
+  padding: 4px var(--spacing-xs);
   font-family: monospace;
-  font-size: 13px;
-  color: #555;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
 }
 
 .path-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 0;
-  margin-top: 8px;
-  border-top: 1px solid #e9ecef;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md) 0;
+  margin-top: var(--spacing-xs);
+  border-top: 1px solid var(--color-border-lighter);
 }
 
 .path-row {
   display: flex;
-  gap: 10px;
-  font-size: 13px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
 }
 
 .path-row.source-path {
-  background: #e3f2fd;
-  border-left: 3px solid #2196f3;
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
 }
 
 .path-row.dest-path {
-  background: #e8f5e9;
-  border-left: 3px solid #4caf50;
+  background: var(--color-success-light);
+  border-left: 3px solid var(--color-success);
 }
 
 .path-label {
-  font-weight: 600;
-  color: #555;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   min-width: 50px;
 }
 
 .path-value {
   font-family: monospace;
-  color: #333;
+  color: var(--color-text-primary);
   word-break: break-all;
   flex: 1;
-}
-
-.modal-button {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.modal-button-primary {
-  background: #007bff;
-  color: white;
-}
-
-.modal-button-primary:hover {
-  background: #0056b3;
-}
-
-.modal-button-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.modal-button-secondary:hover {
-  background: #5a6268;
 }
 </style>

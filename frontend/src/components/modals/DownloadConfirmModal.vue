@@ -6,21 +6,21 @@
   >
     <template #header>📥 Download File</template>
     <template #body>
-      <div style="margin-bottom: 15px; color: #333;">
-        <div style="font-weight: 500; margin-bottom: 10px; font-size: 16px;">
+      <div class="download-content">
+        <div class="download-question">
           Do you want to download this file?
         </div>
-        <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-top: 15px;">
-          <div style="font-weight: 500; color: #555; margin-bottom: 5px;">{{ fileName }}</div>
-          <div style="font-size: 13px; color: #777;">Size: {{ fileSize }}</div>
+        <div class="file-info">
+          <div class="file-name">{{ fileName }}</div>
+          <div class="file-size">Size: {{ fileSize }}</div>
         </div>
       </div>
     </template>
     <template #footer>
-      <button @click="$emit('cancel')" style="background: #6c757d;">
+      <button @click="$emit('cancel')" class="btn btn-secondary">
         Cancel
       </button>
-      <button @click="$emit('confirm')" style="background: #28a745;">
+      <button @click="$emit('confirm')" class="btn btn-success">
         Download
       </button>
     </template>
@@ -44,3 +44,34 @@ defineProps({
 
 defineEmits(['update:modelValue', 'confirm', 'cancel'])
 </script>
+
+<style scoped>
+.download-content {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
+}
+
+.download-question {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+}
+
+.file-info {
+  background: var(--color-bg-light);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-lg);
+}
+
+.file-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: 5px;
+}
+
+.file-size {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+</style>

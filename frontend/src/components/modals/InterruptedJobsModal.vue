@@ -6,7 +6,7 @@
   >
     <template #header>⚠️ Interrupted Jobs Found</template>
     <template #body>
-      <p style="margin-bottom: 15px;">
+      <p class="message">
         Some jobs were interrupted when the server was last stopped. Would you like to resume them?
       </p>
       <div class="jobs-list">
@@ -16,8 +16,8 @@
       </div>
     </template>
     <template #footer>
-      <button @click="skip" class="btn-secondary">Skip</button>
-      <button @click="resumeAll" class="btn-primary">Resume All</button>
+      <button @click="skip" class="btn btn-secondary">Skip</button>
+      <button @click="resumeAll" class="btn btn-success">Resume All</button>
     </template>
   </BaseModal>
 </template>
@@ -61,46 +61,21 @@ async function resumeAll() {
 </script>
 
 <style scoped>
+.message {
+  margin-bottom: var(--spacing-lg);
+}
+
 .jobs-list {
   max-height: 300px;
   overflow-y: auto;
 }
 
 .job-item {
-  padding: 10px;
-  background: #f8f9fa;
-  margin: 8px 0;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #333;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
-}
-
-.btn-secondary:hover {
-  background: #5a6268;
-}
-
-.btn-primary {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.btn-primary:hover {
-  background: #218838;
+  padding: var(--spacing-sm);
+  background: var(--color-bg-light);
+  margin: var(--spacing-xs) 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
 }
 </style>

@@ -9,14 +9,14 @@
     </template>
 
     <template #body>
-      <p style="margin-bottom: 15px; color: #666;">
+      <p class="info-text">
         Create an alias remote for: <strong>{{ targetPath }}</strong>
       </p>
-      <p style="margin-bottom: 15px; color: #666;">
+      <p class="info-text">
         Resolved to: <strong>{{ resolvedPath }}</strong>
       </p>
-      <div style="margin-bottom: 15px;">
-        <label style="display: block; margin-bottom: 5px; font-weight: 500;">
+      <div class="input-group">
+        <label class="input-label">
           Alias Remote Name:
         </label>
         <input
@@ -24,7 +24,7 @@
           v-model="aliasName"
           type="text"
           placeholder="Enter alias name"
-          style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+          class="alias-input"
           @keydown.enter="submit"
           pattern="[a-zA-Z0-9_\-]+"
           title="Only letters, numbers, underscores, and hyphens allowed"
@@ -33,10 +33,10 @@
     </template>
 
     <template #footer>
-      <button @click="$emit('update:modelValue', false)" class="btn-secondary">
+      <button @click="$emit('update:modelValue', false)" class="btn btn-secondary">
         Cancel
       </button>
-      <button @click="submit" :disabled="!isValid" class="btn-primary">
+      <button @click="submit" :disabled="!isValid" class="btn btn-primary">
         Create
       </button>
     </template>
@@ -93,37 +93,31 @@ watch(() => props.modelValue, async (isOpen) => {
 </script>
 
 <style scoped>
-.btn-primary {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+.info-text {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-tertiary);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #0056b3;
+.input-group {
+  margin-bottom: var(--spacing-lg);
 }
 
-.btn-primary:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+.input-label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: var(--font-weight-medium);
 }
 
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
+.alias-input {
+  width: 100%;
+  padding: var(--spacing-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
-.btn-secondary:hover {
-  background: #5a6268;
+.alias-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 </style>
