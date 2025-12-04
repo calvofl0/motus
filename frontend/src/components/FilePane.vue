@@ -202,15 +202,18 @@ const { handleExternalFileUpload } = useUpload()
 
 // Reactive state
 const refreshHover = ref(false)
+const parentHover = ref(false)
 const selectedRemote = ref('')
 const previousRemote = ref('') // Track last working remote
 const currentPath = ref('~/')
+const previousPath = ref('~/') // Track path before refresh for abort
 const files = ref([])
 const remotes = ref([])
 const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
 const localFilesystemAlias = ref(null) // Alias for local filesystem (replaces "Local Filesystem")
+const abortController = ref(null) // For aborting fetch requests
 
 // Download confirmation modal state
 const showDownloadConfirm = ref(false)
@@ -260,6 +263,16 @@ const sortedRemotes = computed(() => {
   return [...remotes.value].sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   })
+})
+
+// Check if at root directory
+const isAtRoot = computed(() => {
+  const path = currentPath.value
+  // Root cases: /, ~/, or ~ (for local filesystem)
+  if (path === '/' || path === '~/' || path === '~') {
+    return true
+  }
+  return false
 })
 
 // Helper functions
@@ -335,6 +348,12 @@ async function loadRemotes(retries = 3, delay = 100) {
 async function refresh(preserveSelection = false) {
   loading.value = true
 
+  // Track previous path for abort functionality
+  previousPath.value = currentPath.value
+
+  // Create abort controller for this refresh
+  abortController.value = new AbortController()
+
   // Save selection if preserving
   const selectedFileNames = preserveSelection
     ? paneState.value.selectedIndexes.map(idx => files.value[idx]?.Name).filter(n => n)
@@ -345,7 +364,7 @@ async function refresh(preserveSelection = false) {
       ? `${selectedRemote.value}:${currentPath.value}`
       : currentPath.value
 
-    const data = await apiCall('/api/files/ls', 'POST', { path: fullPath })
+    const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
     files.value = data.files || []
 
     // Update store
@@ -353,8 +372,9 @@ async function refresh(preserveSelection = false) {
     appStore.setPanePath(props.pane, currentPath.value)
     appStore.setPaneRemote(props.pane, selectedRemote.value)
 
-    // Update previous remote on success
+    // Update previous remote and path on success
     previousRemote.value = selectedRemote.value
+    previousPath.value = currentPath.value
 
     // Restore selection if preserving
     if (preserveSelection && selectedFileNames.length > 0) {
@@ -368,6 +388,13 @@ async function refresh(preserveSelection = false) {
       appStore.setPaneSelection(props.pane, [])
     }
   } catch (error) {
+    // Check if error is due to abort
+    if (error.name === 'AbortError') {
+      console.log('Refresh aborted by user')
+      // Don't show alert for user-initiated abort
+      return
+    }
+
     console.error('Failed to refresh pane:', error)
     alert(`Failed to list files: ${error.message}`)
 
@@ -378,6 +405,22 @@ async function refresh(preserveSelection = false) {
     throw error
   } finally {
     loading.value = false
+    abortController.value = null
+  }
+}
+
+function abortRefresh() {
+  if (abortController.value) {
+    // Abort the ongoing request
+    abortController.value.abort()
+
+    // Restore previous path
+    currentPath.value = previousPath.value
+
+    // Reset loading state (will be done in finally block of refresh, but set here for immediate feedback)
+    loading.value = false
+
+    console.log('Refresh aborted, restored to previous path:', previousPath.value)
   }
 }
 
@@ -1011,6 +1054,7 @@ defineExpose({
   font-size: 14px;
 }
 
+.parent-btn,
 .refresh-btn {
   background: none;
   border: none;
@@ -1019,6 +1063,11 @@ defineExpose({
   color: #28a745;
   padding: 8px;
   transition: transform 0.2s;
+}
+
+.parent-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* Grid View */

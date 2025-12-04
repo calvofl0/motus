@@ -7,6 +7,12 @@
       <!-- Arrow Buttons -->
       <div class="arrow-buttons">
         <div class="arrow-button" :class="{ disabled: !canCopyRight }" @click="copyToRight">▶</div>
+        <div
+          class="check-button"
+          :class="{ disabled: !canCheck }"
+          @click="handleIntegrityCheck"
+          title="Integrity check"
+        >✓</div>
         <div class="arrow-button" :class="{ disabled: !canCopyLeft }" @click="copyToLeft">◀</div>
       </div>
 
@@ -64,6 +70,23 @@
       :message="downloadPreparingMessage"
     />
 
+    <!-- Integrity Check Success Modal -->
+    <div v-if="showCheckSuccessModal" class="modal-overlay" @click="showCheckSuccessModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>✓ Integrity Check Successful</h3>
+        <p><strong>Source:</strong> {{ checkSuccessSource }}</p>
+        <p><strong>Destination:</strong> {{ checkSuccessDest }}</p>
+        <button @click="showCheckSuccessModal = false">Close</button>
+      </div>
+    </div>
+
+    <!-- Job Log Modal for Failed Checks -->
+    <JobLogModal
+      :show="showJobLogModal"
+      :job="jobLogData"
+      @close="showJobLogModal = false"
+    />
+
     <!-- Context Menu -->
     <ContextMenu
       :visible="contextMenuVisible"
@@ -92,6 +115,7 @@ import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
 import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.vue'
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import JobLogModal from '../components/modals/JobLogModal.vue'
 import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 
 const appStore = useAppStore()
@@ -119,6 +143,15 @@ const aliasPane = ref(null)
 const showDownloadPreparingModal = ref(false)
 const downloadPreparingMessage = ref('Downloading file from remote server...')
 
+// Integrity check success modal state
+const showCheckSuccessModal = ref(false)
+const checkSuccessSource = ref('')
+const checkSuccessDest = ref('')
+
+// Job log modal state
+const showJobLogModal = ref(false)
+const jobLogData = ref(null)
+
 // Computed
 const canCopyRight = computed(() =>
   appStore.leftPane.selectedIndexes.length > 0
@@ -126,6 +159,10 @@ const canCopyRight = computed(() =>
 
 const canCopyLeft = computed(() =>
   appStore.rightPane.selectedIndexes.length > 0
+)
+
+const canCheck = computed(() =>
+  appStore.leftPane.selectedIndexes.length > 0 || appStore.rightPane.selectedIndexes.length > 0
 )
 
 // Copy functions
@@ -137,6 +174,148 @@ function copyToRight() {
 function copyToLeft() {
   if (!canCopyLeft.value) return
   fileOps.copyToPane('right', 'left')
+}
+
+// Integrity check function
+async function handleIntegrityCheck() {
+  if (!canCheck.value) return
+
+  // Determine source and destination
+  let srcPane, dstPane
+  if (appStore.leftPane.selectedIndexes.length > 0) {
+    srcPane = 'left'
+    dstPane = 'right'
+  } else {
+    srcPane = 'right'
+    dstPane = 'left'
+  }
+
+  const srcPaneState = appStore[`${srcPane}Pane`]
+  const dstPaneState = appStore[`${dstPane}Pane`]
+
+  // Build source paths (same logic as copy)
+  const selectedFiles = srcPaneState.selectedIndexes.map(idx => {
+    const file = srcPaneState.files[idx]
+    const remote = srcPaneState.remote
+    const currentPath = srcPaneState.path
+
+    let fullPath
+    if (remote) {
+      const filePath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+      fullPath = `${remote}:${filePath}`
+    } else {
+      fullPath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+    }
+    return fullPath
+  })
+
+  // Build destination path (folder, not individual files)
+  const dstRemote = dstPaneState.remote
+  const dstPath = dstPaneState.path
+  const destFull = dstRemote ? `${dstRemote}:${dstPath}` : dstPath
+
+  try {
+    // Start integrity check job
+    const response = await apiCall('/api/jobs/check', 'POST', {
+      src_paths: selectedFiles,
+      dst_path: destFull,
+      remote_config: null
+    })
+
+    if (response.job_id) {
+      // Watch for job completion
+      watchJobForCheck(response.job_id, selectedFiles.join(', '), destFull)
+    }
+  } catch (error) {
+    console.error('Failed to start integrity check:', error)
+    alert(`Failed to start integrity check: ${error.message}`)
+  }
+}
+
+// Watch integrity check job completion
+function watchJobForCheck(jobId, sourcePath, destPath) {
+  let pollInterval = null
+  let eventHandled = false
+
+  // Function to handle success
+  const handleSuccess = () => {
+    if (eventHandled) return
+    eventHandled = true
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+
+    // Show success popup
+    checkSuccessSource.value = sourcePath
+    checkSuccessDest.value = destPath
+    showCheckSuccessModal.value = true
+
+    window.removeEventListener('job-completed', handleJobComplete)
+  }
+
+  // Function to handle failure
+  const handleFailure = async (job) => {
+    if (eventHandled) return
+    eventHandled = true
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+
+    // Auto-open job log modal
+    jobLogData.value = job
+    showJobLogModal.value = true
+
+    window.removeEventListener('job-completed', handleJobComplete)
+  }
+
+  // Listen for job completion event
+  const handleJobComplete = async (event) => {
+    const job = event.detail
+    if (job.job_id === jobId) {
+      if (job.status === 'completed') {
+        handleSuccess()
+      } else if (job.status === 'failed') {
+        handleFailure(job)
+      } else if (job.status === 'interrupted') {
+        // Job was cancelled - stop polling and cleanup
+        if (pollInterval) clearInterval(pollInterval)
+        if (eventHandled) return
+        eventHandled = true
+        window.removeEventListener('job-completed', handleJobComplete)
+      }
+    }
+  }
+
+  window.addEventListener('job-completed', handleJobComplete)
+
+  // Poll job status
+  const pollJobStatus = async () => {
+    try {
+      const job = await apiCall(`/api/jobs/${jobId}`)
+      if (job.status === 'completed') {
+        handleSuccess()
+      } else if (job.status === 'failed') {
+        handleFailure(job)
+      } else if (job.status === 'interrupted') {
+        if (pollInterval) clearInterval(pollInterval)
+        if (eventHandled) return
+        eventHandled = true
+        window.removeEventListener('job-completed', handleJobComplete)
+      }
+    } catch (error) {
+      console.error(`Error polling job ${jobId}:`, error)
+    }
+  }
+
+  // Start polling every 500ms
+  pollInterval = setInterval(pollJobStatus, 500)
+
+  // Also check immediately
+  pollJobStatus()
 }
 
 // Context menu functions
@@ -528,7 +707,8 @@ onUnmounted(() => {
   padding: 0 15px;
 }
 
-.arrow-button {
+.arrow-button,
+.check-button {
   color: #28a745;
   font-size: 28px;
   cursor: pointer;
@@ -537,12 +717,63 @@ onUnmounted(() => {
   user-select: none;
 }
 
-.arrow-button.disabled {
+.arrow-button.disabled,
+.check-button.disabled {
   cursor: not-allowed;
   opacity: 0.3;
 }
 
-.arrow-button:not(.disabled):hover {
+.arrow-button:not(.disabled):hover,
+.check-button:not(.disabled):hover {
   transform: scale(1.2);
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 90%;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: #28a745;
+  font-size: 20px;
+}
+
+.modal-content p {
+  margin: 10px 0;
+  word-break: break-all;
+}
+
+.modal-content button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modal-content button:hover {
+  background: #218838;
 }
 </style>

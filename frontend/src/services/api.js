@@ -55,10 +55,11 @@ export function getApiUrl(path) {
  * @param {string} endpoint - API endpoint path
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
  * @param {Object} body - Request body (will be JSON stringified)
+ * @param {AbortSignal} signal - Optional AbortSignal for canceling the request
  * @returns {Promise<Object>} Parsed JSON response
  * @throws {Error} If request fails
  */
-export async function apiCall(endpoint, method = 'GET', body = null) {
+export async function apiCall(endpoint, method = 'GET', body = null, signal = null) {
     if (endpoint.startsWith('/api')) {
         endpoint = `.${endpoint}`;
     }
@@ -76,6 +77,10 @@ export async function apiCall(endpoint, method = 'GET', body = null) {
 
     if (body) {
         options.body = JSON.stringify(body);
+    }
+
+    if (signal) {
+        options.signal = signal;
     }
 
     const response = await fetch(endpoint, options);
