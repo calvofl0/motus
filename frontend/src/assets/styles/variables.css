@@ -1,0 +1,149 @@
+/**
+ * CSS Variables - Design System
+ *
+ * Centralized design tokens for consistent styling across the application.
+ * Update these values to theme the entire application.
+ */
+
+:root {
+  /* ============================================
+     COLOR SYSTEM
+     ============================================ */
+
+  /* Primary Colors - Blue (Actions, Links, Selection) */
+  --color-primary: #007bff;
+  --color-primary-hover: #0056b3;
+  --color-primary-light: #e3f2fd;
+
+  /* Success Colors - Green (Success states, confirmations) */
+  --color-success: #28a745;
+  --color-success-hover: #218838;
+  --color-success-light: #d4edda;
+  --color-success-text: #155724;
+
+  /* Danger Colors - Red (Errors, destructive actions) */
+  --color-danger: #dc3545;
+  --color-danger-hover: #c82333;
+  --color-danger-light: #ffebee;
+  --color-danger-lighter: #fee;
+  --color-danger-background: #f8d7da;
+
+  /* Warning Colors - Yellow (Warnings, caution) */
+  --color-warning: #ffc107;
+  --color-warning-hover: #ffb300;
+  --color-warning-light: #fff3cd;
+  --color-warning-lighter: #fff8e1;
+
+  /* Info Colors - Cyan (Informational states) */
+  --color-info: #17a2b8;
+
+  /* Secondary Colors - Gray (Secondary actions) */
+  --color-secondary: #6c757d;
+  --color-secondary-hover: #5a6268;
+
+  /* Special Colors */
+  --color-purple: #6f42c1;
+  --color-purple-hover: #5a32a3;
+
+  /* Text Colors */
+  --color-text-primary: #333;
+  --color-text-secondary: #555;
+  --color-text-tertiary: #666;
+  --color-text-muted: #999;
+
+  /* Background Colors */
+  --color-bg-white: #ffffff;
+  --color-bg-light: #f8f9fa;
+  --color-bg-lighter: #e9ecef;
+  --color-bg-hover: #f8f9fa;
+
+  /* Border Colors */
+  --color-border: #ddd;
+  --color-border-light: #e0e0e0;
+  --color-border-lighter: #f0f0f0;
+  --color-border-dark: #dee2e6;
+  --color-border-darker: #ccc;
+
+  /* Gradients - Pane Headers */
+  --gradient-left-pane: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-right-pane: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+
+  /* Tooltip Colors */
+  --color-tooltip-bg: #2c3e50;
+  --color-tooltip-link: #58C4FF;
+  --color-tooltip-link-hover: #8FD5FF;
+
+  /* ============================================
+     SPACING SYSTEM
+     ============================================ */
+
+  --spacing-xs: 8px;
+  --spacing-sm: 10px;
+  --spacing-md: 12px;
+  --spacing-lg: 15px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 30px;
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ============================================
+     SHADOWS
+     ============================================ */
+
+  --shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+
+  --transition-fast: all 0.2s;
+  --transition-normal: all 0.3s;
+  --transition-bg: background 0.2s;
+
+  /* ============================================
+     MODAL & OVERLAY
+     ============================================ */
+
+  --modal-overlay-bg: rgba(0, 0, 0, 0.5);
+  --modal-overlay-blur: rgba(0, 0, 0, 0.6);
+
+  /* ============================================
+     Z-INDEX LAYERS
+     ============================================ */
+
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 1000;
+  --z-tooltip: 2000;
+
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 20px;
+  --font-size-header: 28px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}

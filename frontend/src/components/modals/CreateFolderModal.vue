@@ -16,10 +16,10 @@
     />
 
     <template #footer>
-      <button class="modal-button modal-button-secondary" @click="handleClose">
+      <button class="btn btn-secondary" @click="handleClose">
         Cancel
       </button>
-      <button class="modal-button modal-button-primary" @click="handleConfirm">
+      <button class="btn btn-primary" @click="handleConfirm">
         Create
       </button>
     </template>
@@ -83,50 +83,22 @@ export default {
 
 <style scoped>
 .label-text {
-  margin: 0 0 10px 0;
-  color: #555;
-  font-size: 14px;
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
 }
 
 .folder-input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
 }
 
 .folder-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.modal-button {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.modal-button-primary {
-  background: #007bff;
-  color: white;
-}
-
-.modal-button-primary:hover {
-  background: #0056b3;
-}
-
-.modal-button-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.modal-button-secondary:hover {
-  background: #5a6268;
 }
 </style>

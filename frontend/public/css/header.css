@@ -1,18 +1,18 @@
         /* Header */
         .header {
-            background: white;
-            border-bottom: 2px solid #007bff;
-            padding: 15px 30px;
+            background: var(--color-bg-white);
+            border-bottom: 2px solid var(--color-primary);
+            padding: var(--spacing-lg) var(--spacing-xxl);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-xs);
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: var(--spacing-lg);
         }
 
         .header-left .logo {
@@ -21,38 +21,38 @@
         }
 
         .header-left h1 {
-            color: #333;
+            color: var(--color-text-primary);
             margin-bottom: 5px;
-            font-size: 28px;
+            font-size: var(--font-size-header);
         }
 
         .subtitle {
-            color: #666;
-            font-size: 14px;
+            color: var(--color-text-tertiary);
+            font-size: var(--font-size-base);
         }
 
         .header-right {
             display: flex;
-            gap: 10px;
+            gap: var(--spacing-sm);
         }
 
         .mode-toggle-button, .quit-button, .view-toggle-button, .manage-remotes-button {
-            padding: 10px 20px;
+            padding: var(--spacing-sm) var(--spacing-xl);
             border: none;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-medium);
+            transition: var(--transition-normal);
         }
 
         .manage-remotes-button {
-            background: #6f42c1;
+            background: var(--color-purple);
             color: white;
         }
 
         .manage-remotes-button:hover {
-            background: #5a32a3;
+            background: var(--color-purple-hover);
         }
 
         .view-dropdown-container {
@@ -60,13 +60,13 @@
         }
 
         .view-toggle-button {
-            background: #28a745;
+            background: var(--color-success);
             color: white;
-            padding: 10px 20px;
+            padding: var(--spacing-sm) var(--spacing-xl);
         }
 
         .view-toggle-button:hover {
-            background: #218838;
+            background: var(--color-success-hover);
         }
 
         .view-dropdown-menu {
@@ -74,22 +74,22 @@
             top: 100%;
             right: 0;
             margin-top: 5px;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border-darker);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
             min-width: 180px;
-            z-index: 1000;
+            z-index: var(--z-modal);
         }
 
         .view-menu-item {
-            padding: 10px 16px;
+            padding: var(--spacing-sm) 16px;
             cursor: pointer;
-            font-size: 14px;
-            border-bottom: 1px solid #f0f0f0;
+            font-size: var(--font-size-base);
+            border-bottom: 1px solid var(--color-border-lighter);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--spacing-xs);
         }
 
         .view-menu-item:last-child {
@@ -101,20 +101,20 @@
         }
 
         .mode-toggle-button {
-            background: #007bff;
+            background: var(--color-primary);
             color: white;
         }
 
         .mode-toggle-button:hover {
-            background: #0056b3;
+            background: var(--color-primary-hover);
         }
 
         .quit-button {
-            background: #dc3545;
+            background: var(--color-danger);
             color: white;
         }
 
         .quit-button:hover {
-            background: #c82333;
+            background: var(--color-danger-hover);
         }
 

@@ -17,10 +17,10 @@
     </div>
 
     <template #footer>
-      <button class="modal-button modal-button-secondary" @click="handleClose">
+      <button class="btn btn-secondary" @click="handleClose">
         Cancel
       </button>
-      <button class="modal-button modal-button-danger" @click="handleConfirm">
+      <button class="btn btn-danger" @click="handleConfirm">
         Delete
       </button>
     </template>
@@ -68,60 +68,32 @@ export default {
 
 <style scoped>
 .confirm-text {
-  margin: 0 0 15px 0;
-  color: #555;
-  font-size: 14px;
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
 }
 
 .warning-text {
-  color: #dc3545;
-  padding: 10px;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  border-radius: 4px;
+  color: var(--color-danger);
+  padding: var(--spacing-sm);
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
 }
 
 .file-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
+  padding: var(--spacing-sm);
+  background: var(--color-bg-light);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-light);
 }
 
 .file-item {
   padding: 4px 0;
   font-family: monospace;
-  font-size: 13px;
-  color: #333;
-}
-
-.modal-button {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.modal-button-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.modal-button-danger:hover {
-  background: #c82333;
-}
-
-.modal-button-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.modal-button-secondary:hover {
-  background: #5a6268;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
 }
 </style>

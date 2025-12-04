@@ -1,3 +1,9 @@
+/* Import CSS Variables first - needed by all other files */
+@import './variables.css';
+
+/* Import utility classes */
+@import './buttons.css';
+
 /* Import all CSS files */
 @import url('/css/base.css');
 @import url('/css/header.css');
