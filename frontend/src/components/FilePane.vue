@@ -348,9 +348,6 @@ async function loadRemotes(retries = 3, delay = 100) {
 async function refresh(preserveSelection = false) {
   loading.value = true
 
-  // Track previous path for abort functionality
-  previousPath.value = currentPath.value
-
   // Create abort controller for this refresh
   abortController.value = new AbortController()
 
@@ -426,13 +423,19 @@ function abortRefresh() {
 }
 
 function onRemoteChange() {
+  // Update previousPath before changing path (for abort functionality)
+  previousPath.value = currentPath.value
+
   currentPath.value = selectedRemote.value === '' ? '~/' : '/'
   refresh()
 }
 
 async function browsePath() {
-  // Save the current successful path before attempting navigation
-  const oldPath = previousPath.value
+  // Save the current path before attempting navigation
+  const oldPath = currentPath.value
+
+  // Update previousPath before expanding/refreshing (for abort functionality)
+  previousPath.value = oldPath
 
   // Expand ~ before refreshing (only for local filesystem, not aliases)
   // Check if remote is truly local (empty string means local)
@@ -445,6 +448,7 @@ async function browsePath() {
   } catch (error) {
     // Restore to the last successful path on error
     currentPath.value = oldPath
+    previousPath.value = oldPath
     console.log('Browse path failed, path restored to:', oldPath)
   }
 }
@@ -497,17 +501,26 @@ async function navigateUp() {
   }
 
   const oldPath = currentPath.value
+
+  // Update previousPath before changing currentPath (for abort functionality)
+  previousPath.value = oldPath
+
   currentPath.value = newPath
 
   try {
     await refresh()
   } catch (error) {
     currentPath.value = oldPath
+    previousPath.value = oldPath
   }
 }
 
 async function navigateInto(dirname) {
   const oldPath = currentPath.value
+
+  // Update previousPath before changing currentPath (for abort functionality)
+  previousPath.value = oldPath
+
   currentPath.value = currentPath.value.endsWith('/')
     ? currentPath.value + dirname
     : currentPath.value + '/' + dirname
@@ -516,6 +529,7 @@ async function navigateInto(dirname) {
     await refresh()
   } catch (error) {
     currentPath.value = oldPath
+    previousPath.value = oldPath
   }
 }
 

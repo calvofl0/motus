@@ -211,9 +211,10 @@ async function handleIntegrityCheck() {
         ? `${srcPaneState.remote}:${buildPath(srcPaneState.path, file.Name)}`
         : buildPath(srcPaneState.path, file.Name)
 
+      // dst_path should be dst_working_dir/basename(src_path), same as rclone check
       const dstPath = dstPaneState.remote
-        ? `${dstPaneState.remote}:${dstPaneState.path}/`
-        : `${dstPaneState.path}/`
+        ? `${dstPaneState.remote}:${buildPath(dstPaneState.path, file.Name)}`
+        : buildPath(dstPaneState.path, file.Name)
 
       const response = await apiCall('/api/jobs/check', 'POST', {
         src_path: srcPath,
