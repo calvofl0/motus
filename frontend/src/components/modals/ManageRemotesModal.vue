@@ -1180,6 +1180,7 @@ async function handleOAuthRefreshed() {
 
 .config-title {
   margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
 }
 
 .config-help {

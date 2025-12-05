@@ -459,6 +459,8 @@ label {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: inherit;
+  background: var(--color-bg-white);
+  color: var(--color-text-primary);
 }
 
 .wizard-input:focus {
