@@ -436,7 +436,75 @@ max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
 
-**Priority**: CLI arguments > Environment variables > Config file > Defaults
+**Priority**: CLI arguments > MOTUS_* environment variables > Config file > XDG_* environment variables > Defaults
+
+#### XDG Base Directory Support
+
+Motus follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) for organizing files and directories on Linux systems.
+
+**XDG Mode (default)**:
+When no `--data-dir`, `MOTUS_DATA_DIR`, or `data_dir` in config file is set, Motus uses XDG directories:
+
+```
+~/.config/motus/               (XDG_CONFIG_HOME/motus)
+└── remote_templates.conf
+
+~/.local/share/motus/          (XDG_DATA_HOME/motus)
+└── motus.db
+
+~/.cache/motus/                (XDG_CACHE_HOME/motus)
+├── download/
+├── upload/
+├── log/
+└── motus.log
+
+/run/user/{uid}/motus/         (XDG_RUNTIME_DIR/motus)
+├── motus.pid
+└── connection.json
+```
+
+**Legacy Mode**:
+When `--data-dir` is set (via CLI, `MOTUS_DATA_DIR` env var, or config file), everything goes to that directory:
+
+```
+{data_dir}/
+├── motus.db
+├── motus.pid
+├── connection.json
+├── remote_templates.conf
+└── cache/
+    ├── download/
+    ├── upload/
+    ├── log/
+    └── motus.log
+```
+
+**XDG Environment Variables** (respected when in XDG mode):
+```bash
+export XDG_CONFIG_HOME=~/.config     # Default: ~/.config
+export XDG_DATA_HOME=~/.local/share  # Default: ~/.local/share
+export XDG_CACHE_HOME=~/.cache       # Default: ~/.cache
+export XDG_RUNTIME_DIR=/run/user/$UID  # Default: /tmp/motus-{uid}
+```
+
+**Overriding Individual Directories**:
+You can override specific directories while staying in XDG mode:
+
+```bash
+# Use XDG for everything except cache
+export XDG_DATA_HOME=/custom/data
+export MOTUS_CACHE_PATH=/fast/ssd/cache
+motus
+```
+
+```bash
+# Mix and match: XDG data/config, custom cache
+motus --cache-path /fast/ssd/cache
+```
+
+**Choosing Between XDG and Legacy Mode**:
+- **XDG Mode** (recommended for Linux): Clean separation of config/data/cache, follows Linux standards
+- **Legacy Mode** (--data-dir): Everything in one place, simple for custom deployments
 
 ### Cache Directory Structure
 
