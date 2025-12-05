@@ -148,7 +148,7 @@
         .file-list thead {
             position: sticky;
             top: 0;
-            background: var(--color-bg-white);
+            background: var(--color-bg-light);
             z-index: 10;
         }
 
