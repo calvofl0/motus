@@ -132,7 +132,8 @@ export const useAppStore = defineStore('app', () => {
     viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
     savePreferences(apiCall, {
       view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value
+      show_hidden_files: showHiddenFiles.value,
+      theme: theme.value
     })
   }
 

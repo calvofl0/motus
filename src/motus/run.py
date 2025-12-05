@@ -191,6 +191,15 @@ def write_connection_info(config: Config):
     with open(connection_file, 'w') as f:
         json.dump(connection_info, f, indent=2)
 
+    # ALSO write to standard ~/.motus location for dev tools to find
+    # This ensures dev-vue.py can find the connection info even when using custom data dir
+    standard_dir = Path.home() / '.motus'
+    if str(standard_dir) != str(data_dir):
+        standard_dir.mkdir(parents=True, exist_ok=True)
+        standard_connection_file = standard_dir / 'connection.json'
+        with open(standard_connection_file, 'w') as f:
+            json.dump(connection_info, f, indent=2)
+
 
 def main():
     """Main entry point"""

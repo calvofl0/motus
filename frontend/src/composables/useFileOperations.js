@@ -268,8 +268,8 @@ export function useFileOperations() {
           : buildPath(sourceState.path, file.Name)
 
         const dstPath = targetState.remote
-          ? `${targetState.remote}:${targetState.path}/`
-          : `${targetState.path}/`
+          ? `${targetState.remote}:${targetState.path}${targetState.path.endsWith('/') ? '' : '/'}`
+          : `${targetState.path}${targetState.path.endsWith('/') ? '' : '/'}`
 
         console.log('Copy operation:', {
           srcPath,
