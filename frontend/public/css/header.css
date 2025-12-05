@@ -132,10 +132,23 @@
             padding: 4px;
             line-height: 1;
             color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .theme-icon-button:hover {
             opacity: 0.8;
+            background: none;
+        }
+
+        .theme-icon-button:focus {
+            outline: none;
+            background: none;
+        }
+
+        .theme-icon-button:active {
+            background: none;
         }
 
         .theme-dropdown-menu {

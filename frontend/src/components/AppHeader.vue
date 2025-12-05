@@ -105,6 +105,10 @@ function openManageRemotes() {
 function toggleViewMenu(e) {
   e.stopPropagation()
   showViewMenu.value = !showViewMenu.value
+  // Close theme menu if it's open
+  if (showViewMenu.value) {
+    showThemeMenu.value = false
+  }
 }
 
 function switchViewMode() {
@@ -120,6 +124,10 @@ function toggleHiddenFiles() {
 function toggleThemeMenu(e) {
   e.stopPropagation()
   showThemeMenu.value = !showThemeMenu.value
+  // Close view menu if it's open
+  if (showThemeMenu.value) {
+    showViewMenu.value = false
+  }
 }
 
 function setTheme(themeName) {
