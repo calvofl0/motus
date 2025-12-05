@@ -65,7 +65,7 @@
 
         .toolbar-button {
             padding: 8px 16px;
-            background: #007bff;
+            background: var(--color-primary);
             color: white;
             border: none;
             border-radius: 4px;
@@ -76,15 +76,15 @@
         }
 
         .toolbar-button:hover {
-            background: #0056b3;
+            background: var(--color-primary-hover);
         }
 
         .toolbar-button.secondary {
-            background: #6c757d;
+            background: var(--color-secondary);
         }
 
         .toolbar-button.secondary:hover {
-            background: #5a6268;
+            background: var(--color-secondary-hover);
         }
 
         .file-grid {
@@ -191,7 +191,7 @@
         }
 
         .file-list th .resize-handle:hover {
-            background: #007bff;
+            background: var(--color-primary);
             opacity: 0.5;
         }
 
