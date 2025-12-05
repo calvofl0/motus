@@ -230,6 +230,7 @@ export const useAppStore = defineStore('app', () => {
     toggleViewMode,
     toggleHiddenFiles,
     toggleTheme,
+    applyTheme,
     clearPaneSelection,
     setPaneFiles,
     setPanePath,

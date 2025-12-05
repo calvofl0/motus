@@ -22,14 +22,27 @@
           <div class="view-menu-item" @click="toggleHiddenFiles">
             <span>{{ hiddenFilesText }}</span>
           </div>
-          <div class="view-menu-item" @click="toggleTheme">
-            <span>{{ themeText }}</span>
-          </div>
         </div>
       </div>
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
+      <div class="theme-dropdown-container">
+        <button class="theme-toggle-button" @click="toggleThemeMenu">
+          {{ themeIcon }}
+        </button>
+        <div class="theme-dropdown-menu" :class="{ hidden: !showThemeMenu }">
+          <div class="theme-menu-item" @click="setTheme('auto')" :class="{ active: appStore.theme === 'auto' }">
+            <span>🔄 Auto</span>
+          </div>
+          <div class="theme-menu-item" @click="setTheme('light')" :class="{ active: appStore.theme === 'light' }">
+            <span>☀️ Light</span>
+          </div>
+          <div class="theme-menu-item" @click="setTheme('dark')" :class="{ active: appStore.theme === 'dark' }">
+            <span>🌙 Dark</span>
+          </div>
+        </div>
+      </div>
       <button class="quit-button" @click="quitServer">Quit</button>
     </div>
   </div>
@@ -40,11 +53,13 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
+import { savePreferences } from '../services/preferences'
 
 const appStore = useAppStore()
 const router = useRouter()
 
 const showViewMenu = ref(false)
+const showThemeMenu = ref(false)
 const allowExpertMode = ref(false)
 
 const viewModeIcon = computed(() =>
@@ -59,13 +74,13 @@ const hiddenFilesText = computed(() =>
   appStore.showHiddenFiles ? 'Hide hidden files' : 'Show hidden files'
 )
 
-const themeText = computed(() => {
+const themeIcon = computed(() => {
   if (appStore.theme === 'auto') {
-    return `Theme: Auto (${appStore.effectiveTheme === 'dark' ? 'Dark' : 'Light'})`
+    return '🔄'
   } else if (appStore.theme === 'light') {
-    return 'Theme: Light'
+    return '☀️'
   } else {
-    return 'Theme: Dark'
+    return '🌙'
   }
 })
 
@@ -92,9 +107,20 @@ function toggleHiddenFiles() {
   showViewMenu.value = false
 }
 
-function toggleTheme() {
-  appStore.toggleTheme()
-  showViewMenu.value = false
+function toggleThemeMenu(e) {
+  e.stopPropagation()
+  showThemeMenu.value = !showThemeMenu.value
+}
+
+function setTheme(themeName) {
+  appStore.theme = themeName
+  appStore.applyTheme()
+  savePreferences(apiCall, {
+    view_mode: appStore.viewMode,
+    show_hidden_files: appStore.showHiddenFiles,
+    theme: themeName
+  })
+  showThemeMenu.value = false
 }
 
 function toggleMode() {
@@ -168,9 +194,10 @@ function handleGlobalKeydown(e) {
   }
 }
 
-// Close view menu when clicking elsewhere
+// Close menus when clicking elsewhere
 document.addEventListener('click', () => {
   showViewMenu.value = false
+  showThemeMenu.value = false
 })
 
 onMounted(async () => {
