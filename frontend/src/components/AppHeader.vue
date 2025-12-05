@@ -63,11 +63,11 @@ const showThemeMenu = ref(false)
 const allowExpertMode = ref(false)
 
 const viewModeIcon = computed(() =>
-  appStore.viewMode === 'grid' ? '⊞' : '☰'
+  appStore.viewMode === 'grid' ? '☰' : '⊞'
 )
 
 const viewModeText = computed(() =>
-  appStore.viewMode === 'grid' ? 'Grid layout' : 'List layout'
+  appStore.viewMode === 'grid' ? 'List layout' : 'Grid layout'
 )
 
 const hiddenFilesText = computed(() =>
