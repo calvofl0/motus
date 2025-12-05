@@ -9,7 +9,7 @@
             margin: 20px auto;
             background: var(--color-bg-white);
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-sm);
             padding: 20px;
         }
 
@@ -51,7 +51,7 @@
         }
 
         button {
-            background: #007bff;
+            background: var(--color-primary);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -62,11 +62,11 @@
         }
 
         button:hover {
-            background: #0056b3;
+            background: var(--color-primary-hover);
         }
 
         button:disabled {
-            background: #ccc;
+            background: var(--color-text-tertiary);
             cursor: not-allowed;
         }
 
@@ -92,16 +92,16 @@
         }
 
         .error {
-            color: #dc3545;
-            background: #f8d7da;
+            color: var(--color-text-danger);
+            background: var(--color-bg-danger-light);
             padding: 10px;
             border-radius: 4px;
             margin-top: 10px;
         }
 
         .success {
-            color: #28a745;
-            background: #d4edda;
+            color: var(--color-text-success);
+            background: var(--color-bg-success-light);
             padding: 10px;
             border-radius: 4px;
             margin-top: 10px;
