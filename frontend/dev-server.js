@@ -8,9 +8,42 @@ import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
-const CONNECTION_FILE = join(homedir(), '.motus', 'connection.json')
-const DEV_PORT_FILE = join(homedir(), '.motus', 'dev-port.json')
 const CHECK_INTERVAL = 2000 // Check every 2 seconds
+
+/**
+ * Get XDG runtime directory (same logic as Python backend)
+ */
+function getXdgRuntimeDir() {
+  if (process.env.XDG_RUNTIME_DIR) {
+    return process.env.XDG_RUNTIME_DIR
+  }
+  // Fallback: /tmp/motus-{uid}
+  const uid = process.getuid ? process.getuid() : process.pid
+  return `/tmp/motus-${uid}`
+}
+
+/**
+ * Find connection.json file
+ * Tries XDG mode first, then falls back to legacy mode
+ */
+function findConnectionFile() {
+  // XDG mode: check runtime directory
+  const xdgPath = join(getXdgRuntimeDir(), 'motus', 'connection.json')
+  if (existsSync(xdgPath)) {
+    return xdgPath
+  }
+
+  // Legacy mode: check ~/.motus
+  const legacyPath = join(homedir(), '.motus', 'connection.json')
+  if (existsSync(legacyPath)) {
+    return legacyPath
+  }
+
+  return null
+}
+
+const CONNECTION_FILE = findConnectionFile()
+const DEV_PORT_FILE = join(homedir(), '.motus', 'dev-port.json')
 
 let server = null
 let backendPid = null
@@ -130,8 +163,11 @@ async function main() {
   }
 
   // Read backend connection info
-  if (!existsSync(CONNECTION_FILE)) {
+  if (!CONNECTION_FILE) {
     console.error('Error: Backend connection file not found')
+    console.error('Checked:')
+    console.error(`  - XDG mode: ${join(getXdgRuntimeDir(), 'motus', 'connection.json')}`)
+    console.error(`  - Legacy mode: ${join(homedir(), '.motus', 'connection.json')}`)
     console.error('Please start the backend first with: python run.py')
     process.exit(1)
   }
@@ -139,6 +175,7 @@ async function main() {
   try {
     const conn = JSON.parse(readFileSync(CONNECTION_FILE, 'utf-8'))
     backendPid = conn.pid
+    console.log(`[Monitor] Found connection file: ${CONNECTION_FILE}`)
     console.log(`[Monitor] Watching backend process (PID: ${backendPid})`)
   } catch (e) {
     console.error('Error reading backend connection file:', e)
