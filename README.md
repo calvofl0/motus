@@ -480,12 +480,25 @@ When `--data-dir` is set (via CLI, `MOTUS_DATA_DIR` env var, or config file), ev
 ```
 
 **XDG Environment Variables** (respected when in XDG mode):
+
+These are typically **already set by your system** (by systemd-logind, PAM, or your login manager). You usually don't need to set them manually. They're shown here for reference:
+
 ```bash
-export XDG_CONFIG_HOME=~/.config     # Default: ~/.config
-export XDG_DATA_HOME=~/.local/share  # Default: ~/.local/share
-export XDG_CACHE_HOME=~/.cache       # Default: ~/.cache
-export XDG_RUNTIME_DIR=/run/user/$UID  # Default: /tmp/motus-{uid}
+# These are usually already set to these values:
+XDG_CONFIG_HOME=~/.config              # Motus uses: $XDG_CONFIG_HOME/motus
+XDG_DATA_HOME=~/.local/share           # Motus uses: $XDG_DATA_HOME/motus
+XDG_CACHE_HOME=~/.cache                # Motus uses: $XDG_CACHE_HOME/motus
+XDG_RUNTIME_DIR=/run/user/$UID         # Motus uses: $XDG_RUNTIME_DIR/motus
+                                       # ($UID is your numeric user ID, e.g., /run/user/1000)
+
+# If XDG_RUNTIME_DIR is not set, Motus falls back to /tmp/motus-{uid}
 ```
+
+**Defaults if XDG variables are not set**:
+- Config: `~/.config/motus`
+- Data: `~/.local/share/motus`
+- Cache: `~/.cache/motus`
+- Runtime: `/run/user/{uid}/motus` (or `/tmp/motus-{uid}` if XDG_RUNTIME_DIR not set)
 
 **Overriding Individual Directories**:
 You can override specific directories while staying in XDG mode:
