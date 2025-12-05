@@ -14,6 +14,12 @@ import time
 import webbrowser
 from pathlib import Path
 
+# Add src to path to import backend modules
+sys.path.insert(0, str(Path(__file__).parent / 'src'))
+
+# Import XDG logic from backend - single source of truth
+from motus.backend.config import get_xdg_runtime_dir
+
 # Global references for cleanup
 npm_process = None
 backend_process = None  # Popen object (if we started the backend)
@@ -55,14 +61,6 @@ def parse_data_dir_from_args(backend_args):
     # None means use XDG mode
     return None
 
-def get_xdg_runtime_dir():
-    """Get XDG runtime directory (same logic as backend)"""
-    xdg_runtime = os.environ.get('XDG_RUNTIME_DIR')
-    if xdg_runtime:
-        return Path(xdg_runtime)
-    # Fallback: /tmp/motus-{uid}
-    uid = os.getuid() if hasattr(os, 'getuid') else os.getpid()
-    return Path(f'/tmp/motus-{uid}')
 
 def get_connection_info(data_dir=None):
     """
@@ -74,6 +72,7 @@ def get_connection_info(data_dir=None):
     """
     if data_dir is None:
         # XDG mode: check runtime directory
+        # Use the backend's XDG function - single source of truth
         runtime_dir = get_xdg_runtime_dir() / 'motus'
         connection_file = runtime_dir / 'connection.json'
     else:
