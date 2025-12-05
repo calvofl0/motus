@@ -19,16 +19,30 @@ npm_process = None
 backend_process = None  # Popen object (if we started the backend)
 backend_monitor_thread = None
 
-def parse_data_dir_from_args(backend_args):
-    """Parse data directory from backend arguments (for legacy mode detection)"""
+def normalize_backend_args(backend_args):
+    """
+    Normalize backend arguments to a list.
+    Handles both quoted (single string) and unquoted (multiple args) formats.
+    """
     import shlex
 
-    # If backend_args is a list (from nargs), join it
+    if not backend_args:
+        return []
+
     if isinstance(backend_args, list):
-        args = backend_args
+        # If single element with spaces, it was quoted - split it
+        if len(backend_args) == 1 and ' ' in backend_args[0]:
+            return shlex.split(backend_args[0])
+        # Otherwise use as-is
+        return backend_args
     else:
         # If it's a string, split it
-        args = shlex.split(backend_args) if backend_args else []
+        return shlex.split(backend_args)
+
+
+def parse_data_dir_from_args(backend_args):
+    """Parse data directory from backend arguments (for legacy mode detection)"""
+    args = normalize_backend_args(backend_args)
 
     # Look for -d or --data-dir
     i = 0
@@ -150,13 +164,8 @@ def ensure_backend_running(backend_args):
     # Start backend in background (don't suppress output for debugging)
     backend_cmd = [sys.executable, 'run.py', '--no-browser']
     if backend_args:
-        # backend_args is now a list from nargs=REMAINDER
-        if isinstance(backend_args, list):
-            backend_cmd.extend(backend_args)
-        else:
-            # Fallback if it's still a string
-            import shlex
-            backend_cmd.extend(shlex.split(backend_args))
+        # Normalize and extend with backend args
+        backend_cmd.extend(normalize_backend_args(backend_args))
 
     backend_process = subprocess.Popen(
         backend_cmd,
@@ -213,7 +222,7 @@ def main():
         '--backend-args',
         nargs=argparse.REMAINDER,
         default=[],
-        help='Additional arguments to pass to backend (e.g., --backend-args -e -d /tmp/motus)'
+        help='Additional arguments to pass to backend (e.g., --backend-args -e -d /tmp/motus or --backend-args "-e -d /tmp/motus")'
     )
 
     args = parser.parse_args()
