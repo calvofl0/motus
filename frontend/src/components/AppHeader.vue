@@ -27,13 +27,14 @@
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
+      <button class="quit-button" @click="quitServer">Quit</button>
       <div class="theme-dropdown-container">
-        <button class="theme-toggle-button" @click="toggleThemeMenu">
+        <button class="theme-icon-button" @click="toggleThemeMenu" :title="themeTooltip">
           {{ themeIcon }}
         </button>
         <div class="theme-dropdown-menu" :class="{ hidden: !showThemeMenu }">
           <div class="theme-menu-item" @click="setTheme('auto')" :class="{ active: appStore.theme === 'auto' }">
-            <span>🔄 Auto</span>
+            <span>☀️/🌙 Auto</span>
           </div>
           <div class="theme-menu-item" @click="setTheme('light')" :class="{ active: appStore.theme === 'light' }">
             <span>☀️ Light</span>
@@ -43,7 +44,6 @@
           </div>
         </div>
       </div>
-      <button class="quit-button" @click="quitServer">Quit</button>
     </div>
   </div>
 </template>
@@ -76,11 +76,21 @@ const hiddenFilesText = computed(() =>
 
 const themeIcon = computed(() => {
   if (appStore.theme === 'auto') {
-    return '🔄'
+    return '☀️/🌙'
   } else if (appStore.theme === 'light') {
     return '☀️'
   } else {
     return '🌙'
+  }
+})
+
+const themeTooltip = computed(() => {
+  if (appStore.theme === 'auto') {
+    return `Theme: Auto (${appStore.effectiveTheme === 'dark' ? 'Dark' : 'Light'})`
+  } else if (appStore.theme === 'light') {
+    return 'Theme: Light'
+  } else {
+    return 'Theme: Dark'
   }
 })
 

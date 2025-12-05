@@ -50,10 +50,32 @@
             padding: var(--spacing-lg);
         }
 
+        .empty-jobs-message {
+            padding: var(--spacing-xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+
+        .job-items {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .job-log-text {
+            font-size: var(--font-size-xs);
+            color: var(--color-primary);
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+        }
+
         .job-item {
             background: var(--color-bg-light);
             padding: var(--spacing-xs) var(--spacing-md);
-            margin-bottom: var(--spacing-xs);
+            margin-bottom: 0;
             border-radius: var(--radius-md);
             border-left: 4px solid var(--color-primary);
             display: flex;

@@ -88,28 +88,23 @@
 
       <!-- Step 2: Select Template -->
       <div v-else-if="currentStep === 2">
-        <p style="margin-bottom: 15px; color: #666;">Choose a template for the new remote:</p>
+        <p class="template-intro">Choose a template for the new remote:</p>
         <div
           ref="templateListContainer"
           tabindex="0"
           @keydown="handleTemplateKeydown"
-          style="overflow-y: auto; max-height: 50vh; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; outline: none;"
+          class="template-list-container"
         >
           <div
             v-for="(template, index) in templates"
             :key="template.name"
             :ref="el => templateItems[index] = el"
             @click="selectTemplate(template.name)"
-            :style="{
-              padding: '12px',
-              border: selectedTemplate?.name === template.name ? '2px solid #007bff' : '1px solid #ddd',
-              background: selectedTemplate?.name === template.name ? '#e7f3ff' : '',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }"
+            class="template-item"
+            :class="{ 'template-selected': selectedTemplate?.name === template.name }"
           >
-            <strong style="display: block; margin-bottom: 4px;">{{ template.name }}</strong>
-            <small v-if="template.fields && template.fields.length > 0" style="color: #666;">
+            <strong class="template-name">{{ template.name }}</strong>
+            <small v-if="template.fields && template.fields.length > 0" class="template-fields">
               Fields: {{ template.fields.map(f => f.label).join(', ') }}
             </small>
           </div>
@@ -1277,5 +1272,49 @@ async function handleOAuthRefreshed() {
 
 .remotes-table td:last-child {
   text-align: center;
+}
+
+.template-intro {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-secondary);
+}
+
+.template-list-container {
+  overflow-y: auto;
+  max-height: 50vh;
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  outline: none;
+}
+
+.template-item {
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.template-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.template-selected {
+  border: 2px solid var(--color-primary) !important;
+  background: var(--color-bg-primary-light) !important;
+}
+
+.template-name {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text-primary);
+}
+
+.template-fields {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
 }
 </style>
