@@ -19,9 +19,35 @@ npm_process = None
 backend_process = None  # Popen object (if we started the backend)
 backend_monitor_thread = None
 
-def get_connection_info():
+def parse_data_dir_from_args(backend_args):
+    """Parse data directory from backend arguments"""
+    import shlex
+
+    # If backend_args is a list (from nargs), join it
+    if isinstance(backend_args, list):
+        args = backend_args
+    else:
+        # If it's a string, split it
+        args = shlex.split(backend_args) if backend_args else []
+
+    # Look for -d or --data-dir
+    i = 0
+    while i < len(args):
+        if args[i] in ['-d', '--data-dir']:
+            if i + 1 < len(args):
+                return args[i + 1]
+        i += 1
+
+    # Default to ~/.motus
+    return str(Path.home() / '.motus')
+
+def get_connection_info(data_dir=None):
     """Read connection info from existing backend instance"""
-    data_dir = Path.home() / '.motus'  # Fixed: was .motuz, should be .motus
+    if data_dir is None:
+        data_dir = Path.home() / '.motus'
+    else:
+        data_dir = Path(data_dir)
+
     connection_file = data_dir / 'connection.json'
 
     if connection_file.exists():
@@ -79,11 +105,14 @@ def monitor_backend(backend_pid, backend_popen=None):
             os._exit(0)
             break
 
-def ensure_backend_running(backend_args=''):
+def ensure_backend_running(backend_args):
     """Ensure backend is running, start if needed"""
     global backend_process
 
-    conn = get_connection_info()
+    # Parse data directory from backend args
+    data_dir = parse_data_dir_from_args(backend_args)
+
+    conn = get_connection_info(data_dir)
 
     if conn:
         print(f"✓ Backend already running on port {conn['port']}")
@@ -92,17 +121,26 @@ def ensure_backend_running(backend_args=''):
         return conn
 
     print("Starting backend...")
-    if backend_args:
-        print(f"  (with args: {backend_args})")
+    # Format backend_args for display
+    if isinstance(backend_args, list):
+        args_str = ' '.join(backend_args)
+    else:
+        args_str = backend_args
+    if args_str:
+        print(f"  (with args: {args_str})")
     print("=" * 70)
     print()
 
     # Start backend in background (don't suppress output for debugging)
     backend_cmd = [sys.executable, 'run.py', '--no-browser']
     if backend_args:
-        # Split backend_args by spaces, respecting quotes
-        import shlex
-        backend_cmd.extend(shlex.split(backend_args))
+        # backend_args is now a list from nargs=REMAINDER
+        if isinstance(backend_args, list):
+            backend_cmd.extend(backend_args)
+        else:
+            # Fallback if it's still a string
+            import shlex
+            backend_cmd.extend(shlex.split(backend_args))
 
     backend_process = subprocess.Popen(
         backend_cmd,
@@ -114,7 +152,7 @@ def ensure_backend_running(backend_args=''):
     for i in range(30):  # 30 seconds max
         time.sleep(1)
         print('.', end='', flush=True)
-        conn = get_connection_info()
+        conn = get_connection_info(data_dir)
         if conn:
             print()  # New line after dots
             print(f"✓ Backend started on port {conn['port']}")
@@ -157,9 +195,9 @@ def main():
     )
     parser.add_argument(
         '--backend-args',
-        type=str,
-        default='',
-        help='Additional arguments to pass to backend (e.g., "--log-level DEBUG --data-dir /tmp/motus")'
+        nargs=argparse.REMAINDER,
+        default=[],
+        help='Additional arguments to pass to backend (e.g., --backend-args -e -d /tmp/motus)'
     )
 
     args = parser.parse_args()
