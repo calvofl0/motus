@@ -6,34 +6,22 @@
   >
     <template #header>📤 Uploading Files</template>
     <template #body>
-      <div style="margin-bottom: 15px; color: #333;">
-        <div style="font-weight: 500; margin-bottom: 10px;">
+      <div class="upload-content">
+        <div class="upload-message">
           {{ message }}
         </div>
-        <div style="background: #f0f0f0; border-radius: 10px; height: 24px; overflow: hidden; position: relative;">
-          <div
-            :style="{
-              background: 'linear-gradient(90deg, #28a745, #20c997)',
-              height: '100%',
-              width: `${progress}%`,
-              transition: 'width 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }"
-          >
-            <span style="color: white; font-weight: bold; font-size: 12px; position: absolute; left: 50%; transform: translateX(-50%); text-shadow: 0 0 3px rgba(0,0,0,0.3);">
-              {{ progress }}%
-            </span>
+        <div class="progress-bar-container">
+          <div class="progress-bar" :style="{ width: `${progress}%` }">
+            <span class="progress-text">{{ progress }}%</span>
           </div>
         </div>
-        <div style="font-size: 12px; color: #666; margin-top: 8px;">
+        <div class="upload-details">
           {{ details }}
         </div>
       </div>
     </template>
     <template #footer>
-      <button @click="$emit('cancel')" :disabled="!canCancel" style="background: #dc3545;">
+      <button @click="$emit('cancel')" :disabled="!canCancel" class="btn btn-danger">
         Cancel
       </button>
     </template>
@@ -65,3 +53,48 @@ defineProps({
 
 defineEmits(['update:modelValue', 'cancel'])
 </script>
+
+<style scoped>
+.upload-content {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
+}
+
+.upload-message {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--spacing-sm);
+}
+
+.progress-bar-container {
+  background: var(--color-border-lighter);
+  border-radius: var(--radius-sm);
+  height: 24px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--color-success), #20c997);
+  height: 100%;
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-text {
+  color: white;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.upload-details {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+</style>

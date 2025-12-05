@@ -96,23 +96,23 @@ watch(() => props.modelValue, async (isOpen) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--modal-overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   overflow-y: auto;
   outline: none;
 }
 
 .modal-dialog {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  margin: 20px;
+  margin: var(--spacing-xl);
 }
 
 .modal-small {
@@ -131,8 +131,8 @@ watch(() => props.modelValue, async (isOpen) => {
 }
 
 .modal-header {
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -141,9 +141,9 @@ watch(() => props.modelValue, async (isOpen) => {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .modal-close {
@@ -151,7 +151,7 @@ watch(() => props.modelValue, async (isOpen) => {
   border: none;
   font-size: 32px;
   line-height: 1;
-  color: #999;
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -163,24 +163,24 @@ watch(() => props.modelValue, async (isOpen) => {
 }
 
 .modal-close:hover {
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
-  padding: 20px;
+  padding: var(--spacing-xl);
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
 }
 
 .modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #e0e0e0;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-top: 1px solid var(--color-border-light);
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-sm);
   justify-content: flex-end;
   flex-shrink: 0;
-  background: white;
+  background: var(--color-bg-white);
 }
 
 /* Transition */

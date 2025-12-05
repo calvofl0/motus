@@ -40,7 +40,7 @@
     </template>
 
     <template #footer>
-      <button v-if="job?.log_text" @click="downloadLog" class="btn download-btn">⬇️ Download Log</button>
+      <button v-if="job?.log_text" @click="downloadLog" class="btn btn-info">⬇️ Download Log</button>
     </template>
   </BaseModal>
 </template>
@@ -91,20 +91,20 @@ function downloadLog() {
 .job-log-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--spacing-xl);
   max-height: 70vh;
 }
 
 .job-info {
-  background: #f5f5f5;
-  border-radius: 6px;
-  padding: 15px;
+  background: var(--color-bg-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
 }
 
 .info-row {
   display: flex;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-base);
 }
 
 .info-row:last-child {
@@ -112,40 +112,40 @@ function downloadLog() {
 }
 
 .info-row .label {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   min-width: 100px;
-  color: #666;
+  color: var(--color-text-tertiary);
 }
 
 .info-row .value {
   flex: 1;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .info-row .value.path {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   word-break: break-all;
 }
 
 .info-row .value.error {
-  color: #d32f2f;
-  font-weight: 500;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-medium);
 }
 
 .status-completed {
-  color: #28a745;
-  font-weight: 600;
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
 }
 
 .status-failed {
-  color: #d32f2f;
-  font-weight: 600;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
 }
 
 .status-interrupted {
-  color: #ff9800;
-  font-weight: 600;
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
 }
 
 .log-section {
@@ -159,39 +159,24 @@ function downloadLog() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .log-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.download-btn {
-  background: #17a2b8;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.download-btn:hover {
-  background: #138496;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
 }
 
 .log-content {
   background: #1e1e1e;
   color: #d4d4d4;
-  border-radius: 6px;
-  padding: 15px;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
   overflow-y: auto;
   flex: 1;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   line-height: 1.5;
   max-height: 400px;
 }
@@ -207,24 +192,6 @@ function downloadLog() {
   font-style: italic;
   text-align: center;
   padding: 40px 0;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: opacity 0.2s;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-.btn-primary {
-  background: #007bff;
-  color: white;
 }
 
 /* Override BaseModal footer alignment to space buttons */

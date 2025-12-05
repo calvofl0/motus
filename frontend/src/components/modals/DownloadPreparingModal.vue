@@ -6,17 +6,17 @@
   >
     <template #header>📥 Preparing Download</template>
     <template #body>
-      <div style="margin-bottom: 15px; color: #333; text-align: center;">
-        <div style="font-weight: 500; margin-bottom: 20px; font-size: 16px;">
+      <div class="download-preparing-content">
+        <div class="message">
           {{ message }}
         </div>
 
         <!-- Spinner animation -->
-        <div style="margin: 20px auto; width: 50px; height: 50px;">
+        <div class="spinner-container">
           <div class="spinner"></div>
         </div>
 
-        <div style="font-size: 12px; color: #666; margin-top: 15px;">
+        <div class="wait-message">
           Please wait while we prepare your download...
         </div>
       </div>
@@ -39,13 +39,37 @@ defineEmits(['update:modelValue'])
 </script>
 
 <style scoped>
+.download-preparing-content {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.message {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--spacing-xl);
+  font-size: var(--font-size-lg);
+}
+
+.spinner-container {
+  margin: var(--spacing-xl) auto;
+  width: 50px;
+  height: 50px;
+}
+
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #28a745;
+  border: 4px solid var(--color-bg-light);
+  border-top: 4px solid var(--color-success);
   border-radius: 50%;
   width: 50px;
   height: 50px;
   animation: spin 1s linear infinite;
+}
+
+.wait-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-lg);
 }
 
 @keyframes spin {
