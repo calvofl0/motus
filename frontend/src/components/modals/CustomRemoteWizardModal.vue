@@ -10,24 +10,24 @@
     <template #body>
       <!-- Step 1: Remote name and type selection -->
       <div v-if="wizardStep === 1">
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 500;">Remote Name:</label>
+        <div class="field-group">
+          <label>Remote Name:</label>
           <input
             ref="remoteNameInput"
             type="text"
             v-model="remoteName"
             @keydown.enter="handleRemoteNameEnter"
             placeholder="e.g., my_remote"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+            class="wizard-input"
           />
         </div>
         <div>
-          <label style="display: block; margin-bottom: 5px; font-weight: 500;">Remote Type:</label>
+          <label>Remote Type:</label>
           <select
             ref="remoteTypeSelect"
             v-model="remoteType"
             @keydown.enter="handleRemoteTypeEnter"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+            class="wizard-input"
           >
             <option value="">-- Select a type --</option>
             <option v-for="provider in sortedProviders" :key="provider.name" :value="provider.name">
@@ -39,27 +39,27 @@
 
       <!-- Step 2+: Dynamic question from rclone -->
       <div v-else-if="currentQuestion">
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 500;">
+        <div class="field-group">
+          <label>
             {{ currentQuestion.name }}
-            <span v-if="currentQuestion.required" style="color: red;">*</span>
+            <span v-if="currentQuestion.required" class="required-mark">*</span>
           </label>
-          <div v-if="currentQuestion.help" v-html="formatHelp(currentQuestion.help)" style="margin-bottom: 8px; color: #666; font-size: 14px;"></div>
+          <div v-if="currentQuestion.help" v-html="formatHelp(currentQuestion.help)" class="help-text"></div>
 
           <!-- Password field -->
-          <div v-if="currentQuestion.is_password" style="position: relative;">
+          <div v-if="currentQuestion.is_password" class="password-field">
             <input
               ref="answerInput"
               :type="showPassword ? 'text' : 'password'"
               v-model="currentAnswer"
               @keydown.enter="handleAnswerEnter"
               :placeholder="getPlaceholder()"
-              style="width: 100%; padding: 8px; padding-right: 35px; border: 1px solid #ddd; border-radius: 4px;"
+              class="wizard-input password-input"
             />
             <button
               @click.prevent="showPassword = !showPassword"
               type="button"
-              style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 5px; color: #666;"
+              class="password-toggle"
               :title="showPassword ? 'Hide password' : 'Show password'"
             >
               <!-- Eye icon (show password) -->
@@ -82,7 +82,7 @@
             ref="answerInput"
             v-model="currentAnswer"
             @keydown.enter="handleAnswerEnter"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+            class="wizard-input"
           >
             <option value="">-- Select --</option>
             <option value="true">Yes</option>
@@ -97,7 +97,7 @@
             v-model="currentAnswer"
             @keydown.enter="handleAnswerEnter"
             :placeholder="getPlaceholder()"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+            class="wizard-input"
           />
 
           <!-- Text field (default) -->
@@ -108,29 +108,29 @@
             v-model="currentAnswer"
             @keydown.enter="handleAnswerEnter"
             :placeholder="getPlaceholder()"
-            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+            class="wizard-input"
           />
 
           <!-- Examples if available -->
-          <div v-if="currentQuestion.examples && currentQuestion.examples.length > 0" style="margin-top: 8px; font-size: 13px; color: #888;">
+          <div v-if="currentQuestion.examples && currentQuestion.examples.length > 0" class="examples">
             <div>Examples:</div>
-            <div v-for="(example, idx) in currentQuestion.examples" :key="idx" style="margin-left: 10px;">
-              • {{ example.Value }} <span v-if="example.Help" style="color: #999;">({{ example.Help }})</span>
+            <div v-for="(example, idx) in currentQuestion.examples" :key="idx" class="example-item">
+              • {{ example.Value }} <span v-if="example.Help" class="example-help">({{ example.Help }})</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="isProcessing" style="text-align: center; padding: 20px;">
-        <div style="color: #666;">Processing...</div>
+      <div v-else-if="isProcessing" class="loading-state">
+        <div class="loading-text">Processing...</div>
       </div>
     </template>
     <template #footer>
-      <button @click="handleBack" class="btn-secondary">
+      <button @click="handleBack" class="btn btn-secondary">
         {{ wizardStep === 1 ? 'Cancel' : 'Back' }}
       </button>
-      <button @click="handleNext" :disabled="!canProceed" class="btn-primary">
+      <button @click="handleNext" :disabled="!canProceed" class="btn btn-success">
         {{ getNextButtonText() }}
       </button>
     </template>
@@ -432,41 +432,84 @@ function formatHelp(helpText) {
 </script>
 
 <style scoped>
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
+.field-group {
+  margin-bottom: var(--spacing-lg);
 }
 
-.btn-secondary:hover {
-  background: #5a6268;
+label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
-.btn-primary {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+.required-mark {
+  color: var(--color-danger);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #218838;
+.help-text {
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
 }
 
-.btn-primary:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-input, select {
+.wizard-input {
+  width: 100%;
+  padding: var(--spacing-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-family: inherit;
+}
+
+.wizard-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-input {
+  padding-right: 35px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  color: var(--color-text-secondary);
+}
+
+.password-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.examples {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.example-item {
+  margin-left: var(--spacing-sm);
+}
+
+.example-help {
+  color: var(--color-text-tertiary);
+}
+
+.loading-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.loading-text {
+  color: var(--color-text-secondary);
 }
 </style>

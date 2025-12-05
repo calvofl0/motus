@@ -201,7 +201,7 @@
         <button
           v-if="templatesAvailable"
           @click="startWizard"
-          style="background: #28a745;"
+          class="btn btn-success"
         >+ Add Remote</button>
       </template>
 
@@ -209,23 +209,24 @@
       <template v-else-if="currentStep === 2">
         <button
           @click="showCustomRemoteForm"
-          style="background: #6c757d; margin-right: auto;"
+          class="btn btn-secondary"
+          style="margin-right: auto;"
         >Custom Remote</button>
-        <button @click="showRemotesList">Cancel</button>
+        <button @click="showRemotesList" class="btn btn-secondary">Cancel</button>
         <button
           @click="showRemoteForm"
           :disabled="!selectedTemplate"
-          style="background: #007bff;"
+          class="btn btn-primary"
         >Next</button>
       </template>
 
       <!-- Step 3 Footer -->
       <template v-else-if="currentStep === 3">
-        <button @click="showTemplateSelection">Back</button>
+        <button @click="showTemplateSelection" class="btn btn-secondary">Back</button>
         <button
           @click="createRemote"
           :disabled="!isFormValid"
-          style="background: #28a745;"
+          class="btn btn-success"
         >Create Remote</button>
       </template>
     </template>
@@ -238,20 +239,20 @@
   >
     <template #header>⚙️ Custom Remote Configuration</template>
     <template #body>
-      <p style="margin-bottom: 15px;"><strong>Custom Remote Configuration</strong></p>
-      <p style="color: #666; margin-bottom: 10px;">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
+      <p class="config-title"><strong>Custom Remote Configuration</strong></p>
+      <p class="config-help">Enter the rclone configuration for your custom remote. Must include the [remote_name] section header.</p>
       <textarea
         v-model="customConfig"
-        style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
+        class="config-textarea"
         placeholder="[myremote]&#10;type = s3&#10;access_key_id = YOUR_ACCESS_KEY&#10;secret_access_key = YOUR_SECRET_KEY&#10;region = us-east-1&#10;..."
       ></textarea>
     </template>
     <template #footer>
-      <button @click="showCustomConfigModal = false">Cancel</button>
+      <button @click="showCustomConfigModal = false" class="btn btn-secondary">Cancel</button>
       <button
         @click="createCustomRemote"
         :disabled="!isCustomConfigValid"
-        style="background: #28a745;"
+        class="btn btn-success"
       >Create Remote</button>
     </template>
   </BaseModal>
@@ -282,12 +283,9 @@
       </div>
     </template>
     <template #footer>
-      <button @click="copyConfigToClipboard" style="background: #28a745; position: relative;">
+      <button @click="copyConfigToClipboard" class="btn btn-success copy-config-btn">
         📋 Copy to Clipboard
-        <span
-          v-if="showCopyTooltip"
-          style="display: inline; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;"
-        >Copied!</span>
+        <span v-if="showCopyTooltip" class="copy-tooltip">Copied!</span>
       </button>
     </template>
   </BaseModal>
@@ -299,16 +297,16 @@
   >
     <template #header>✏️ Edit Remote Configuration</template>
     <template #body>
-      <p style="color: #666; margin-bottom: 10px;">Edit the rclone configuration for this remote. You can rename the remote by changing the value between [brackets].</p>
+      <p class="config-help">Edit the rclone configuration for this remote. You can rename the remote by changing the value between [brackets].</p>
       <textarea
         v-model="editConfigText"
-        style="width: 100%; min-height: 300px; max-height: 50vh; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"
+        class="config-textarea"
         placeholder="[remote_name]&#10;type = s3&#10;..."
       ></textarea>
     </template>
     <template #footer>
-      <button @click="showEditConfigModal = false">Cancel</button>
-      <button @click="saveRemoteConfig" style="background: #28a745;">Save</button>
+      <button @click="showEditConfigModal = false" class="btn btn-secondary">Cancel</button>
+      <button @click="saveRemoteConfig" class="btn btn-success">Save</button>
     </template>
   </BaseModal>
 
@@ -1185,5 +1183,49 @@ async function handleOAuthRefreshed() {
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
   border-right: 6px solid #2c3e50;
+}
+
+.config-title {
+  margin-bottom: var(--spacing-lg);
+}
+
+.config-help {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.config-textarea {
+  width: 100%;
+  min-height: 300px;
+  max-height: 50vh;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+
+.config-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.copy-config-btn {
+  position: relative;
+}
+
+.copy-tooltip {
+  display: inline;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-primary);
+  color: var(--color-bg-white);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 </style>

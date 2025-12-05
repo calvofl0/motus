@@ -6,65 +6,56 @@
   >
     <template #header>🔐 OAuth Token Refresh</template>
     <template #body>
-      <p style="color: #666; margin-bottom: 20px;">
+      <p class="oauth-intro">
         To refresh your OAuth token, please run the following command on your local machine where you have a browser:
       </p>
 
       <!-- Step 1: Install rclone -->
-      <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
-        <strong style="color: #333;">Step 1: Install rclone (if not already installed)</strong>
-        <p style="margin: 10px 0; color: #666; font-size: 14px;">
+      <div class="oauth-step">
+        <strong class="step-title">Step 1: Install rclone (if not already installed)</strong>
+        <p class="step-text">
           Download rclone from:
-          <a href="https://rclone.org/downloads/" target="_blank" style="color: #007bff; text-decoration: underline;">https://rclone.org/downloads/</a>
+          <a href="https://rclone.org/downloads/" target="_blank" class="oauth-link">https://rclone.org/downloads/</a>
         </p>
       </div>
 
       <!-- Step 2: Run authorize command -->
-      <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
-        <strong style="color: #333;">Step 2: Run this command</strong>
-        <div style="background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 13px; word-break: break-all;">
-          <div style="white-space: pre-wrap;">{{ authorizeCommand }}</div>
+      <div class="oauth-step">
+        <strong class="step-title">Step 2: Run this command</strong>
+        <div class="command-box">
+          <div class="command-text">{{ authorizeCommand }}</div>
         </div>
-        <button @click="copyCommand" style="background: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-size: 14px; position: relative;">
+        <button @click="copyCommand" class="btn btn-success copy-button">
           📋 Copy to Clipboard
-          <span
-            v-if="showCopyTooltip"
-            style="display: inline; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;"
-          >Copied!</span>
+          <span v-if="showCopyTooltip" class="copy-tooltip">Copied!</span>
         </button>
       </div>
 
       <!-- Step 3: Paste token -->
-      <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #dee2e6;">
-        <strong style="color: #333;">Step 3: Paste the token here</strong>
-        <p style="margin: 10px 0; color: #666; font-size: 14px;">
+      <div class="oauth-step">
+        <strong class="step-title">Step 3: Paste the token here</strong>
+        <p class="step-text">
           After running the command, you will see a long token string. Copy and paste it below:
         </p>
         <textarea
           v-model="tokenInput"
           placeholder="Paste the token string here..."
-          style="width: 100%; min-height: 120px; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace; font-size: 12px; resize: vertical;"
+          class="token-input"
         ></textarea>
       </div>
 
       <!-- Status message -->
       <div
         v-if="statusMessage"
-        :style="{
-          padding: '12px',
-          borderRadius: '4px',
-          marginBottom: '15px',
-          background: statusType === 'error' ? '#f8d7da' : '#d4edda',
-          color: statusType === 'error' ? '#721c24' : '#155724',
-          border: statusType === 'error' ? '1px solid #f5c6cb' : '1px solid #c3e6cb'
-        }"
+        class="status-message"
+        :class="`status-${statusType}`"
       >
         {{ statusMessage }}
       </div>
     </template>
     <template #footer>
-      <button @click="$emit('update:modelValue', false)" style="background: #6c757d;">Cancel</button>
-      <button @click="submitToken" :disabled="submitting" style="background: #28a745;">
+      <button @click="$emit('update:modelValue', false)" class="btn btn-secondary">Cancel</button>
+      <button @click="submitToken" :disabled="submitting" class="btn btn-success">
         {{ submitting ? 'Submitting...' : 'Submit' }}
       </button>
     </template>
@@ -211,3 +202,97 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
+
+<style scoped>
+.oauth-intro {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.oauth-step {
+  background: var(--color-bg-light);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--color-border-light);
+}
+
+.step-title {
+  display: block;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.step-text {
+  margin: var(--spacing-sm) 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.oauth-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.command-box {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  margin: var(--spacing-sm) 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+.command-text {
+  white-space: pre-wrap;
+}
+
+.copy-button {
+  position: relative;
+}
+
+.copy-tooltip {
+  display: inline;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text-primary);
+  color: var(--color-bg-white);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.token-input {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-xs);
+  resize: vertical;
+}
+
+.status-message {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.status-success {
+  background: var(--color-bg-success-light);
+  color: var(--color-text-success);
+  border: 1px solid var(--color-success);
+}
+
+.status-error {
+  background: var(--color-bg-danger-light);
+  color: var(--color-text-danger);
+  border: 1px solid var(--color-danger);
+}
+</style>

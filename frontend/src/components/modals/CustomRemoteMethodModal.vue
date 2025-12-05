@@ -6,12 +6,12 @@
   >
     <template #header>⚙️ Add Custom Remote</template>
     <template #body>
-      <p style="margin-bottom: 15px; color: #666;">Choose how you want to configure your custom remote:</p>
+      <p class="method-intro">Choose how you want to configure your custom remote:</p>
       <div
         ref="containerRef"
         tabindex="0"
         @keydown="handleKeydown"
-        style="display: flex; flex-direction: column; gap: 10px; outline: none;"
+        class="method-container"
       >
         <div
           ref="wizardOption"
@@ -19,9 +19,10 @@
           :style="getOptionStyle(0)"
           @mouseenter="hoveredIndex = 0"
           @mouseleave="hoveredIndex = -1"
+          class="method-option"
         >
-          <strong style="display: block; margin-bottom: 4px; font-size: 16px;">🧙 Wizard</strong>
-          <small style="color: #666;">Step-by-step configuration</small>
+          <strong class="method-title">🧙 Wizard</strong>
+          <small class="method-desc">Step-by-step configuration</small>
         </div>
 
         <div
@@ -30,9 +31,10 @@
           :style="getOptionStyle(1)"
           @mouseenter="hoveredIndex = 1"
           @mouseleave="hoveredIndex = -1"
+          class="method-option"
         >
-          <strong style="display: block; margin-bottom: 4px; font-size: 16px;">⚡ Manual Configuration</strong>
-          <small style="color: #666;">For experts: edit rclone config directly</small>
+          <strong class="method-title">⚡ Manual Configuration</strong>
+          <small class="method-desc">For experts: edit rclone config directly</small>
         </div>
       </div>
     </template>
@@ -67,12 +69,8 @@ function getOptionStyle(index) {
   const isHovered = hoveredIndex.value === index
 
   return {
-    padding: '16px',
-    border: isSelected ? '2px solid #007bff' : '1px solid #ddd',
-    background: (isSelected || isHovered) ? '#e7f3ff' : 'white',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
+    border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+    background: (isSelected || isHovered) ? 'var(--color-bg-primary-light)' : 'var(--color-bg-white)'
   }
 }
 
@@ -114,5 +112,34 @@ watch(() => props.modelValue, async (isOpen) => {
 </script>
 
 <style scoped>
-/* Styles are inline for this component */
+.method-intro {
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-secondary);
+}
+
+.method-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  outline: none;
+}
+
+.method-option {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.method-title {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}
+
+.method-desc {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
 </style>
