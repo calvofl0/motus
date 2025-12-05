@@ -118,7 +118,7 @@ def is_process_running(pid: int) -> bool:
 
 def check_existing_instance(config: Config) -> dict:
     """
-    Check if an instance is already running on this data directory
+    Check if an instance is already running
 
     Returns:
         dict with connection info if running, None otherwise
@@ -126,9 +126,9 @@ def check_existing_instance(config: Config) -> dict:
     if psutil is None:
         return None  # Skip check if psutil not available
 
-    data_dir = Path(config.data_dir)
-    pid_file = data_dir / 'motus.pid'
-    connection_file = data_dir / 'connection.json'
+    runtime_dir = Path(config.runtime_dir)
+    pid_file = runtime_dir / 'motus.pid'
+    connection_file = runtime_dir / 'connection.json'
 
     if not pid_file.exists():
         return None  # No PID file = no running instance
@@ -166,12 +166,12 @@ def check_existing_instance(config: Config) -> dict:
 
 
 def write_connection_info(config: Config):
-    """Write PID and connection info files"""
-    data_dir = Path(config.data_dir)
-    data_dir.mkdir(parents=True, exist_ok=True)
+    """Write PID and connection info files to runtime directory"""
+    runtime_dir = Path(config.runtime_dir)
+    runtime_dir.mkdir(parents=True, exist_ok=True)
 
-    pid_file = data_dir / 'motus.pid'
-    connection_file = data_dir / 'connection.json'
+    pid_file = runtime_dir / 'motus.pid'
+    connection_file = runtime_dir / 'connection.json'
 
     # Write PID
     with open(pid_file, 'w') as f:
@@ -185,7 +185,11 @@ def write_connection_info(config: Config):
         'host': config.host,
         'port': config.port,
         'token': config.token,
-        'data_dir': str(config.data_dir)
+        'data_dir': str(config.data_dir),
+        'runtime_dir': str(config.runtime_dir),
+        'config_dir': str(config.config_dir),
+        'cache_dir': str(config.cache_path),
+        'use_xdg': config.use_xdg
     }
 
     with open(connection_file, 'w') as f:
@@ -315,9 +319,27 @@ def main():
         config.token = args.token
         config.token_auto_generated = False
     if args.data_dir:
+        # CLI --data-dir overrides everything and switches to legacy mode
+        config.use_xdg = False
         config.data_dir = args.data_dir
+        config.config_dir = args.data_dir
+        config.runtime_dir = args.data_dir
+        config.database_path = os.path.join(args.data_dir, 'motus.db')
+        if not args.cache_path:
+            config.cache_path = os.path.join(args.data_dir, 'cache')
+        config.log_file = os.path.join(config.cache_path, 'motus.log')
+        # Update remote templates path
+        default_templates_path = os.path.join(args.data_dir, 'remote_templates.conf')
+        if not args.remote_templates and os.path.exists(default_templates_path):
+            config.remote_templates_file = default_templates_path
+        # Create directories
+        os.makedirs(config.data_dir, exist_ok=True)
+        os.makedirs(config.config_dir, exist_ok=True)
+        os.makedirs(config.runtime_dir, exist_ok=True)
+        os.makedirs(config.cache_path, exist_ok=True)
     if args.cache_path:
         config.cache_path = args.cache_path
+        config.log_file = os.path.join(config.cache_path, 'motus.log')
         # Update derived cache directories
         config.download_cache_dir = os.path.join(config.cache_path, 'download')
         config.upload_cache_dir = os.path.join(config.cache_path, 'upload')

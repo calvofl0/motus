@@ -1,6 +1,11 @@
 """
 Configuration management for Motus
 Handles environment variables, config files, and defaults
+
+XDG Base Directory Specification Support:
+- Respects XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME, XDG_RUNTIME_DIR
+- Priority: CLI flags > Config file > MOTUS_* env vars > XDG_* env vars > defaults
+- Legacy --data-dir overrides XDG (puts everything in one directory)
 """
 import os
 import re
@@ -8,6 +13,32 @@ import secrets
 import yaml
 from pathlib import Path
 from typing import Optional
+
+
+def get_xdg_config_home() -> Path:
+    """Get XDG config directory"""
+    return Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
+
+
+def get_xdg_data_home() -> Path:
+    """Get XDG data directory"""
+    return Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share'))
+
+
+def get_xdg_cache_home() -> Path:
+    """Get XDG cache directory"""
+    return Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache'))
+
+
+def get_xdg_runtime_dir() -> Path:
+    """Get XDG runtime directory"""
+    xdg_runtime = os.environ.get('XDG_RUNTIME_DIR')
+    if xdg_runtime:
+        return Path(xdg_runtime)
+    # Fallback: /tmp/motus-{uid} or /var/tmp/motus-{uid}
+    uid = os.getuid() if hasattr(os, 'getuid') else os.getpid()
+    runtime_dir = Path(f'/tmp/motus-{uid}')
+    return runtime_dir
 
 
 def parse_size(size_str: str) -> int:
@@ -84,7 +115,16 @@ class Config:
         """
         Initialize configuration
 
-        Priority: CLI args > Env vars > Config file > Defaults
+        Priority: CLI args > Config file > MOTUS_* env > XDG_* env > Defaults
+
+        XDG Mode (default):
+        - Config: XDG_CONFIG_HOME/motus (default: ~/.config/motus)
+        - Data: XDG_DATA_HOME/motus (default: ~/.local/share/motus)
+        - Cache: XDG_CACHE_HOME/motus (default: ~/.cache/motus)
+        - Runtime: XDG_RUNTIME_DIR/motus (default: /tmp/motus-{uid})
+
+        Legacy Mode (if --data-dir is set):
+        - Everything goes to the specified data_dir
         """
         # Load config file if exists
         self.config_data = {}
@@ -92,22 +132,50 @@ class Config:
             with open(config_file, 'r') as f:
                 self.config_data = yaml.safe_load(f) or {}
 
-        # Data directory (default: ~/.motus)
-        self.data_dir = self._get_config(
-            'data_dir',
-            env_var='MOTUS_DATA_DIR',
-            default=str(Path.home() / '.motus')
-        )
-        os.makedirs(self.data_dir, exist_ok=True)
+        # Check if data_dir is explicitly set (legacy mode)
+        # Priority: MOTUS_DATA_DIR env var > config file
+        # Note: CLI args are handled separately and override this
+        legacy_data_dir = None
+        if os.environ.get('MOTUS_DATA_DIR'):
+            legacy_data_dir = os.environ.get('MOTUS_DATA_DIR')
+        elif 'data_dir' in self.config_data:
+            legacy_data_dir = self.config_data['data_dir']
 
-        # Cache directory (for temporary files, downloads, uploads, logs)
-        # Default: {data_dir}/cache
-        self.cache_path = self._get_config(
-            'cache_path',
-            env_var='MOTUS_CACHE_PATH',
-            default=os.path.join(self.data_dir, 'cache')
-        )
+        # Determine if we're in legacy mode or XDG mode
+        self.use_xdg = legacy_data_dir is None
+
+        if self.use_xdg:
+            # XDG Mode: separate directories for config, data, cache, runtime
+            self.config_dir = str(get_xdg_config_home() / 'motus')
+            self.data_dir = str(get_xdg_data_home() / 'motus')
+            self.runtime_dir = str(get_xdg_runtime_dir() / 'motus')
+
+            # Cache can be overridden separately
+            cache_override = self._get_config(
+                'cache_path',
+                env_var='MOTUS_CACHE_PATH',
+                default=None
+            )
+            if cache_override:
+                self.cache_path = cache_override
+            else:
+                self.cache_path = str(get_xdg_cache_home() / 'motus')
+        else:
+            # Legacy Mode: everything in data_dir
+            self.data_dir = legacy_data_dir
+            self.config_dir = self.data_dir
+            self.runtime_dir = self.data_dir
+            self.cache_path = self._get_config(
+                'cache_path',
+                env_var='MOTUS_CACHE_PATH',
+                default=os.path.join(self.data_dir, 'cache')
+            )
+
+        # Create directories
+        os.makedirs(self.config_dir, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
         os.makedirs(self.cache_path, exist_ok=True)
+        os.makedirs(self.runtime_dir, exist_ok=True)
 
         # Port configuration (like Jupyter)
         self.port = int(self._get_config(
@@ -137,7 +205,7 @@ class Config:
         else:
             self.token_auto_generated = False
 
-        # Database path
+        # Database path (in data directory)
         self.database_path = os.path.join(self.data_dir, 'motus.db')
 
         # Log level
@@ -147,8 +215,8 @@ class Config:
             default='WARNING'
         ).upper()
 
-        # Log file
-        self.log_file = os.path.join(self.data_dir, 'motus.log')
+        # Log file (in cache directory - logs are ephemeral)
+        self.log_file = os.path.join(self.cache_path, 'motus.log')
 
         # Flask secret key (for sessions)
         self.secret_key = self._get_config(
@@ -220,16 +288,16 @@ class Config:
         ).lower()
 
         # Remote templates file path
-        # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > data_dir/remote_templates.conf (if exists) > None
+        # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > config_dir/remote_templates.conf (if exists) > None
         self.remote_templates_file = self._get_config(
             'remote_templates_file',
             env_var='MOTUS_REMOTE_TEMPLATES',
             default=None
         )
 
-        # If not specified, check for default file in data directory
+        # If not specified, check for default file in config directory
         if not self.remote_templates_file:
-            default_templates_path = os.path.join(self.data_dir, 'remote_templates.conf')
+            default_templates_path = os.path.join(self.config_dir, 'remote_templates.conf')
             if os.path.exists(default_templates_path):
                 self.remote_templates_file = default_templates_path
 

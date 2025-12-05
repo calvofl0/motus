@@ -20,7 +20,7 @@ backend_process = None  # Popen object (if we started the backend)
 backend_monitor_thread = None
 
 def parse_data_dir_from_args(backend_args):
-    """Parse data directory from backend arguments"""
+    """Parse data directory from backend arguments (for legacy mode detection)"""
     import shlex
 
     # If backend_args is a list (from nargs), join it
@@ -38,17 +38,33 @@ def parse_data_dir_from_args(backend_args):
                 return args[i + 1]
         i += 1
 
-    # Default to ~/.motus
-    return str(Path.home() / '.motus')
+    # None means use XDG mode
+    return None
+
+def get_xdg_runtime_dir():
+    """Get XDG runtime directory (same logic as backend)"""
+    xdg_runtime = os.environ.get('XDG_RUNTIME_DIR')
+    if xdg_runtime:
+        return Path(xdg_runtime)
+    # Fallback: /tmp/motus-{uid}
+    uid = os.getuid() if hasattr(os, 'getuid') else os.getpid()
+    return Path(f'/tmp/motus-{uid}')
 
 def get_connection_info(data_dir=None):
-    """Read connection info from existing backend instance"""
-    if data_dir is None:
-        data_dir = Path.home() / '.motus'
-    else:
-        data_dir = Path(data_dir)
+    """
+    Read connection info from existing backend instance
 
-    connection_file = data_dir / 'connection.json'
+    Args:
+        data_dir: If specified, look in this directory (legacy mode)
+                 If None, look in XDG runtime dir (XDG mode)
+    """
+    if data_dir is None:
+        # XDG mode: check runtime directory
+        runtime_dir = get_xdg_runtime_dir() / 'motus'
+        connection_file = runtime_dir / 'connection.json'
+    else:
+        # Legacy mode: check data directory
+        connection_file = Path(data_dir) / 'connection.json'
 
     if connection_file.exists():
         try:
