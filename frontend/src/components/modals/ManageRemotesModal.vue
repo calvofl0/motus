@@ -13,15 +13,15 @@
 
     <template #body>
       <!-- Step 1: List Remotes -->
-      <div v-if="currentStep === 1" style="margin-bottom: 15px; overflow-y: auto; max-height: 50vh;">
-        <p v-if="loading" style="color: #666; text-align: center;">Loading remotes...</p>
-        <p v-else-if="remotes.length === 0" style="color: #666; text-align: center;">No remotes configured</p>
-        <table v-else style="width: 100%; border-collapse: collapse;">
+      <div v-if="currentStep === 1" class="remotes-list-container">
+        <p v-if="loading" class="loading-text">Loading remotes...</p>
+        <p v-else-if="remotes.length === 0" class="empty-text">No remotes configured</p>
+        <table v-else class="remotes-table">
           <thead>
-            <tr style="border-bottom: 2px solid #ddd;">
-              <th style="text-align: left; padding: 8px;">Name</th>
-              <th style="text-align: left; padding: 8px;">Type</th>
-              <th style="text-align: center; padding: 8px; width: 140px;">Actions</th>
+            <tr>
+              <th class="col-name">Name</th>
+              <th class="col-type">Type</th>
+              <th class="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -29,13 +29,11 @@
               v-for="remote in sortedRemotes"
               :key="remote.name"
               @dblclick="viewRemoteConfig(remote.name)"
-              style="border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s;"
-              @mouseenter="$event.currentTarget.style.backgroundColor = '#f8f9fa'"
-              @mouseleave="$event.currentTarget.style.backgroundColor = ''"
+              class="remote-row"
               title="Double-click to view configuration"
             >
-              <td style="padding: 8px;">{{ remote.name }}</td>
-              <td style="padding: 8px;">{{ remote.type }}</td>
+              <td>{{ remote.name }}</td>
+              <td>{{ remote.type }}</td>
               <td style="padding: 8px; text-align: center;">
                 <button
                   v-if="remote.is_oauth"
@@ -209,7 +207,7 @@
       <template v-else-if="currentStep === 2">
         <button
           @click="showCustomRemoteForm"
-          class="btn btn-secondary"
+          class="btn btn-success"
           style="margin-right: auto;"
         >Custom Remote</button>
         <button @click="showRemotesList" class="btn btn-secondary">Cancel</button>
@@ -1227,5 +1225,57 @@ async function handleOAuthRefreshed() {
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   white-space: nowrap;
+}
+
+.remotes-list-container {
+  margin-bottom: var(--spacing-lg);
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.loading-text,
+.empty-text {
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.remotes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.remotes-table thead tr {
+  border-bottom: 2px solid var(--color-border);
+}
+
+.remotes-table th {
+  text-align: left;
+  padding: var(--spacing-xs);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.remotes-table th.col-actions {
+  text-align: center;
+  width: 140px;
+}
+
+.remote-row {
+  border-bottom: 1px solid var(--color-border-lighter);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.remote-row:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.remotes-table td {
+  padding: var(--spacing-xs);
+  color: var(--color-text-primary);
+}
+
+.remotes-table td:last-child {
+  text-align: center;
 }
 </style>

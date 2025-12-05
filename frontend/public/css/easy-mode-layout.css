@@ -16,7 +16,7 @@
         }
 
         .pane {
-            background: white;
+            background: var(--color-bg-white);
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             display: flex;
@@ -26,7 +26,7 @@
         }
 
         .pane-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--gradient-left-pane);
             color: white;
             padding: 15px;
             font-weight: 600;
@@ -34,12 +34,12 @@
         }
 
         .pane.right-pane .pane-header {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: var(--gradient-right-pane);
         }
 
         .pane-toolbar {
             padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--color-border-light);
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -55,9 +55,11 @@
         .pane-toolbar input {
             flex: 1;
             padding: 8px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--color-border);
             border-radius: 4px;
             font-size: 14px;
+            background: var(--color-bg-white);
+            color: var(--color-text-primary);
         }
 
         .toolbar-button {
@@ -105,18 +107,18 @@
         }
 
         .file-item:hover {
-            background: #f8f9fa;
-            border-color: #007bff;
+            background: var(--color-bg-hover);
+            border-color: var(--color-primary);
         }
 
         .file-item.selected {
-            background: #e3f2fd;
-            border-color: #007bff;
+            background: var(--color-bg-primary-light);
+            border-color: var(--color-primary);
         }
 
         .file-item.drag-over {
-            background: #d4edda;
-            border-color: #28a745;
+            background: var(--color-bg-success-light);
+            border-color: var(--color-success);
         }
 
         .file-icon {
@@ -127,7 +129,7 @@
         .file-name {
             font-size: 13px;
             word-break: break-word;
-            color: #333;
+            color: var(--color-text-primary);
         }
 
         /* List View */
@@ -145,7 +147,7 @@
         .file-list thead {
             position: sticky;
             top: 0;
-            background: #f8f9fa;
+            background: var(--color-bg-light);
             z-index: 10;
         }
 
@@ -154,8 +156,8 @@
             text-align: left;
             font-weight: 600;
             font-size: 13px;
-            color: #495057;
-            border-bottom: 2px solid #dee2e6;
+            color: var(--color-text-primary);
+            border-bottom: 2px solid var(--color-border-dark);
             cursor: pointer;
             user-select: none;
             position: relative;
@@ -192,37 +194,37 @@
         }
 
         .file-list th:hover {
-            background: #e9ecef;
+            background: var(--color-bg-lighter);
         }
 
         .file-list th .sort-indicator {
             margin-left: 4px;
             font-size: 10px;
-            color: #007bff;
+            color: var(--color-primary);
         }
 
         .file-list .file-row {
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--color-border-lighter);
             cursor: pointer;
             transition: background 0.15s;
         }
 
         .file-list .file-row:hover {
-            background: #f8f9fa;
+            background: var(--color-bg-hover);
         }
 
         .file-list .file-row.selected {
-            background: #e3f2fd;
+            background: var(--color-bg-primary-light);
         }
 
         .file-list .file-row.drag-over {
-            background: #d4edda;
+            background: var(--color-bg-success-light);
         }
 
         .file-list td {
             padding: 10px 16px;
             font-size: 13px;
-            color: #333;
+            color: var(--color-text-primary);
         }
 
         .file-list td.file-name-col {
@@ -237,11 +239,11 @@
 
         .file-list td.file-size-col {
             text-align: right;
-            color: #666;
+            color: var(--color-text-tertiary);
         }
 
         .file-list td.file-date-col {
-            color: #666;
+            color: var(--color-text-tertiary);
             white-space: nowrap;
         }
 
