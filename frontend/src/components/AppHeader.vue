@@ -22,6 +22,9 @@
           <div class="view-menu-item" @click="toggleHiddenFiles">
             <span>{{ hiddenFilesText }}</span>
           </div>
+          <div class="view-menu-item" @click="toggleTheme">
+            <span>{{ themeText }}</span>
+          </div>
         </div>
       </div>
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
@@ -56,6 +59,16 @@ const hiddenFilesText = computed(() =>
   appStore.showHiddenFiles ? 'Hide hidden files' : 'Show hidden files'
 )
 
+const themeText = computed(() => {
+  if (appStore.theme === 'auto') {
+    return `Theme: Auto (${appStore.effectiveTheme === 'dark' ? 'Dark' : 'Light'})`
+  } else if (appStore.theme === 'light') {
+    return 'Theme: Light'
+  } else {
+    return 'Theme: Dark'
+  }
+})
+
 const modeButtonText = computed(() =>
   appStore.isEasyMode ? 'Expert Mode' : 'Easy Mode'
 )
@@ -76,6 +89,11 @@ function switchViewMode() {
 
 function toggleHiddenFiles() {
   appStore.toggleHiddenFiles()
+  showViewMenu.value = false
+}
+
+function toggleTheme() {
+  appStore.toggleTheme()
   showViewMenu.value = false
 }
 

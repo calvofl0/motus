@@ -146,4 +146,98 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  /* Additional color variables for theme support */
+  --color-bg-primary-light: #e7f3ff;
+  --color-bg-success-light: #d4edda;
+  --color-bg-danger-light: #f8d7da;
+  --color-text-success: #155724;
+  --color-text-danger: #721c24;
+}
+
+/* ============================================
+   DARK THEME
+   ============================================ */
+
+[data-theme="dark"] {
+  /* Primary Colors */
+  --color-primary: #4a9eff;
+  --color-primary-hover: #6bb0ff;
+  --color-primary-light: #1e3a5f;
+
+  /* Success Colors */
+  --color-success: #4caf50;
+  --color-success-hover: #66bb6a;
+  --color-success-light: #1b5e20;
+  --color-success-text: #a5d6a7;
+
+  /* Danger Colors */
+  --color-danger: #f44336;
+  --color-danger-hover: #ef5350;
+  --color-danger-light: #7f1d1d;
+  --color-danger-lighter: #5c1111;
+  --color-danger-background: #7f1d1d;
+
+  /* Warning Colors */
+  --color-warning: #ffb74d;
+  --color-warning-hover: #ffca28;
+  --color-warning-light: #4a3c1e;
+  --color-warning-lighter: #3b2f18;
+
+  /* Info Colors */
+  --color-info: #26c6da;
+
+  /* Secondary Colors */
+  --color-secondary: #9e9e9e;
+  --color-secondary-hover: #bdbdbd;
+
+  /* Special Colors */
+  --color-purple: #9c27b0;
+  --color-purple-hover: #ba68c8;
+
+  /* Text Colors */
+  --color-text-primary: #e4e4e7;
+  --color-text-secondary: #a1a1aa;
+  --color-text-tertiary: #71717a;
+  --color-text-muted: #52525b;
+
+  /* Background Colors */
+  --color-bg-white: #18181b;
+  --color-bg-light: #27272a;
+  --color-bg-lighter: #3f3f46;
+  --color-bg-hover: #2e2e32;
+
+  /* Border Colors */
+  --color-border: #3f3f46;
+  --color-border-light: #52525b;
+  --color-border-lighter: #3f3f46;
+  --color-border-dark: #27272a;
+  --color-border-darker: #52525b;
+
+  /* Gradients - Pane Headers (adjusted for dark theme) */
+  --gradient-left-pane: linear-gradient(135deg, #5568e0 0%, #6a4a99 100%);
+  --gradient-right-pane: linear-gradient(135deg, #d47fe8 0%, #e04b5f 100%);
+
+  /* Tooltip Colors */
+  --color-tooltip-bg: #3f3f46;
+  --color-tooltip-link: #7dd3fc;
+  --color-tooltip-link-hover: #a5f3fc;
+
+  /* Modal & Overlay */
+  --modal-overlay-bg: rgba(0, 0, 0, 0.7);
+  --modal-overlay-blur: rgba(0, 0, 0, 0.8);
+
+  /* Shadows (darker for dark theme) */
+  --shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.8);
+
+  /* Additional color variables for theme support */
+  --color-bg-primary-light: #1e3a5f;
+  --color-bg-success-light: #1b5e20;
+  --color-bg-danger-light: #7f1d1d;
+  --color-text-success: #a5d6a7;
+  --color-text-danger: #f48fb1;
 }

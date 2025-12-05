@@ -9,6 +9,7 @@ export const useAppStore = defineStore('app', () => {
   const authToken = ref('')
   const viewMode = ref('grid')
   const showHiddenFiles = ref(false)
+  const theme = ref('auto') // 'light', 'dark', or 'auto'
   const lastFocusedPane = ref('left')
   const maxUploadSize = ref(0)
   const showManageRemotesModal = ref(false)
@@ -42,6 +43,18 @@ export const useAppStore = defineStore('app', () => {
   // Computed
   const isEasyMode = computed(() => currentMode.value === 'easy')
   const isExpertMode = computed(() => currentMode.value === 'expert')
+
+  // Effective theme resolves 'auto' to OS preference
+  const effectiveTheme = computed(() => {
+    if (theme.value === 'auto') {
+      // Detect OS/browser theme preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark'
+      }
+      return 'light'
+    }
+    return theme.value
+  })
 
   // Actions
   async function initialize() {
@@ -94,6 +107,21 @@ export const useAppStore = defineStore('app', () => {
     if (prefs.show_hidden_files !== undefined) {
       showHiddenFiles.value = prefs.show_hidden_files
     }
+    if (prefs.theme) {
+      theme.value = prefs.theme
+    }
+
+    // Apply initial theme
+    applyTheme()
+
+    // Listen for OS theme changes when in auto mode
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (theme.value === 'auto') {
+          applyTheme()
+        }
+      })
+    }
   }
 
   function setMode(mode) {
@@ -112,8 +140,32 @@ export const useAppStore = defineStore('app', () => {
     showHiddenFiles.value = !showHiddenFiles.value
     savePreferences(apiCall, {
       view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value
+      show_hidden_files: showHiddenFiles.value,
+      theme: theme.value
     })
+  }
+
+  function toggleTheme() {
+    // Cycle through: auto -> light -> dark -> auto
+    if (theme.value === 'auto') {
+      theme.value = 'light'
+    } else if (theme.value === 'light') {
+      theme.value = 'dark'
+    } else {
+      theme.value = 'auto'
+    }
+
+    applyTheme()
+    savePreferences(apiCall, {
+      view_mode: viewMode.value,
+      show_hidden_files: showHiddenFiles.value,
+      theme: theme.value
+    })
+  }
+
+  function applyTheme() {
+    // Apply the effective theme to the document element
+    document.documentElement.setAttribute('data-theme', effectiveTheme.value)
   }
 
   function clearPaneSelection(pane) {
@@ -159,6 +211,7 @@ export const useAppStore = defineStore('app', () => {
     authToken,
     viewMode,
     showHiddenFiles,
+    theme,
     lastFocusedPane,
     maxUploadSize,
     showManageRemotesModal,
@@ -169,12 +222,14 @@ export const useAppStore = defineStore('app', () => {
     // Computed
     isEasyMode,
     isExpertMode,
+    effectiveTheme,
 
     // Actions
     initialize,
     setMode,
     toggleViewMode,
     toggleHiddenFiles,
+    toggleTheme,
     clearPaneSelection,
     setPaneFiles,
     setPanePath,
