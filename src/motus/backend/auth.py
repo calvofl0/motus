@@ -41,6 +41,23 @@ def token_required(f):
     return decorated
 
 
+def verify_token(token):
+    """
+    Verify if a token is valid
+
+    Args:
+        token: The token to verify
+
+    Returns:
+        bool: True if token is valid, False otherwise
+    """
+    if not token:
+        return False
+
+    expected_token = current_app.config.get('MOTUS_TOKEN')
+    return token == expected_token
+
+
 def optional_token(f):
     """
     Optional token authentication
