@@ -301,11 +301,14 @@ class Config:
 
         # Additional remotes config file to merge at startup
         # Remotes from this file will be added to rclone config (existing remotes are not overwritten)
+        # Relative paths are resolved against config_dir
         self.extra_remotes_file = self._get_config(
             'extra_remotes_file',
             env_var='MOTUS_EXTRA_REMOTES',
             default=None
         )
+        if self.extra_remotes_file and not os.path.isabs(self.extra_remotes_file):
+            self.extra_remotes_file = os.path.join(self.config_dir, self.extra_remotes_file)
 
         # Local filesystem alias remote
         # If set, this alias remote (which must resolve to local filesystem) replaces
@@ -339,11 +342,16 @@ class Config:
 
         # Remote templates file path
         # Priority: MOTUS_REMOTE_TEMPLATES env var > motus config > config_dir/remote_templates.conf (if exists) > None
+        # Relative paths are resolved against config_dir
         self.remote_templates_file = self._get_config(
             'remote_templates_file',
             env_var='MOTUS_REMOTE_TEMPLATES',
             default=None
         )
+
+        # Resolve relative paths against config_dir
+        if self.remote_templates_file and not os.path.isabs(self.remote_templates_file):
+            self.remote_templates_file = os.path.join(self.config_dir, self.remote_templates_file)
 
         # If not specified, check for default file in config directory
         if not self.remote_templates_file:

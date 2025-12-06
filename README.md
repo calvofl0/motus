@@ -395,14 +395,16 @@ motus --max-uncompressed-download-size 100M       # ZIP threshold for downloads 
 ```bash
 export MOTUS_PORT=5000
 export MOTUS_TOKEN=mysecrettoken
-export MOTUS_DATA_DIR=/path/to/data
-export MOTUS_CACHE_PATH=/path/to/cache                   # Custom cache directory
+export MOTUS_DATA_DIR=/path/to/data                      # Legacy mode: all files in one directory
+export MOTUS_CONFIG_DIR=/path/to/config                  # Override config directory (preferences.json)
+export MOTUS_CACHE_PATH=/path/to/cache                   # Override cache directory
+export MOTUS_RUNTIME_DIR=/path/to/runtime                # Override runtime directory (PID, connection files)
 export MOTUS_LOG_LEVEL=INFO
 export MOTUS_HOST=0.0.0.0                                # Bind to all interfaces
 export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
-export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf
-export MOTUS_ADD_REMOTES=/path/to/rclone.conf            # Merge remotes from another config file
+export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf    # Or relative: templates.conf (resolves to config_dir/templates.conf)
+export MOTUS_EXTRA_REMOTES=/path/to/rclone.conf          # Or relative: remotes.conf (resolves to config_dir/remotes.conf)
 export MOTUS_LOCAL_FILESYSTEM_ALIAS=mylocal              # Use alias remote for local filesystem
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
@@ -415,19 +417,30 @@ motus
 
 #### Configuration File
 
-Create `~/.motus/config.yml`:
+Create a config file and specify it with `--config` or `-c`:
 
 ```yaml
+# Directory configuration
+data_dir: /path/to/data                         # Legacy mode: all files in one directory
+config_dir: /custom/config                      # Override config directory (preferences.json)
+cache_path: /fast/ssd/cache                     # Override cache directory
+runtime_dir: /custom/runtime                    # Override runtime directory (PID, connection files)
+
+# Server configuration
 port: 5000
-data_dir: /path/to/data
-cache_path: /path/to/cache                      # Custom cache directory (default: {data_dir}/cache)
-log_level: INFO
 host: 127.0.0.1
+log_level: INFO
+
+# UI configuration
 default_mode: expert
 allow_expert_mode: true
-remote_templates_file: /path/to/templates.conf
-add_remotes_file: /path/to/rclone.conf          # Merge remotes from another config file
+
+# Remote configuration (relative paths resolved against config_dir)
+remote_templates_file: templates.conf           # Absolute or relative to config_dir
+extra_remotes_file: team-remotes.conf           # Absolute or relative to config_dir
 local_filesystem_alias: mylocal                 # Use alias remote for local filesystem
+
+# Limits and behavior
 max_idle_time: 3600
 auto_cleanup_db: true
 max_upload_size: "1G"                           # 1GB (also accepts bytes: 1073741824, or 0 for unlimited)
@@ -435,6 +448,8 @@ max_download_size: "5G"                         # 5GB (also accepts bytes: 53687
 max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104857600)
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
+
+**Note**: Relative paths for `remote_templates_file` and `extra_remotes_file` are resolved against the config directory (`config_dir`), making it easy to keep configuration files together.
 
 **Priority**: CLI arguments > MOTUS_* environment variables > Config file > XDG_* environment variables > Defaults
 
@@ -447,37 +462,78 @@ When no `--data-dir`, `MOTUS_DATA_DIR`, or `data_dir` in config file is set, Mot
 
 ```
 ~/.config/motus/               (XDG_CONFIG_HOME/motus)
-└── remote_templates.conf
+├── preferences.json           # User UI preferences (theme, view mode, etc.)
+└── remote_templates.conf      # Optional: remote templates
 
 ~/.local/share/motus/          (XDG_DATA_HOME/motus)
-└── motus.db
+└── motus.db                   # Job history and database
 
 ~/.cache/motus/                (XDG_CACHE_HOME/motus)
-├── download/
-├── upload/
-├── log/
-└── motus.log
+├── download/                  # Temporary ZIP files for downloads
+├── upload/                    # Staging area for uploads
+├── log/                       # Temporary job logs
+└── motus.log                  # Application log
 
 /run/user/{uid}/motus/         (XDG_RUNTIME_DIR/motus)
-├── motus.pid
-└── connection.json
+├── motus.pid                  # Process ID file
+└── connection.json            # Dev server connection info
 ```
 
 **Legacy Mode**:
-When `--data-dir` is set (via CLI, `MOTUS_DATA_DIR` env var, or config file), everything goes to that directory:
+When `--data-dir` is set (via CLI, `MOTUS_DATA_DIR` env var, or config file), everything goes to that directory by default:
 
 ```
 {data_dir}/
-├── motus.db
-├── motus.pid
-├── connection.json
-├── remote_templates.conf
-└── cache/
+├── motus.db                   # Job history
+├── motus.pid                  # Process ID file
+├── connection.json            # Connection info
+├── preferences.json           # User preferences
+├── remote_templates.conf      # Optional: remote templates
+└── cache/                     # Cache directory (can be overridden with MOTUS_CACHE_PATH)
     ├── download/
     ├── upload/
     ├── log/
     └── motus.log
 ```
+
+**Overriding Individual Directories**:
+
+Each directory can be overridden independently, even in legacy mode:
+
+```bash
+# Override cache location (most common)
+export MOTUS_CACHE_PATH=/fast/ssd/cache
+motus
+
+# Override config directory (where preferences.json is stored)
+export MOTUS_CONFIG_DIR=/custom/config
+motus
+
+# Override runtime directory (where connection.json and PID files go)
+export MOTUS_RUNTIME_DIR=/custom/runtime
+motus
+
+# Mix and match: XDG for most things, custom cache
+motus --cache-path /fast/ssd/cache
+```
+
+Available override environment variables:
+- `MOTUS_CONFIG_DIR`: Override config directory (XDG: `~/.config/motus`, Legacy: `{data_dir}`)
+- `MOTUS_CACHE_PATH`: Override cache directory (XDG: `~/.cache/motus`, Legacy: `{data_dir}/cache`)
+- `MOTUS_RUNTIME_DIR`: Override runtime directory (XDG: `/run/user/{uid}/motus`, Legacy: `{data_dir}`)
+
+You can also set these in the config file (specified with `--config`):
+
+```yaml
+config_dir: /custom/config
+cache_path: /fast/ssd/cache
+runtime_dir: /custom/runtime
+```
+
+**Priority order for directory locations**:
+- Config directory: `MOTUS_CONFIG_DIR` > `config_dir` in config file > XDG_CONFIG_HOME/motus (or data_dir in legacy mode)
+- Cache directory: `--cache-path` (CLI) > `MOTUS_CACHE_PATH` > `cache_path` in config file > XDG_CACHE_HOME/motus (or data_dir/cache in legacy mode)
+- Runtime directory: `MOTUS_RUNTIME_DIR` > `runtime_dir` in config file > XDG_RUNTIME_DIR/motus (or data_dir in legacy mode)
 
 **XDG Environment Variables** (respected when in XDG mode):
 
@@ -500,24 +556,27 @@ XDG_RUNTIME_DIR=/run/user/$UID         # Motus uses: $XDG_RUNTIME_DIR/motus
 - Cache: `~/.cache/motus`
 - Runtime: `/run/user/{uid}/motus` (or `/tmp/motus-{uid}` if XDG_RUNTIME_DIR not set)
 
-**Overriding Individual Directories**:
-You can override specific directories while staying in XDG mode:
-
-```bash
-# Use XDG for everything except cache
-export XDG_DATA_HOME=/custom/data
-export MOTUS_CACHE_PATH=/fast/ssd/cache
-motus
-```
-
-```bash
-# Mix and match: XDG data/config, custom cache
-motus --cache-path /fast/ssd/cache
-```
-
 **Choosing Between XDG and Legacy Mode**:
-- **XDG Mode** (recommended for Linux): Clean separation of config/data/cache, follows Linux standards
-- **Legacy Mode** (--data-dir): Everything in one place, simple for custom deployments
+- **XDG Mode** (recommended for Linux): Clean separation of config/data/cache/runtime, follows Linux standards
+- **Legacy Mode** (`--data-dir`): Everything in one place by default, simple for custom deployments or compatibility
+
+**Relative Paths in Configuration**:
+
+When using `--remote-templates` or `--extra-remotes` (or their corresponding config file or env var options), relative paths are resolved against the config directory:
+
+```bash
+# Relative path - resolved as ~/.config/motus/my-templates.conf (in XDG mode)
+motus --remote-templates my-templates.conf
+
+# Or in config file (~/.motus/config.yml or specified with --config):
+# remote_templates_file: my-templates.conf
+# extra_remotes_file: team-remotes.conf
+
+# Absolute paths work as expected
+motus --remote-templates /absolute/path/to/templates.conf
+```
+
+This makes it easy to keep template files alongside your preferences without specifying full paths.
 
 ### Cache Directory Structure
 

@@ -368,9 +368,17 @@ def main():
         # Enforce --allow-expert-mode when starting in expert mode
         config.allow_expert_mode = True
     if args.remote_templates:
-        config.remote_templates_file = args.remote_templates
+        # Resolve relative paths against config_dir
+        if not os.path.isabs(args.remote_templates):
+            config.remote_templates_file = os.path.join(config.config_dir, args.remote_templates)
+        else:
+            config.remote_templates_file = args.remote_templates
     if args.extra_remotes:
-        config.extra_remotes_file = args.extra_remotes
+        # Resolve relative paths against config_dir
+        if not os.path.isabs(args.extra_remotes):
+            config.extra_remotes_file = os.path.join(config.config_dir, args.extra_remotes)
+        else:
+            config.extra_remotes_file = args.extra_remotes
     if args.local_filesystem_alias:
         config.local_filesystem_alias = args.local_filesystem_alias
     if args.max_idle_time is not None:
