@@ -328,6 +328,10 @@ def main():
         if not args.cache_path:
             config.cache_path = os.path.join(args.data_dir, 'cache')
         config.log_file = os.path.join(config.cache_path, 'motus.log')
+        # Update derived cache directories
+        config.download_cache_dir = os.path.join(config.cache_path, 'download')
+        config.upload_cache_dir = os.path.join(config.cache_path, 'upload')
+        config.log_cache_dir = os.path.join(config.cache_path, 'log')
         # Update remote templates path
         default_templates_path = os.path.join(args.data_dir, 'remote_templates.conf')
         if not args.remote_templates and os.path.exists(default_templates_path):
@@ -337,6 +341,9 @@ def main():
         os.makedirs(config.config_dir, exist_ok=True)
         os.makedirs(config.runtime_dir, exist_ok=True)
         os.makedirs(config.cache_path, exist_ok=True)
+        os.makedirs(config.download_cache_dir, exist_ok=True)
+        os.makedirs(config.upload_cache_dir, exist_ok=True)
+        os.makedirs(config.log_cache_dir, exist_ok=True)
     if args.cache_path:
         config.cache_path = args.cache_path
         config.log_file = os.path.join(config.cache_path, 'motus.log')
