@@ -104,6 +104,16 @@
         .parent-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
+            background: none;
+            border: none;
+            outline: none;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--color-text-secondary);
         }
 
         .toolbar-button.secondary {
