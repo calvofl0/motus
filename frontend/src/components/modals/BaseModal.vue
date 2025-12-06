@@ -132,6 +132,7 @@ watch(() => props.modelValue, async (isOpen) => {
 
 .modal-header {
   padding: var(--spacing-xl);
+  margin-bottom: 0;
   border-bottom: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
