@@ -90,6 +90,17 @@
             transition: transform 0.2s;
         }
 
+        .parent-btn:hover,
+        .parent-btn:focus,
+        .parent-btn:active,
+        .refresh-btn:hover,
+        .refresh-btn:focus,
+        .refresh-btn:active {
+            background: none;
+            border: none;
+            outline: none;
+        }
+
         .parent-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
