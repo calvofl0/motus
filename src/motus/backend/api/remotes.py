@@ -147,6 +147,35 @@ def delete_remote(remote_name):
         return jsonify({'error': str(e)}), 500
 
 
+def validate_remote_name(name):
+    """
+    Validate remote name according to rclone rules:
+    - May contain number, letter, _, -, ., +, @ and space
+    - May not start with - or space
+    - May not end with space
+
+    Returns (is_valid, error_message)
+    """
+    import re
+
+    if not name:
+        return False, "Remote name cannot be empty"
+
+    # Check if starts with - or space
+    if name[0] in ('-', ' '):
+        return False, "Remote name cannot start with '-' or space"
+
+    # Check if ends with space
+    if name[-1] == ' ':
+        return False, "Remote name cannot end with space"
+
+    # Check valid characters: letters, numbers, _, -, ., +, @, space
+    if not re.match(r'^[a-zA-Z0-9_\-\.\+@ ]+$', name):
+        return False, "Remote name may only contain letters, numbers, _, -, ., +, @ and space"
+
+    return True, None
+
+
 @remotes_bp.route('/api/remotes', methods=['POST'])
 @token_required
 def add_remote():
@@ -186,10 +215,10 @@ def add_remote():
 
         logging.info(f"Adding remote: {remote_name}")
 
-        # Validate remote name (alphanumeric, underscore, hyphen)
-        import re
-        if not re.match(r'^[a-zA-Z0-9_-]+$', remote_name):
-            return jsonify({'error': 'Invalid remote name. Use only letters, numbers, underscores, and hyphens.'}), 400
+        # Validate remote name
+        is_valid, error_msg = validate_remote_name(remote_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
 
         # Render template if provided
         if template_name:
@@ -552,10 +581,10 @@ def start_custom_remote():
         remote_name = data['name']
         remote_type = data['type']
 
-        # Validate remote name (alphanumeric, underscore, hyphen)
-        import re
-        if not re.match(r'^[a-zA-Z0-9_-]+$', remote_name):
-            return jsonify({'error': 'Invalid remote name. Use only letters, numbers, underscores, and hyphens.'}), 400
+        # Validate remote name
+        is_valid, error_msg = validate_remote_name(remote_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
 
         # Start creation
         result = custom_remote_manager.start_creation(remote_name, remote_type)

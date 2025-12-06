@@ -125,11 +125,13 @@
                 v-model="remoteName"
                 type="text"
                 placeholder="Enter remote name"
-                pattern="[a-zA-Z0-9_\-]+"
                 style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                :style="{ borderColor: remoteNameError ? '#dc3545' : '#ddd' }"
+                @input="validateRemoteNameInput"
                 @keydown.enter="handleFieldEnter('remoteName')"
               />
-              <small style="color: #666;">Use only letters, numbers, underscores, and hyphens</small>
+              <small v-if="remoteNameError" style="color: #dc3545;">{{ remoteNameError }}</small>
+              <small v-else style="color: #666;">May contain letters, numbers, _, -, ., +, @, and space. Cannot start with '-' or space, or end with space.</small>
             </div>
 
             <!-- Template fields -->
@@ -327,6 +329,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
+import { validateRemoteName } from '../../utils/remoteNameValidation'
 import BaseModal from './BaseModal.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
@@ -342,6 +345,7 @@ const templates = ref([])
 const templatesAvailable = ref(false)
 const selectedTemplate = ref(null)
 const remoteName = ref('')
+const remoteNameError = ref('')
 const formValues = ref({})
 const fieldVisibility = ref({}) // Track password field visibility
 const customConfig = ref('')
@@ -370,10 +374,17 @@ const editingRemoteName = ref('')
 const showOAuthModal = ref(false)
 const oauthRemoteName = ref('')
 
+// Validate remote name input
+function validateRemoteNameInput() {
+  const validation = validateRemoteName(remoteName.value)
+  remoteNameError.value = validation.error || ''
+}
+
 // Computed
 const isFormValid = computed(() => {
   if (!selectedTemplate.value) return false
   if (!remoteName.value.trim()) return false
+  if (remoteNameError.value) return false
 
   for (const field of selectedTemplate.value.fields || []) {
     if (!formValues.value[field.key]?.trim()) return false
@@ -704,6 +715,7 @@ function showRemotesList() {
   selectedTemplate.value = null
   formValues.value = {}
   remoteName.value = ''
+  remoteNameError.value = ''
 }
 
 // Show remote form (wizard step 2)
@@ -737,6 +749,7 @@ function selectTemplate(templateName) {
     formValues.value = initialValues
     fieldVisibility.value = {} // Reset password visibility
     remoteName.value = ''
+    remoteNameError.value = ''
   } else {
     // Same template selected, just ensure it's set
     selectedTemplate.value = newTemplate

@@ -16,10 +16,14 @@
             ref="remoteNameInput"
             type="text"
             v-model="remoteName"
+            @input="validateRemoteNameInput"
             @keydown.enter="handleRemoteNameEnter"
             placeholder="e.g., my_remote"
             class="wizard-input"
+            :class="{ 'input-error': remoteNameError }"
           />
+          <div v-if="remoteNameError" class="error-message">{{ remoteNameError }}</div>
+          <div v-else class="help-text-small">May contain letters, numbers, _, -, ., +, @, and space. Cannot start with '-' or space, or end with space.</div>
         </div>
         <div>
           <label>Remote Type:</label>
@@ -141,6 +145,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { apiCall } from '../../services/api'
+import { validateRemoteName } from '../../utils/remoteNameValidation'
 
 const props = defineProps({
   modelValue: Boolean
@@ -152,6 +157,7 @@ const emit = defineEmits(['update:modelValue', 'remote-created'])
 const wizardStep = ref(1)
 const providers = ref([])
 const remoteName = ref('')
+const remoteNameError = ref('')
 const remoteType = ref('')
 
 // Computed: sorted providers by description (long name)
@@ -185,10 +191,16 @@ const remoteNameInput = ref(null)
 const remoteTypeSelect = ref(null)
 const answerInput = ref(null)
 
+// Validate remote name input
+function validateRemoteNameInput() {
+  const validation = validateRemoteName(remoteName.value)
+  remoteNameError.value = validation.error || ''
+}
+
 // Computed
 const canProceed = computed(() => {
   if (wizardStep.value === 1) {
-    return remoteName.value.trim() && remoteType.value
+    return remoteName.value.trim() && !remoteNameError.value && remoteType.value
   } else {
     // For subsequent steps, check if required field is filled
     if (currentQuestion.value?.required) {
@@ -246,6 +258,7 @@ async function loadProviders() {
 function resetWizard() {
   wizardStep.value = 1
   remoteName.value = ''
+  remoteNameError.value = ''
   remoteType.value = ''
   sessionId.value = null
   currentQuestion.value = null
@@ -513,5 +526,21 @@ label {
 
 .loading-text {
   color: var(--color-text-secondary);
+}
+
+.input-error {
+  border-color: #dc3545 !important;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: var(--font-size-sm);
+  margin-top: 4px;
+}
+
+.help-text-small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: 4px;
 }
 </style>

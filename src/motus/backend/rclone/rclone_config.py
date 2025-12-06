@@ -288,6 +288,13 @@ class RcloneConfig:
             logging.error("Could not find [name] in new config text")
             return False, None
 
+        # Validate new remote name
+        from ..api.remotes import validate_remote_name
+        is_valid, error_msg = validate_remote_name(new_name)
+        if not is_valid:
+            logging.error(f"Invalid remote name '{new_name}': {error_msg}")
+            raise ValueError(f"Invalid remote name: {error_msg}")
+
         # Read the entire file
         with open(target_file, 'r') as f:
             lines = f.readlines()
@@ -388,6 +395,13 @@ class RcloneConfig:
         if not remote_name:
             logging.error("No [remote_name] section found in raw config")
             return False, None
+
+        # Validate remote name
+        from ..api.remotes import validate_remote_name
+        is_valid, error_msg = validate_remote_name(remote_name)
+        if not is_valid:
+            logging.error(f"Invalid remote name '{remote_name}': {error_msg}")
+            raise ValueError(f"Invalid remote name: {error_msg}")
 
         # Determine which config file to work with
         target_file = self.user_config_file if self.merged_config_file else self.config_file
