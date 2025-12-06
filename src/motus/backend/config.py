@@ -4,7 +4,12 @@ Handles environment variables, config files, and defaults
 
 XDG Base Directory Specification Support:
 - Respects XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME, XDG_RUNTIME_DIR
-- Priority: CLI flags > Config file > MOTUS_* env vars > XDG_* env vars > defaults
+- Each directory can be overridden independently:
+  - Config: MOTUS_CONFIG_DIR env var > config_dir in config file > XDG_CONFIG_HOME/motus
+  - Cache: MOTUS_CACHE_PATH env var > cache_path in config file > XDG_CACHE_HOME/motus
+  - Runtime: MOTUS_RUNTIME_DIR env var > runtime_dir in config file > XDG_RUNTIME_DIR/motus
+  - Data: Always XDG_DATA_HOME/motus in XDG mode
+- Priority: CLI flags > MOTUS_* env vars > Config file > XDG_* env vars > Defaults
 - Legacy --data-dir overrides XDG (puts everything in one directory)
 """
 import os
@@ -115,16 +120,20 @@ class Config:
         """
         Initialize configuration
 
-        Priority: CLI args > Config file > MOTUS_* env > XDG_* env > Defaults
+        Priority: CLI args > MOTUS_* env vars > Config file > XDG_* env vars > Defaults
 
-        XDG Mode (default):
-        - Config: XDG_CONFIG_HOME/motus (default: ~/.config/motus)
-        - Data: XDG_DATA_HOME/motus (default: ~/.local/share/motus)
-        - Cache: XDG_CACHE_HOME/motus (default: ~/.cache/motus)
-        - Runtime: XDG_RUNTIME_DIR/motus (default: /tmp/motus-{uid})
+        XDG Mode (default when no --data-dir, MOTUS_DATA_DIR, or data_dir in config):
+        - Config: MOTUS_CONFIG_DIR > config_dir in config file > XDG_CONFIG_HOME/motus (~/.config/motus)
+        - Data: XDG_DATA_HOME/motus (~/.local/share/motus)
+        - Cache: MOTUS_CACHE_PATH > cache_path in config file > XDG_CACHE_HOME/motus (~/.cache/motus)
+        - Runtime: MOTUS_RUNTIME_DIR > runtime_dir in config file > XDG_RUNTIME_DIR/motus (/run/user/{uid}/motus)
 
-        Legacy Mode (if --data-dir is set):
-        - Everything goes to the specified data_dir
+        Legacy Mode (if --data-dir, MOTUS_DATA_DIR, or data_dir in config file is set):
+        - Everything goes to the specified data_dir by default
+        - But individual directories can still be overridden:
+          - Config: MOTUS_CONFIG_DIR > config_dir in config file > data_dir
+          - Runtime: MOTUS_RUNTIME_DIR > runtime_dir in config file > data_dir
+          - Cache: MOTUS_CACHE_PATH > cache_path in config file > data_dir/cache
         """
         # Load config file if exists
         self.config_data = {}
@@ -146,11 +155,35 @@ class Config:
 
         if self.use_xdg:
             # XDG Mode: separate directories for config, data, cache, runtime
-            self.config_dir = str(get_xdg_config_home() / 'motus')
-            self.data_dir = str(get_xdg_data_home() / 'motus')
-            self.runtime_dir = str(get_xdg_runtime_dir() / 'motus')
+            # Each can be overridden independently via MOTUS_* env vars or config file
+            # (except data_dir - setting MOTUS_DATA_DIR triggers legacy mode instead)
 
-            # Cache can be overridden separately
+            # Config directory (for preferences.json, etc.)
+            config_override = self._get_config(
+                'config_dir',
+                env_var='MOTUS_CONFIG_DIR',
+                default=None
+            )
+            if config_override:
+                self.config_dir = config_override
+            else:
+                self.config_dir = str(get_xdg_config_home() / 'motus')
+
+            # Data directory (for database, etc.) - always XDG in XDG mode
+            self.data_dir = str(get_xdg_data_home() / 'motus')
+
+            # Runtime directory (for connection.json, PID files, etc.)
+            runtime_override = self._get_config(
+                'runtime_dir',
+                env_var='MOTUS_RUNTIME_DIR',
+                default=None
+            )
+            if runtime_override:
+                self.runtime_dir = runtime_override
+            else:
+                self.runtime_dir = str(get_xdg_runtime_dir() / 'motus')
+
+            # Cache directory (for temporary files, logs, etc.)
             cache_override = self._get_config(
                 'cache_path',
                 env_var='MOTUS_CACHE_PATH',
@@ -161,10 +194,27 @@ class Config:
             else:
                 self.cache_path = str(get_xdg_cache_home() / 'motus')
         else:
-            # Legacy Mode: everything in data_dir
+            # Legacy Mode: everything in data_dir by default
+            # But individual directories can still be overridden
             self.data_dir = legacy_data_dir
-            self.config_dir = self.data_dir
-            self.runtime_dir = self.data_dir
+
+            # Config directory - can be overridden even in legacy mode
+            config_override = self._get_config(
+                'config_dir',
+                env_var='MOTUS_CONFIG_DIR',
+                default=None
+            )
+            self.config_dir = config_override if config_override else self.data_dir
+
+            # Runtime directory - can be overridden even in legacy mode
+            runtime_override = self._get_config(
+                'runtime_dir',
+                env_var='MOTUS_RUNTIME_DIR',
+                default=None
+            )
+            self.runtime_dir = runtime_override if runtime_override else self.data_dir
+
+            # Cache directory - can be overridden even in legacy mode
             self.cache_path = self._get_config(
                 'cache_path',
                 env_var='MOTUS_CACHE_PATH',
