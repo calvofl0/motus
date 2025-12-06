@@ -169,10 +169,10 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
 
 def cleanup_connection_info(config: Config):
     """Remove PID and connection info files"""
-    data_dir = Path(config.data_dir)
-    pid_file = data_dir / 'motus.pid'
-    connection_file = data_dir / 'connection.json'
-    dev_port_file = data_dir / 'dev-port.json'
+    runtime_dir = Path(config.runtime_dir)
+    pid_file = runtime_dir / 'motus.pid'
+    connection_file = runtime_dir / 'connection.json'
+    dev_port_file = runtime_dir / 'dev-port.json'
 
     try:
         if pid_file.exists():

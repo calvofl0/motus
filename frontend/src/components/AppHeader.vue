@@ -172,26 +172,16 @@ async function quitServer() {
     await new Promise(resolve => setTimeout(resolve, 500))
 
     // Shutdown server
-    let shutdownData = null
-    let jobsStoppedMessage = ''
+    const shutdownData = await apiCall('/api/shutdown', 'POST')
 
-    try {
-      shutdownData = await apiCall('/api/shutdown', 'POST')
-      jobsStoppedMessage = shutdownData.running_jobs_stopped > 0
-        ? `<p style="color:#666; margin-bottom:20px;">
-            ${shutdownData.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
-            You can resume them next time you start the server.
-          </p>`
-        : ''
-    } catch (shutdownError) {
-      // NetworkError means backend already stopped - this is fine
-      // Any other error should be logged but we still show success (server is stopping)
-      if (shutdownError.message && !shutdownError.message.includes('NetworkError')) {
-        console.warn('[Quit] Shutdown API call failed (server may have already stopped):', shutdownError)
-      }
-    }
+    // Show success message
+    const jobsStoppedMessage = shutdownData.running_jobs_stopped > 0
+      ? `<p style="color:#666; margin-bottom:20px;">
+          ${shutdownData.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
+          You can resume them next time you start the server.
+        </p>`
+      : ''
 
-    // Show success message regardless (if we got here, server is stopping/stopped)
     document.body.innerHTML = `
       <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
         <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
@@ -205,9 +195,8 @@ async function quitServer() {
       </div>
     `
   } catch (error) {
-    // Only catch errors from the initial running jobs check
-    console.error('[Quit] Failed to check running jobs:', error)
-    alert(`Failed to check server status: ${error.message}`)
+    console.error('[Quit] Shutdown failed:', error)
+    alert(`Failed to shutdown server: ${error.message}`)
   }
 }
 
