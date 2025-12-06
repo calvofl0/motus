@@ -529,7 +529,7 @@ def create_app(config: Config = None):
         config.remote_templates_file,
         rclone.rclone_path,
         readonly_config_file=config.extra_remotes_file if config.extra_remotes_file else None,
-        cache_dir=config.cache_path
+        cache_dir=config.cache_dir
     )
     init_upload(rclone, config.upload_cache_dir, config.max_upload_size)
 
