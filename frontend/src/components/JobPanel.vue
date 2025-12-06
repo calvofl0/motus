@@ -120,16 +120,37 @@ let isShuttingDown = false
 
 // Toggle functions
 function toggleActiveJobs() {
+  const willOpen = activeJobsCollapsed.value
   activeJobsCollapsed.value = !activeJobsCollapsed.value
   jobPanelManuallyToggled.value = !activeJobsCollapsed.value
+
+  // Close other dropdowns when opening this one
+  if (willOpen) {
+    interruptedJobsCollapsed.value = true
+    failedJobsCollapsed.value = true
+  }
 }
 
 function toggleInterruptedJobs() {
+  const willOpen = interruptedJobsCollapsed.value
   interruptedJobsCollapsed.value = !interruptedJobsCollapsed.value
+
+  // Close other dropdowns when opening this one
+  if (willOpen) {
+    activeJobsCollapsed.value = true
+    failedJobsCollapsed.value = true
+  }
 }
 
 function toggleFailedJobs() {
+  const willOpen = failedJobsCollapsed.value
   failedJobsCollapsed.value = !failedJobsCollapsed.value
+
+  // Close other dropdowns when opening this one
+  if (willOpen) {
+    activeJobsCollapsed.value = true
+    interruptedJobsCollapsed.value = true
+  }
 }
 
 /**
@@ -268,6 +289,9 @@ async function updateJobs() {
       // Transition from empty to non-empty: auto-open
       if (previousJobState.value === 'empty' && currentState === 'non-empty') {
         activeJobsCollapsed.value = false
+        // Close other dropdowns when auto-opening this one
+        interruptedJobsCollapsed.value = true
+        failedJobsCollapsed.value = true
       }
       // Transition from non-empty to empty: auto-close
       else if (previousJobState.value === 'non-empty' && currentState === 'empty') {
