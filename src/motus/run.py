@@ -188,7 +188,7 @@ def write_connection_info(config: Config):
         'data_dir': str(config.data_dir),
         'runtime_dir': str(config.runtime_dir),
         'config_dir': str(config.config_dir),
-        'cache_dir': str(config.cache_path),
+        'cache_dir': str(config.cache_dir),
         'use_xdg': config.use_xdg
     }
 
@@ -223,9 +223,9 @@ def main():
         help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
     parser.add_argument(
-        '--cache-path',
+        '--cache-dir',
         type=str,
-        help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_PATH env var)'
+        help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_DIR env var)'
     )
     parser.add_argument(
         '-c', '--config',
@@ -325,13 +325,13 @@ def main():
         config.config_dir = args.data_dir
         config.runtime_dir = args.data_dir
         config.database_path = os.path.join(args.data_dir, 'motus.db')
-        if not args.cache_path:
-            config.cache_path = os.path.join(args.data_dir, 'cache')
-        config.log_file = os.path.join(config.cache_path, 'motus.log')
+        if not args.cache_dir:
+            config.cache_dir = os.path.join(args.data_dir, 'cache')
+        config.log_file = os.path.join(config.cache_dir, 'motus.log')
         # Update derived cache directories
-        config.download_cache_dir = os.path.join(config.cache_path, 'download')
-        config.upload_cache_dir = os.path.join(config.cache_path, 'upload')
-        config.log_cache_dir = os.path.join(config.cache_path, 'log')
+        config.download_cache_dir = os.path.join(config.cache_dir, 'download')
+        config.upload_cache_dir = os.path.join(config.cache_dir, 'upload')
+        config.log_cache_dir = os.path.join(config.cache_dir, 'log')
         # Update remote templates path
         default_templates_path = os.path.join(args.data_dir, 'remote_templates.conf')
         if not args.remote_templates and os.path.exists(default_templates_path):
@@ -340,17 +340,17 @@ def main():
         os.makedirs(config.data_dir, exist_ok=True)
         os.makedirs(config.config_dir, exist_ok=True)
         os.makedirs(config.runtime_dir, exist_ok=True)
-        os.makedirs(config.cache_path, exist_ok=True)
+        os.makedirs(config.cache_dir, exist_ok=True)
         os.makedirs(config.download_cache_dir, exist_ok=True)
         os.makedirs(config.upload_cache_dir, exist_ok=True)
         os.makedirs(config.log_cache_dir, exist_ok=True)
-    if args.cache_path:
-        config.cache_path = args.cache_path
-        config.log_file = os.path.join(config.cache_path, 'motus.log')
+    if args.cache_dir:
+        config.cache_dir = args.cache_dir
+        config.log_file = os.path.join(config.cache_dir, 'motus.log')
         # Update derived cache directories
-        config.download_cache_dir = os.path.join(config.cache_path, 'download')
-        config.upload_cache_dir = os.path.join(config.cache_path, 'upload')
-        config.log_cache_dir = os.path.join(config.cache_path, 'log')
+        config.download_cache_dir = os.path.join(config.cache_dir, 'download')
+        config.upload_cache_dir = os.path.join(config.cache_dir, 'upload')
+        config.log_cache_dir = os.path.join(config.cache_dir, 'log')
         # Create cache subdirectories
         os.makedirs(config.download_cache_dir, exist_ok=True)
         os.makedirs(config.upload_cache_dir, exist_ok=True)

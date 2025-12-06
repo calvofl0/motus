@@ -495,7 +495,7 @@ def create_app(config: Config = None):
             config.rclone_config_file,
             logs_dir,
             readonly_config_file=config.extra_remotes_file if config.extra_remotes_file else None,
-            cache_dir=config.cache_path
+            cache_dir=config.cache_dir
         )
 
         # Initialize job counter from database to avoid ID conflicts

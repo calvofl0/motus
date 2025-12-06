@@ -6,7 +6,7 @@ XDG Base Directory Specification Support:
 - Respects XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME, XDG_RUNTIME_DIR
 - Each directory can be overridden independently:
   - Config: MOTUS_CONFIG_DIR env var > config_dir in config file > XDG_CONFIG_HOME/motus
-  - Cache: MOTUS_CACHE_PATH env var > cache_path in config file > XDG_CACHE_HOME/motus
+  - Cache: MOTUS_CACHE_DIR env var > cache_dir in config file > XDG_CACHE_HOME/motus
   - Runtime: MOTUS_RUNTIME_DIR env var > runtime_dir in config file > XDG_RUNTIME_DIR/motus
   - Data: Always XDG_DATA_HOME/motus in XDG mode
 - Priority: CLI flags > MOTUS_* env vars > Config file > XDG_* env vars > Defaults
@@ -125,7 +125,7 @@ class Config:
         XDG Mode (default when no --data-dir, MOTUS_DATA_DIR, or data_dir in config):
         - Config: MOTUS_CONFIG_DIR > config_dir in config file > XDG_CONFIG_HOME/motus (~/.config/motus)
         - Data: XDG_DATA_HOME/motus (~/.local/share/motus)
-        - Cache: MOTUS_CACHE_PATH > cache_path in config file > XDG_CACHE_HOME/motus (~/.cache/motus)
+        - Cache: MOTUS_CACHE_DIR > cache_dir in config file > XDG_CACHE_HOME/motus (~/.cache/motus)
         - Runtime: MOTUS_RUNTIME_DIR > runtime_dir in config file > XDG_RUNTIME_DIR/motus (/run/user/{uid}/motus)
 
         Legacy Mode (if --data-dir, MOTUS_DATA_DIR, or data_dir in config file is set):
@@ -133,7 +133,7 @@ class Config:
         - But individual directories can still be overridden:
           - Config: MOTUS_CONFIG_DIR > config_dir in config file > data_dir
           - Runtime: MOTUS_RUNTIME_DIR > runtime_dir in config file > data_dir
-          - Cache: MOTUS_CACHE_PATH > cache_path in config file > data_dir/cache
+          - Cache: MOTUS_CACHE_DIR > cache_dir in config file > data_dir/cache
         """
         # Load config file if exists
         self.config_data = {}
@@ -185,14 +185,14 @@ class Config:
 
             # Cache directory (for temporary files, logs, etc.)
             cache_override = self._get_config(
-                'cache_path',
-                env_var='MOTUS_CACHE_PATH',
+                'cache_dir',
+                env_var='MOTUS_CACHE_DIR',
                 default=None
             )
             if cache_override:
-                self.cache_path = cache_override
+                self.cache_dir = cache_override
             else:
-                self.cache_path = str(get_xdg_cache_home() / 'motus')
+                self.cache_dir = str(get_xdg_cache_home() / 'motus')
         else:
             # Legacy Mode: everything in data_dir by default
             # But individual directories can still be overridden
@@ -215,16 +215,16 @@ class Config:
             self.runtime_dir = runtime_override if runtime_override else self.data_dir
 
             # Cache directory - can be overridden even in legacy mode
-            self.cache_path = self._get_config(
-                'cache_path',
-                env_var='MOTUS_CACHE_PATH',
+            self.cache_dir = self._get_config(
+                'cache_dir',
+                env_var='MOTUS_CACHE_DIR',
                 default=os.path.join(self.data_dir, 'cache')
             )
 
         # Create directories
         os.makedirs(self.config_dir, exist_ok=True)
         os.makedirs(self.data_dir, exist_ok=True)
-        os.makedirs(self.cache_path, exist_ok=True)
+        os.makedirs(self.cache_dir, exist_ok=True)
         os.makedirs(self.runtime_dir, exist_ok=True)
 
         # Port configuration (like Jupyter)
@@ -266,7 +266,7 @@ class Config:
         ).upper()
 
         # Log file (in cache directory - logs are ephemeral)
-        self.log_file = os.path.join(self.cache_path, 'motus.log')
+        self.log_file = os.path.join(self.cache_dir, 'motus.log')
 
         # Flask secret key (for sessions)
         self.secret_key = self._get_config(
@@ -432,10 +432,10 @@ class Config:
             default=3600
         ) or 3600)
 
-        # Specific cache subdirectories (computed from cache_path)
-        self.download_cache_dir = os.path.join(self.cache_path, 'download')
-        self.upload_cache_dir = os.path.join(self.cache_path, 'upload')
-        self.log_cache_dir = os.path.join(self.cache_path, 'log')
+        # Specific cache subdirectories (computed from cache_dir)
+        self.download_cache_dir = os.path.join(self.cache_dir, 'download')
+        self.upload_cache_dir = os.path.join(self.cache_dir, 'upload')
+        self.log_cache_dir = os.path.join(self.cache_dir, 'log')
 
         # Create cache subdirectories
         os.makedirs(self.download_cache_dir, exist_ok=True)
