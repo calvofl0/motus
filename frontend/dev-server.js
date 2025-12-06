@@ -25,18 +25,32 @@ function getXdgRuntimeDir() {
 /**
  * Find connection.json file
  * Tries XDG mode first, then falls back to legacy mode
+ * Skips stale files where process is not running
  */
 function findConnectionFile() {
-  // XDG mode: check runtime directory
-  const xdgPath = join(getXdgRuntimeDir(), 'motus', 'connection.json')
-  if (existsSync(xdgPath)) {
-    return xdgPath
-  }
+  const candidates = [
+    // XDG mode: check runtime directory
+    join(getXdgRuntimeDir(), 'motus', 'connection.json'),
+    // Legacy mode: check ~/.motus
+    join(homedir(), '.motus', 'connection.json')
+  ]
 
-  // Legacy mode: check ~/.motus
-  const legacyPath = join(homedir(), '.motus', 'connection.json')
-  if (existsSync(legacyPath)) {
-    return legacyPath
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      try {
+        const conn = JSON.parse(readFileSync(path, 'utf-8'))
+        const pid = conn.pid
+
+        // Check if process is actually running
+        if (pid && isProcessRunning(pid)) {
+          return path
+        } else {
+          console.log(`[Startup] Skipping stale connection file at ${path} (PID ${pid} not running)`)
+        }
+      } catch (e) {
+        console.log(`[Startup] Skipping invalid connection file at ${path}: ${e.message}`)
+      }
+    }
   }
 
   return null
