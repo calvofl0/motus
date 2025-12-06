@@ -37,11 +37,7 @@
         }
 
         .collapse-icon {
-            transition: transform 0.3s;
-        }
-
-        .job-panel.collapsed .collapse-icon {
-            transform: rotate(180deg);
+            /* No transformation needed - arrow direction handled in template */
         }
 
         .job-list {
