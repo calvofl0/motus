@@ -24,16 +24,22 @@ function getXdgRuntimeDir() {
 
 /**
  * Find connection.json file
- * Tries XDG mode first, then falls back to legacy mode
- * Skips stale files where process is not running
+ * Uses MOTUS_CONNECTION_DIR env var if set (from dev-vue.py)
+ * Otherwise tries XDG mode first, then falls back to legacy mode
  */
 function findConnectionFile() {
-  const candidates = [
-    // XDG mode: check runtime directory
-    join(getXdgRuntimeDir(), 'motus', 'connection.json'),
-    // Legacy mode: check ~/.motus
-    join(homedir(), '.motus', 'connection.json')
-  ]
+  let candidates = []
+
+  // If dev-vue.py told us where to look, use that exclusively
+  if (process.env.MOTUS_CONNECTION_DIR) {
+    candidates = [join(process.env.MOTUS_CONNECTION_DIR, 'connection.json')]
+  } else {
+    // Fallback: try both locations (for standalone usage)
+    candidates = [
+      join(getXdgRuntimeDir(), 'motus', 'connection.json'),
+      join(homedir(), '.motus', 'connection.json')
+    ]
+  }
 
   for (const path of candidates) {
     if (existsSync(path)) {

@@ -255,9 +255,19 @@ def main():
     # Ensure backend is running
     conn = ensure_backend_running(args.backend_args)
 
-    # Set environment variables for Vite
+    # Determine where connection.json is located based on mode
+    data_dir = parse_data_dir_from_args(args.backend_args)
+    if data_dir is None:
+        # XDG mode
+        connection_dir = str(get_xdg_runtime_dir() / 'motus')
+    else:
+        # Legacy mode with -d
+        connection_dir = data_dir
+
+    # Set environment variables for Vite and dev-server.js
     os.environ['MOTUS_PORT'] = str(conn['port'])
     os.environ['VITE_PORT'] = str(args.port)
+    os.environ['MOTUS_CONNECTION_DIR'] = connection_dir  # Tell dev-server.js where to look
 
     # Open browser to Vue dev server with token (will determine actual port after Vite starts)
     if not args.no_browser:
