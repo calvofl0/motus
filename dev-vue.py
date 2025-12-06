@@ -144,10 +144,29 @@ def ensure_backend_running(backend_args):
     conn = get_connection_info(data_dir)
 
     if conn:
-        print(f"✓ Backend already running on port {conn['port']}")
-        # Backend was already running - we don't have a Popen object
-        backend_process = None
-        return conn
+        # Check if the backend process is actually running
+        pid = conn.get('pid')
+        if pid and is_process_running(pid):
+            print(f"✓ Backend already running on port {conn['port']}")
+            # Backend was already running - we don't have a Popen object
+            backend_process = None
+            return conn
+        else:
+            # Stale connection file - backend is dead
+            print(f"⚠ Found stale connection file (backend PID {pid} not running)")
+            # Clean up stale connection.json
+            if data_dir is None:
+                runtime_dir = get_xdg_runtime_dir() / 'motus'
+                connection_file = runtime_dir / 'connection.json'
+            else:
+                connection_file = Path(data_dir) / 'connection.json'
+
+            try:
+                connection_file.unlink()
+                print(f"  Cleaned up {connection_file}")
+            except:
+                pass
+            # Fall through to start new backend
 
     print("Starting backend...")
     # Format backend_args for display
