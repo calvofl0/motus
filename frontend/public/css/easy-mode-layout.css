@@ -79,6 +79,22 @@
             background: var(--color-primary-hover);
         }
 
+        .parent-btn,
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--color-success);
+            padding: 8px;
+            transition: transform 0.2s;
+        }
+
+        .parent-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         .toolbar-button.secondary {
             background: var(--color-secondary);
         }
