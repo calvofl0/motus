@@ -1,7 +1,7 @@
 <template>
   <div class="header">
     <div class="header-left">
-      <img src="/img/logo.png" alt="Motus Logo" class="logo" />
+      <img :src="logoSrc" alt="Motus Logo" class="logo" />
       <div class="header-text">
         <h1>Motus</h1>
         <p class="subtitle"><em>Motus et bouche cousue</em> — A Web-based File Transfer Interface</p>
@@ -82,6 +82,10 @@ const themeIcon = computed(() => {
   } else {
     return '🌙'
   }
+})
+
+const logoSrc = computed(() => {
+  return appStore.effectiveTheme === 'dark' ? '/img/logo-dark.png' : '/img/logo.png'
 })
 
 const themeTooltip = computed(() => {
