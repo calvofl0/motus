@@ -664,25 +664,17 @@ def register_routes(app: Flask, config: Config):
     def get_preferences():
         """Get user preferences"""
         prefs_file = os.path.join(config.config_dir, 'preferences.json')
-        old_prefs_file = os.path.join(config.data_dir, 'preferences.json')
-
-        # Migration: if old file exists in data_dir but not in config_dir, migrate it
-        if not os.path.exists(prefs_file) and os.path.exists(old_prefs_file):
-            try:
-                import shutil
-                shutil.copy2(old_prefs_file, prefs_file)
-                logging.info(f"Migrated preferences from {old_prefs_file} to {prefs_file}")
-            except Exception as e:
-                logging.warning(f"Failed to migrate preferences from {old_prefs_file} to {prefs_file}: {e}")
 
         if os.path.exists(prefs_file):
             try:
                 with open(prefs_file, 'r') as f:
                     prefs = json.load(f)
-                logging.debug(f"Loaded preferences from {prefs_file}: {prefs}")
+                logging.info(f"Loaded preferences from {prefs_file}: {prefs}")
                 return jsonify(prefs)
             except Exception as e:
                 logging.error(f"Failed to load preferences from {prefs_file}: {e}")
+        else:
+            logging.info(f"No preferences file found at {prefs_file}, returning defaults")
 
         # Return defaults
         return jsonify({
