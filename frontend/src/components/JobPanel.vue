@@ -122,7 +122,7 @@ let isShuttingDown = false
 function toggleActiveJobs() {
   const willOpen = activeJobsCollapsed.value
   activeJobsCollapsed.value = !activeJobsCollapsed.value
-  jobPanelManuallyToggled.value = !activeJobsCollapsed.value
+  jobPanelManuallyToggled.value = true
 
   // Close other dropdowns when opening this one
   if (willOpen) {
