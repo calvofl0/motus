@@ -6,15 +6,15 @@
     @close="handleClose"
     @confirm="handleConfirm"
   >
-    <p class="warning-text">
-      <strong>⚠️ Warning:</strong> This action cannot be undone!
-    </p>
     <p class="confirm-text">Are you sure you want to delete the following {{ items.length }} item(s)?</p>
     <div class="file-list">
       <div v-for="(item, index) in items" :key="index" class="file-item">
         • {{ item }}
       </div>
     </div>
+    <p class="warning-text">
+      <strong>⚠️ Warning:</strong> This action cannot be undone!
+    </p>
 
     <template #footer>
       <button class="btn btn-secondary" @click="handleClose">
@@ -79,6 +79,7 @@ export default {
   background: var(--color-warning-light);
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-sm);
+  margin-top: var(--spacing-lg);
 }
 
 .file-list {
