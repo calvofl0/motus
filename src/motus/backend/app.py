@@ -668,14 +668,16 @@ def register_routes(app: Flask, config: Config):
             try:
                 with open(prefs_file, 'r') as f:
                     prefs = json.load(f)
+                logging.debug(f"Loaded preferences from {prefs_file}: {prefs}")
                 return jsonify(prefs)
             except Exception as e:
-                logging.error(f"Failed to load preferences: {e}")
+                logging.error(f"Failed to load preferences from {prefs_file}: {e}")
 
         # Return defaults
         return jsonify({
             'view_mode': 'list',
-            'show_hidden_files': False
+            'show_hidden_files': False,
+            'theme': 'auto'
         })
 
     @app.route('/api/preferences', methods=['POST'])
@@ -689,9 +691,10 @@ def register_routes(app: Flask, config: Config):
             with open(prefs_file, 'w') as f:
                 json.dump(data, f, indent=2)
 
+            logging.info(f"Saved preferences to {prefs_file}: {data}")
             return jsonify({'message': 'Preferences saved'})
         except Exception as e:
-            logging.error(f"Failed to save preferences: {e}")
+            logging.error(f"Failed to save preferences to {prefs_file}: {e}")
             return jsonify({'error': 'Failed to save preferences'}), 500
 
     @app.route('/api/shutdown', methods=['POST'])
