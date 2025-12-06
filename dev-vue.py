@@ -117,21 +117,22 @@ def monitor_backend(backend_pid, backend_popen=None):
 
         # Pass the Popen object to properly reap zombies (cross-platform)
         if not is_process_running(backend_pid, backend_popen):
-            print("\n\n  [Python Monitor] Backend has stopped (Node monitor may have missed it)")
-            print("  [Python Monitor] Terminating npm process...")
+            print("\n\n  [Python Monitor] Backend has stopped")
+            print("  [Python Monitor] Shutting down Vite...")
 
-            # Just terminate npm - the Node.js script should have already handled Vite gracefully
+            # Terminate npm gracefully - let the cleanup handler do its job
             global npm_process
             if npm_process:
                 try:
                     npm_process.terminate()
-                    time.sleep(1)
-                    if npm_process.poll() is None:
-                        npm_process.kill()
+                    npm_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    npm_process.kill()
                 except:
                     pass
 
-            os._exit(0)
+            print("  [Python Monitor] Shutdown complete")
+            sys.exit(0)  # Use sys.exit instead of os._exit for cleaner shutdown
             break
 
 def ensure_backend_running(backend_args):
@@ -312,19 +313,40 @@ def main():
 
     # Setup signal handler for cleanup
     def cleanup(signum=None, frame=None):
-        """Clean up npm process on exit"""
-        global npm_process
+        """Clean up processes on exit - shutdown in proper order"""
+        global npm_process, backend_process
+
+        print("\n\nShutting down gracefully...")
+
+        # Step 1: Stop Vite first (so no more API requests are proxied)
         if npm_process:
-            print("\n\nShutting down Vite dev server...")
+            print("  Stopping Vite dev server...")
             try:
                 # Terminate npm gracefully - the Node.js script will handle Vite shutdown
                 npm_process.terminate()
-                npm_process.wait(timeout=3)
+                npm_process.wait(timeout=5)
+                print("  ✓ Vite stopped")
             except subprocess.TimeoutExpired:
-                # If it doesn't exit in 3 seconds, kill it
+                # If it doesn't exit in 5 seconds, kill it
                 npm_process.kill()
+                print("  ✓ Vite stopped (forced)")
             except:
                 pass
+
+        # Step 2: Stop backend if we started it
+        if backend_process:
+            print("  Stopping backend...")
+            try:
+                backend_process.terminate()
+                backend_process.wait(timeout=5)
+                print("  ✓ Backend stopped")
+            except subprocess.TimeoutExpired:
+                backend_process.kill()
+                print("  ✓ Backend stopped (forced)")
+            except:
+                pass
+
+        print("  Shutdown complete")
         sys.exit(0)
 
     signal.signal(signal.SIGINT, cleanup)
