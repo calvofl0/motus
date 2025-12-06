@@ -63,6 +63,7 @@ async function resumeAll() {
 <style scoped>
 .message {
   margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
 }
 
 .jobs-list {
