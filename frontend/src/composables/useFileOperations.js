@@ -267,9 +267,14 @@ export function useFileOperations() {
           ? `${sourceState.remote}:${buildPath(sourceState.path, file.Name)}`
           : buildPath(sourceState.path, file.Name)
 
-        const dstPath = targetState.remote
-          ? `${targetState.remote}:${targetState.path}${targetState.path.endsWith('/') ? '' : '/'}`
-          : `${targetState.path}${targetState.path.endsWith('/') ? '' : '/'}`
+        // Build destination path with trailing slash for directory
+        let dstPath
+        if (targetState.remote) {
+          const remotePath = `${targetState.remote}:${targetState.path}`
+          dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
+        } else {
+          dstPath = targetState.path.endsWith('/') ? targetState.path : targetState.path + '/'
+        }
 
         console.log('Copy operation:', {
           srcPath,

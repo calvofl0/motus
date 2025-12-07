@@ -251,7 +251,8 @@ export function useUpload() {
 
       // Step 2: Copy from cache to destination
       const cachePath = uploadData.cache_path
-      const dstPath = `${targetRemote}:${targetPath}/`
+      const remotePath = `${targetRemote}:${targetPath}`
+      const dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
 
       const copyResult = await apiCall('/api/jobs/copy', 'POST', {
         src_path: cachePath + '/',
