@@ -85,7 +85,7 @@ const themeIcon = computed(() => {
 })
 
 const logoSrc = computed(() => {
-  return appStore.effectiveTheme === 'dark' ? '/img/logo-dark.png' : '/img/logo.png'
+  return appStore.effectiveTheme === 'dark' ? './img/logo-dark.png' : './img/logo.png'
 })
 
 const themeTooltip = computed(() => {
