@@ -132,7 +132,7 @@ export function useUpload() {
         reject(new Error('Upload canceled'))
       })
 
-      xhr.open('POST', '/api/upload')
+      xhr.open('POST', getApiUrl('/api/upload'))
       xhr.setRequestHeader('Authorization', `token ${appStore.authToken}`)
 
       // Wire up abort controller
