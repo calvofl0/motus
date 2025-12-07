@@ -702,8 +702,8 @@ function watchJob() {
   // Close any existing connection
   stopWatching()
 
-  const apiUrl = window.location.origin
-  const url = `${apiUrl}/api/stream/jobs/${statusJobId.value}?token=${appStore.authToken}`
+  const baseUrl = getApiUrl(`/api/stream/jobs/${statusJobId.value}`)
+  const url = `${baseUrl}?token=${appStore.authToken}`
 
   eventSource = new EventSource(url)
   isWatching.value = true
