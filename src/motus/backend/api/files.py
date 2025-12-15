@@ -11,11 +11,20 @@ from flask import Blueprint, request, jsonify, send_file, current_app, after_thi
 from ..auth import token_required
 from ..rclone.wrapper import RcloneWrapper
 from ..rclone.exceptions import RcloneException
+from ..models import Database
 
 files_bp = Blueprint('files', __name__)
 
-# Global rclone wrapper instance (initialized by app)
+# Global instances (initialized by app)
 rclone = None
+db = None
+
+
+def init_files(rclone_instance: RcloneWrapper, db_instance: Database):
+    """Initialize rclone wrapper and database"""
+    global rclone, db
+    rclone = rclone_instance
+    db = db_instance
 
 
 def safe_remove(path):
@@ -28,12 +37,6 @@ def safe_remove(path):
         shutil.rmtree(path)
     else:
         os.remove(path)
-
-
-def init_rclone(rclone_instance: RcloneWrapper):
-    """Initialize the rclone wrapper"""
-    global rclone
-    rclone = rclone_instance
 
 
 @files_bp.route('/api/files/ls', methods=['POST'])
@@ -405,7 +408,7 @@ def prepare_download():
 
         # Need to create zip job
         logging.info(f"Creating zip job for {len(paths)} paths (total size: {total_size} bytes)")
-        job_id = rclone.create_download_zip_job(paths, remote_config, total_size)
+        job_id = rclone.create_download_zip_job(paths, remote_config, total_size, db)
 
         return jsonify({
             'type': 'zip_job',

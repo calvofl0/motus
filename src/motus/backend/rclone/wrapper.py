@@ -732,7 +732,8 @@ class RcloneWrapper:
         self,
         paths: List[str],
         remote_config: Optional[Dict] = None,
-        estimated_size: int = 0
+        estimated_size: int = 0,
+        db = None
     ) -> int:
         """
         Create a background job to zip files/folders for download
@@ -741,6 +742,7 @@ class RcloneWrapper:
             paths: List of paths to include in zip
             remote_config: Optional remote configuration
             estimated_size: Estimated total size in bytes
+            db: Database instance (required)
 
         Returns:
             int: job_id for tracking progress
@@ -748,6 +750,9 @@ class RcloneWrapper:
         import zipfile
         import threading
         import secrets
+
+        if db is None:
+            raise ValueError("Database instance is required for create_download_zip_job")
 
         # Thread-safe job ID generation
         with self._job_id_lock:
@@ -769,9 +774,7 @@ class RcloneWrapper:
 
         logging.info(f"Creating zip job {job_id} for {len(paths)} paths -> {zip_path}")
 
-        # Create database entry
-        from ..models import Database
-        db = Database(config.database_path)
+        # Create database entry using the passed db instance
         db.create_job(
             job_id=job_id,
             operation='zip',

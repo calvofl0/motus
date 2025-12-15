@@ -140,6 +140,11 @@
             outline-offset: -2px;
         }
 
+        .file-grid.drag-over .file-item {
+            background: var(--color-bg-success-light);
+            border-color: var(--color-success);
+        }
+
         .file-item {
             padding: 15px 10px;
             border: 2px solid transparent;
@@ -187,6 +192,10 @@
             background: var(--color-bg-success-light);
             outline: 2px solid var(--color-success);
             outline-offset: -2px;
+        }
+
+        .file-list.drag-over .file-row {
+            background: var(--color-bg-success-light);
         }
 
         .file-list table {

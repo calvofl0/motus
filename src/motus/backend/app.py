@@ -21,7 +21,7 @@ from .rclone.exceptions import RcloneNotFoundError
 from .auth import token_required
 
 # Import API blueprints
-from .api.files import files_bp, init_rclone as init_files_rclone
+from .api.files import files_bp, init_files
 from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
 from .api.remotes import remotes_bp, init_remote_management
@@ -520,7 +520,7 @@ def create_app(config: Config = None):
     cleanup_download_cache(config)
 
     # Initialize API modules with dependencies
-    init_files_rclone(rclone)
+    init_files(rclone, db)
     init_jobs(rclone, db)
     init_stream(rclone, db)
     # Use rclone's user config file and readonly config for two-tier system
