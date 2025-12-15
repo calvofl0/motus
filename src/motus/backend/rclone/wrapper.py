@@ -1497,7 +1497,7 @@ class RcloneWrapper:
             elif src_is_dir and not src_has_slash:
                 # Rule 2: Source is directory without / → "copy by name"
                 # Create dst/basename(src) and copy into it
-                mkdir_path = f"{dst_path_clean}/{src_basename}"
+                mkdir_path = f"{dst_clean_path}/{src_basename}"
                 actual_dst = f"{dst}/{src_basename}"
                 needs_mkdir = True
                 rclone_cmd = 'copy'
@@ -1523,7 +1523,7 @@ class RcloneWrapper:
                     # For directory renames, use 'move' with trailing slashes
                     # This is more reliable than 'moveto' for large directories
                     # We'll create the destination and move contents, then cleanup
-                    mkdir_path = dst_path_clean
+                    mkdir_path = dst_clean_path
                     needs_mkdir = True
                     actual_src = src + '/'
                     actual_dst = dst + '/'
@@ -1535,7 +1535,7 @@ class RcloneWrapper:
             elif src_is_dir and not src_has_slash:
                 # Rule 3: Source is directory without / → "move by name"
                 # Create dst/basename(src) and move into it
-                mkdir_path = f"{dst_path_clean}/{src_basename}"
+                mkdir_path = f"{dst_clean_path}/{src_basename}"
                 actual_dst = f"{dst}/{src_basename}"
                 needs_mkdir = True
                 rclone_cmd = 'move'
