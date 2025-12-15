@@ -426,7 +426,7 @@ function watchJobForDownload(jobId) {
 
     const downloadToken = job.download_token
     if (downloadToken) {
-      const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${appStore.authToken}`
+      const downloadUrl = getApiUrl(`/api/files/download/zip/${downloadToken}`) + `?token=${appStore.authToken}`
       window.location.href = downloadUrl
 
       downloadOutput.value = {

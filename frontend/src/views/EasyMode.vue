@@ -508,7 +508,7 @@ function watchJobForDownload(jobId) {
     const downloadToken = job.download_token
     if (downloadToken) {
       // Get current token for authentication
-      const downloadUrl = `/api/files/download/zip/${downloadToken}?token=${getAuthToken()}`
+      const downloadUrl = getApiUrl(`/api/files/download/zip/${downloadToken}`) + `?token=${getAuthToken()}`
 
       // Trigger download by navigating
       window.location.href = downloadUrl
