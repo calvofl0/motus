@@ -431,11 +431,9 @@ function onRemoteChange() {
 }
 
 async function browsePath() {
-  // Save the current path before attempting navigation
-  const oldPath = currentPath.value
-
-  // Update previousPath before expanding/refreshing (for abort functionality)
-  previousPath.value = oldPath
+  // Save the last successful path to restore on error
+  // (currentPath has already been updated by v-model when user typed)
+  const lastSuccessfulPath = previousPath.value
 
   // Expand ~ before refreshing (only for local filesystem, not aliases)
   // Check if remote is truly local (empty string means local)
@@ -447,9 +445,8 @@ async function browsePath() {
     await refresh()
   } catch (error) {
     // Restore to the last successful path on error
-    currentPath.value = oldPath
-    previousPath.value = oldPath
-    console.log('Browse path failed, path restored to:', oldPath)
+    currentPath.value = lastSuccessfulPath
+    console.log('Browse path failed, path restored to:', lastSuccessfulPath)
   }
 }
 
