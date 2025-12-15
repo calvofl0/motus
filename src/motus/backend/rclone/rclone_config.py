@@ -491,13 +491,25 @@ class RcloneConfig:
         if self.merged_config_file:
             # Save to user's config, then regenerate merged
             target_file = self.user_config_file
-        else:
-            # Save to the main config file
-            target_file = self.config_file
 
-        with open(target_file, 'w') as f:
-            self.parser.write(f)
-        logging.info(f"Saved rclone config to {target_file}")
+            # Only write user's remotes (exclude readonly remotes)
+            with open(target_file, 'w') as f:
+                for section in self.parser.sections():
+                    # Skip readonly remotes - they should not be written to user's config
+                    if section in self.readonly_remotes:
+                        continue
+
+                    f.write(f'[{section}]\n')
+                    for key, value in self.parser.items(section):
+                        f.write(f'{key} = {value}\n')
+                    f.write('\n')
+            logging.info(f"Saved rclone config to {target_file} (excluded {len(self.readonly_remotes)} readonly remotes)")
+        else:
+            # Save to the main config file (no filtering needed)
+            target_file = self.config_file
+            with open(target_file, 'w') as f:
+                self.parser.write(f)
+            logging.info(f"Saved rclone config to {target_file}")
 
         # Regenerate merged config if we're using one
         self._regenerate_merged_config()
