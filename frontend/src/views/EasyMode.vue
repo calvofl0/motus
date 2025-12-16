@@ -624,8 +624,27 @@ async function resolveAliasPath(remote, path) {
 
 async function handleCreateAlias(aliasName) {
   try {
+    // Handle the resolved path format
+    // If it resolves to a local filesystem path, concatenate without colon
+    // If it resolves to a remote, keep the remote:path format
+    let remotePath = aliasResolvedPath.value
+
+    if (remotePath.includes(':')) {
+      const colonIndex = remotePath.indexOf(':')
+      const beforeColon = remotePath.substring(0, colonIndex)
+      const afterColon = remotePath.substring(colonIndex + 1)
+
+      // Check if beforeColon is a local filesystem path (starts with /)
+      // or Windows path (like C:, but we need to check for double colon pattern)
+      if (beforeColon.startsWith('/')) {
+        // Local filesystem path - concatenate without colon
+        remotePath = beforeColon + afterColon
+      }
+      // Otherwise keep the remote:path format as-is
+    }
+
     // Create alias remote config
-    const config = `[${aliasName}]\ntype = alias\nremote = ${aliasResolvedPath.value}\n`
+    const config = `[${aliasName}]\ntype = alias\nremote = ${remotePath}\n`
 
     await apiCall('/api/remotes/raw', 'POST', {
       raw_config: config
