@@ -335,6 +335,63 @@ motus
    # "Local Filesystem" still appears in the dropdown
    ```
 
+#### Absolute Paths Mode (`--absolute-paths`)
+
+Enable absolute filesystem path display for local aliases with automatic remote switching:
+
+```bash
+# Enable absolute paths mode
+motus --absolute-paths
+
+# Via environment variable
+export MOTUS_ABSOLUTE_PATHS=true
+motus
+
+# Or in ~/.motus/config.yml:
+# absolute_paths: true
+```
+
+**Behavior:**
+
+When enabled, this mode provides an enhanced experience for working with local filesystem aliases:
+
+1. **Absolute Path Display:** Path input shows full absolute paths (e.g., `/home/user/documents/file.txt`) instead of relative paths
+2. **Automatic Remote Switching:** The remote dropdown automatically switches based on the current path:
+   - Navigating to `/home/user/documents` with a `docs` alias → switches to `docs`
+   - Navigating outside alias boundaries → switches to "Local Filesystem"
+   - Uses longest prefix match when multiple aliases could apply
+3. **Direct Path Operations:** File operations use absolute paths directly for local aliases
+4. **Requires Local Filesystem:** Automatically ensures `--local-fs` is non-empty (defaults to "Local Filesystem")
+
+**Example Scenario:**
+
+```bash
+# Setup: Create aliases in rclone config
+[docs]
+type = alias
+remote = /home/user/documents
+
+[projects]
+type = alias
+remote = /home/user/documents/my-projects
+
+# Start Motus with absolute paths
+motus --absolute-paths
+```
+
+**Navigation Behavior:**
+- Start at `/` with "Local Filesystem" selected
+- Navigate to `/home/user/documents` → Dropdown switches to `docs`
+- Navigate to `/home/user/documents/my-projects` → Dropdown switches to `projects` (more specific)
+- Navigate up to `/home/user` → Dropdown switches back to "Local Filesystem"
+- Type `/home/user/documents/report.pdf` and press Enter → Auto-switches to `docs`
+
+**Benefits:**
+- Seamless navigation across filesystem and aliases
+- Clear indication of current location with absolute paths
+- No need to manually switch remotes when crossing alias boundaries
+- Consistent experience with standard filesystem tools
+
 ### Managing Remotes via UI
 
 The graphical remote management interface allows you to:
@@ -411,6 +468,7 @@ motus --remote-templates templates.conf           # Remote templates file
 motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
 motus -s my_remote                                # Set startup remote (--startup-remote)
 motus -l ""                                       # Hide local filesystem entry (--local-fs)
+motus --absolute-paths                            # Enable absolute paths mode for local aliases
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
 motus --max-upload-size 1G                        # Limit upload size
@@ -435,6 +493,7 @@ export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf    # Or relative: template
 export MOTUS_EXTRA_REMOTES=/path/to/rclone.conf          # Or relative: remotes.conf (resolves to config_dir/remotes.conf)
 export MOTUS_STARTUP_REMOTE=my_remote                    # Default remote at startup
 export MOTUS_LOCAL_FS=""                                 # Local filesystem label (empty string hides it)
+export MOTUS_ABSOLUTE_PATHS=true                         # Enable absolute paths mode for local aliases
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
@@ -469,6 +528,7 @@ remote_templates_file: templates.conf           # Absolute or relative to config
 extra_remotes_file: team-remotes.conf           # Absolute or relative to config_dir
 startup_remote: my_remote                       # Default remote at startup
 local_fs: "Local Filesystem"                    # Local filesystem label (empty string hides it)
+absolute_paths: true                            # Enable absolute paths mode for local aliases
 
 # Limits and behavior
 max_idle_time: 3600
