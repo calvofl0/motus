@@ -205,8 +205,8 @@ const refreshHover = ref(false)
 const parentHover = ref(false)
 const selectedRemote = ref('')
 const previousRemote = ref('') // Track last working remote
-const currentPath = ref('~/')
-const previousPath = ref('~/') // Track path before refresh for abort
+const currentPath = ref('/')
+const previousPath = ref('/') // Track path before refresh for abort
 const files = ref([])
 const remotes = ref([])
 const loading = ref(false)
@@ -427,7 +427,7 @@ function onRemoteChange() {
   // Update previousPath before changing path (for abort functionality)
   previousPath.value = currentPath.value
 
-  currentPath.value = selectedRemote.value === '' ? '~/' : '/'
+  currentPath.value = '/'
   refresh()
 }
 
@@ -995,15 +995,7 @@ onMounted(async () => {
       // Use local filesystem (empty string) as default
       selectedRemote.value = ''
       previousRemote.value = ''
-
-      // Get the expanded home path directly
-      try {
-        const response = await apiCall('/api/files/expand-home', 'POST', { path: '~/' })
-        currentPath.value = response.expanded_path || '~/'
-      } catch (error) {
-        console.error('Failed to expand home path:', error)
-        currentPath.value = '~/'  // Fallback to tilde if expansion fails
-      }
+      currentPath.value = '/'
     }
 
     await refresh()
