@@ -624,8 +624,9 @@ async function resolveAliasPath(remote, path) {
 
 async function handleCreateAlias(aliasName) {
   try {
-    // Create alias remote config
-    const config = `[${aliasName}]\ntype = alias\nremote = ${aliasResolvedPath.value}\n`
+    // Create alias remote config using the target path, not the resolved path
+    // This ensures aliases point to the actual remote name, not the fully resolved path
+    const config = `[${aliasName}]\ntype = alias\nremote = ${aliasTargetPath.value}\n`
 
     await apiCall('/api/remotes/raw', 'POST', {
       raw_config: config
