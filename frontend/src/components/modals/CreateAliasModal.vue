@@ -13,7 +13,7 @@
         Create an alias remote for: <strong>{{ targetPath }}</strong>
       </p>
       <p class="info-text">
-        Resolved to: <strong>{{ resolvedPath }}</strong>
+        Resolved to: <strong>{{ displayResolvedPath }}</strong>
       </p>
       <div class="input-group">
         <label class="input-label">
@@ -69,6 +69,28 @@ const nameInput = ref(null)
 
 const isValid = computed(() => {
   return aliasName.value.trim().length > 0 && /^[a-zA-Z0-9_\-]+$/.test(aliasName.value)
+})
+
+// Format the resolved path for display
+// If it resolves to a local filesystem path, show concatenated format
+// If it resolves to a remote, show remote:path format
+const displayResolvedPath = computed(() => {
+  const path = props.resolvedPath
+
+  if (path.includes(':')) {
+    const colonIndex = path.indexOf(':')
+    const beforeColon = path.substring(0, colonIndex)
+    const afterColon = path.substring(colonIndex + 1)
+
+    // Check if beforeColon is a local filesystem path (starts with /)
+    if (beforeColon.startsWith('/')) {
+      // Local filesystem path - show concatenated
+      return beforeColon + afterColon
+    }
+  }
+
+  // Otherwise return as-is
+  return path
 })
 
 function submit() {
