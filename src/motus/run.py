@@ -280,6 +280,11 @@ def main():
         help='Name for local filesystem remote (default: "Local Filesystem", empty string hides it, or MOTUS_LOCAL_FS env var)'
     )
     parser.add_argument(
+        '--absolute-paths',
+        action='store_true',
+        help='Show absolute filesystem paths for local aliases with auto-switching (implies non-empty --local-fs, or MOTUS_ABSOLUTE_PATHS env var)'
+    )
+    parser.add_argument(
         '--max-idle-time',
         type=int,
         help='Auto-quit after N seconds of inactivity (0=disabled, default: 0, or MOTUS_MAX_IDLE_TIME env var)'
@@ -388,6 +393,8 @@ def main():
         config.startup_remote = args.startup_remote
     if args.local_fs is not None:  # Allow empty string to disable
         config.local_fs = args.local_fs
+    if args.absolute_paths:
+        config.absolute_paths = True
     if args.max_idle_time is not None:
         config.max_idle_time = args.max_idle_time
     if args.auto_cleanup_db:

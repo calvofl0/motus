@@ -554,6 +554,13 @@ def create_app(config: Config = None):
             logging.warning(f"Failed to validate startup_remote '{config.startup_remote}': {e}. Ignoring.")
             config.startup_remote = None
 
+    # Validate absolute_paths mode (implies non-empty local_fs)
+    if config.absolute_paths:
+        if not config.local_fs or config.local_fs.strip() == '':
+            logging.info("absolute_paths mode requires non-empty local_fs, using default: 'Local Filesystem'")
+            config.local_fs = 'Local Filesystem'
+        logging.info(f"absolute_paths mode enabled with local_fs='{config.local_fs}'")
+
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()
     interrupted_job_ids = [job['job_id'] for job in db.list_aborted_jobs()]
@@ -652,6 +659,7 @@ def register_routes(app: Flask, config: Config):
             'allow_expert_mode': config.allow_expert_mode,
             'startup_remote': config.startup_remote,
             'local_fs': config.local_fs,
+            'absolute_paths': config.absolute_paths,
         })
 
     @app.route('/api/preferences', methods=['GET'])

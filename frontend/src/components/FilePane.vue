@@ -16,7 +16,7 @@
       <div class="toolbar-row">
         <input
           type="text"
-          v-model="currentPath"
+          v-model="displayPath"
           @keypress.enter="browsePath"
           placeholder="Path..."
         />
@@ -216,6 +216,11 @@ const startupRemote = ref(null) // Default remote to show on startup
 const localFsName = ref('Local Filesystem') // Name for local filesystem entry (empty string hides it)
 const abortController = ref(null) // For aborting fetch requests
 
+// Absolute paths mode state
+const absolutePathsMode = ref(false) // Loaded from config
+const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
+const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
+
 // Download confirmation modal state
 const showDownloadConfirm = ref(false)
 const downloadConfirmFile = ref('')
@@ -227,6 +232,22 @@ const title = computed(() => props.pane === 'left' ? 'Server A' : 'Server B')
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
+
+// Display path - shows absolute paths in absolute paths mode
+const displayPath = computed({
+  get() {
+    if (absolutePathsMode.value && currentAliasBasePath.value) {
+      // In absolute paths mode with a local alias - show absolute path
+      return currentAliasBasePath.value + currentPath.value
+    }
+    // Normal mode or no local alias - show relative path
+    return currentPath.value
+  },
+  set(value) {
+    // User typed a path - store it
+    currentPath.value = value
+  }
+})
 
 // Visual order mapping for range selection
 const visualOrder = ref({})
@@ -358,9 +379,18 @@ async function refresh(preserveSelection = false) {
     : []
 
   try {
-    const fullPath = selectedRemote.value
-      ? `${selectedRemote.value}:${currentPath.value}`
-      : currentPath.value
+    // Construct path for API call
+    let fullPath
+    if (absolutePathsMode.value && currentAliasBasePath.value) {
+      // In absolute paths mode with a local alias - use absolute path
+      fullPath = currentAliasBasePath.value + currentPath.value
+    } else if (selectedRemote.value) {
+      // Normal remote - use remote:path format
+      fullPath = `${selectedRemote.value}:${currentPath.value}`
+    } else {
+      // Local filesystem - use path as-is
+      fullPath = currentPath.value
+    }
 
     const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
     files.value = data.files || []
@@ -373,6 +403,9 @@ async function refresh(preserveSelection = false) {
     // Update previous remote and path on success
     previousRemote.value = selectedRemote.value
     previousPath.value = currentPath.value
+
+    // Auto-switch remote if in absolute paths mode (after navigation)
+    await autoSwitchRemote()
 
     // Restore selection if preserving
     if (preserveSelection && selectedFileNames.length > 0) {
@@ -427,6 +460,14 @@ function onRemoteChange() {
   // Update previousPath before changing path (for abort functionality)
   previousPath.value = currentPath.value
 
+  // Update current alias base path if in absolute paths mode
+  if (absolutePathsMode.value && selectedRemote.value) {
+    const alias = localAliases.value.find(a => a.name === selectedRemote.value)
+    currentAliasBasePath.value = alias ? alias.basePath : ''
+  } else {
+    currentAliasBasePath.value = ''
+  }
+
   currentPath.value = '/'
   refresh()
 }
@@ -435,6 +476,9 @@ async function browsePath() {
   // Save the last successful path to restore on error
   // (currentPath has already been updated by v-model when user typed)
   const lastSuccessfulPath = previousPath.value
+
+  // Auto-switch remote if in absolute paths mode
+  await autoSwitchRemote()
 
   // Expand ~ before refreshing (only for local filesystem, not aliases)
   // Check if remote is truly local (empty string means local)
@@ -586,9 +630,8 @@ async function handleFileDblClick(file) {
 
   // It's a file - check if we can preview it
   try {
-    const remote = selectedRemote.value
     const filePath = currentPath.value === '/' ? `/${file.Name}` : `${currentPath.value}/${file.Name}`
-    const fullPath = remote ? `${remote}:${filePath}` : filePath
+    const fullPath = buildOperationPath(filePath)
 
     // Check if file can be previewed
     const response = await apiCall('/api/files/can-preview', 'POST', {
@@ -931,8 +974,12 @@ async function handleExternalFileDrop(files) {
 }
 
 // Handle remotes changed event
-function handleRemotesChanged() {
-  loadRemotes()
+async function handleRemotesChanged() {
+  await loadRemotes()
+  // Refresh local aliases detection when remotes change
+  if (absolutePathsMode.value) {
+    await detectLocalAliases()
+  }
 }
 
 // Handle job completion event
@@ -971,19 +1018,139 @@ function handleJobCompleted(event) {
   }
 }
 
+// Build full path for operations (handles absolute paths mode)
+function buildOperationPath(relativePath) {
+  if (absolutePathsMode.value && currentAliasBasePath.value) {
+    // In absolute paths mode with a local alias - use absolute path
+    return currentAliasBasePath.value + relativePath
+  } else if (selectedRemote.value) {
+    // Normal remote - use remote:path format
+    return `${selectedRemote.value}:${relativePath}`
+  } else {
+    // Local filesystem - use path as-is
+    return relativePath
+  }
+}
+
+// Find matching alias for an absolute path (longest prefix match)
+function findMatchingAlias(absolutePath) {
+  if (!absolutePathsMode.value || !absolutePath.startsWith('/')) {
+    return null
+  }
+
+  // Sort aliases by path length (longest first) for best match
+  const sorted = [...localAliases.value].sort((a, b) =>
+    b.basePath.length - a.basePath.length
+  )
+
+  for (const alias of sorted) {
+    if (absolutePath === alias.basePath ||
+        absolutePath.startsWith(alias.basePath + '/')) {
+      return alias
+    }
+  }
+
+  return null // No match - should use local filesystem
+}
+
+// Auto-switch remote based on current path
+async function autoSwitchRemote() {
+  if (!absolutePathsMode.value) return
+
+  const displayedPath = displayPath.value
+
+  // If the displayed path is absolute, find matching alias
+  if (displayedPath.startsWith('/')) {
+    const matchingAlias = findMatchingAlias(displayedPath)
+
+    if (matchingAlias) {
+      // Found a matching alias
+      if (selectedRemote.value !== matchingAlias.name) {
+        // Switch to this alias
+        selectedRemote.value = matchingAlias.name
+        currentAliasBasePath.value = matchingAlias.basePath
+        // Calculate relative path from base
+        currentPath.value = displayedPath.substring(matchingAlias.basePath.length) || '/'
+      }
+    } else {
+      // No matching alias - switch to local filesystem
+      if (selectedRemote.value !== '') {
+        selectedRemote.value = ''
+        currentAliasBasePath.value = ''
+        currentPath.value = displayedPath
+      }
+    }
+  }
+}
+
+// Detect local filesystem aliases and their base paths
+async function detectLocalAliases() {
+  if (!absolutePathsMode.value) return
+
+  const detectedAliases = []
+
+  for (const remote of remotes.value) {
+    try {
+      // Resolve the alias to see if it points to local filesystem
+      const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
+        remote: remote.name,
+        path: ''
+      })
+
+      const resolvedPath = response.resolved_path || ''
+
+      // Check if it resolves to a local filesystem path (starts with / and no colon, or has / before colon)
+      if (resolvedPath.includes(':')) {
+        const colonIndex = resolvedPath.indexOf(':')
+        const beforeColon = resolvedPath.substring(0, colonIndex)
+        const afterColon = resolvedPath.substring(colonIndex + 1)
+
+        if (beforeColon.startsWith('/')) {
+          // Local filesystem path - concatenate
+          detectedAliases.push({
+            name: remote.name,
+            basePath: beforeColon + afterColon
+          })
+        }
+      } else if (resolvedPath.startsWith('/')) {
+        // Direct local path (no colon)
+        detectedAliases.push({
+          name: remote.name,
+          basePath: resolvedPath
+        })
+      }
+    } catch (error) {
+      // Ignore errors for individual remotes
+      console.debug(`Could not resolve alias ${remote.name}:`, error)
+    }
+  }
+
+  // Sort by name for consistent ordering
+  detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
+  localAliases.value = detectedAliases
+
+  console.log('Detected local filesystem aliases:', localAliases.value)
+}
+
 // Initialize
 onMounted(async () => {
   try {
-    // Load config to get startup remote and local fs name
+    // Load config to get startup remote, local fs name, and absolute paths mode
     try {
       const config = await apiCall('/api/config')
       startupRemote.value = config.startup_remote || null
       localFsName.value = config.local_fs || ''
+      absolutePathsMode.value = config.absolute_paths || false
     } catch (error) {
       console.error('Failed to load config:', error)
     }
 
     await loadRemotes()
+
+    // Detect local filesystem aliases if in absolute paths mode
+    if (absolutePathsMode.value) {
+      await detectLocalAliases()
+    }
 
     // Initialize selected remote
     if (startupRemote.value) {
@@ -991,6 +1158,12 @@ onMounted(async () => {
       selectedRemote.value = startupRemote.value
       previousRemote.value = startupRemote.value
       currentPath.value = '/'
+
+      // Set alias base path if this is a local alias in absolute paths mode
+      if (absolutePathsMode.value) {
+        const alias = localAliases.value.find(a => a.name === startupRemote.value)
+        currentAliasBasePath.value = alias ? alias.basePath : ''
+      }
     } else {
       // Use local filesystem (empty string) as default
       selectedRemote.value = ''

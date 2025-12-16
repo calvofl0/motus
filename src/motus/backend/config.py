@@ -325,6 +325,15 @@ class Config:
             default='Local Filesystem'
         )
 
+        # Absolute paths mode - Show absolute filesystem paths for local aliases
+        # Implies non-empty local_fs
+        self.absolute_paths = self._get_config(
+            'absolute_paths',
+            env_var='MOTUS_ABSOLUTE_PATHS',
+            default=False,
+            value_type='bool'
+        )
+
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
             'base_url',
