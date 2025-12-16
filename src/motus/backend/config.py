@@ -330,9 +330,8 @@ class Config:
         self.absolute_paths = self._get_config(
             'absolute_paths',
             env_var='MOTUS_ABSOLUTE_PATHS',
-            default=False,
-            value_type='bool'
-        )
+            default='false'
+        ).lower() == 'true'
 
         # Base URL (for reverse proxy setups)
         self.base_url = self._get_config(
