@@ -65,7 +65,7 @@
       <template v-else-if="viewMode === 'grid'">
         <!-- Parent Directory -->
         <div
-          v-if="currentPath !== '/'"
+          v-if="!isAtRoot"
           class="file-item"
           @dblclick="navigateUp"
           @contextmenu.prevent="handleParentContextMenu"
@@ -124,7 +124,7 @@
         <tbody>
           <!-- Parent Directory -->
           <tr
-            v-if="currentPath !== '/'"
+            v-if="!isAtRoot"
             class="file-row"
             @dblclick="navigateUp"
             @contextmenu.prevent="handleParentContextMenu"
@@ -285,6 +285,17 @@ const sortedRemotes = computed(() => {
 
 // Check if at root directory
 const isAtRoot = computed(() => {
+  // In absolute paths mode, check if we're at filesystem root using inputPath
+  if (absolutePathsMode.value) {
+    const absPath = inputPath.value
+    // At filesystem root
+    if (absPath === '/' || absPath === '~/' || absPath === '~') {
+      return true
+    }
+    return false
+  }
+
+  // Normal mode - check currentPath
   const path = currentPath.value
   // Root cases: /, ~/, or ~ (for local filesystem)
   if (path === '/' || path === '~/' || path === '~') {
