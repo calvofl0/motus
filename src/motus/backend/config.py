@@ -310,13 +310,19 @@ class Config:
         if self.extra_remotes_file and not os.path.isabs(self.extra_remotes_file):
             self.extra_remotes_file = os.path.join(self.config_dir, self.extra_remotes_file)
 
-        # Local filesystem alias remote
-        # If set, this alias remote (which must resolve to local filesystem) replaces
-        # the "Local Filesystem" option in the UI and becomes the default
-        self.local_filesystem_alias = self._get_config(
-            'local_filesystem_alias',
-            env_var='MOTUS_LOCAL_FILESYSTEM_ALIAS',
+        # Startup remote - Default remote to show on both panes at startup
+        self.startup_remote = self._get_config(
+            'startup_remote',
+            env_var='MOTUS_STARTUP_REMOTE',
             default=None
+        )
+
+        # Local filesystem entry name - Name for local filesystem remote in UI
+        # Default: "Local Filesystem", empty string hides it from the list
+        self.local_fs = self._get_config(
+            'local_fs',
+            env_var='MOTUS_LOCAL_FS',
+            default='Local Filesystem'
         )
 
         # Base URL (for reverse proxy setups)

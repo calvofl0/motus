@@ -536,29 +536,23 @@ def create_app(config: Config = None):
     # Note: extra_remotes_file is now handled automatically by RcloneConfig's two-tier system
     # Readonly remotes are merged into a temporary config at initialization
 
-    # Validate local filesystem alias
-    if config.local_filesystem_alias:
+    # Validate startup remote (if configured)
+    if config.startup_remote:
         try:
-            logging.info(f"Validating local_filesystem_alias '{config.local_filesystem_alias}'")
-            resolved_remote, resolved_path = rclone.rclone_config.resolve_alias_chain(config.local_filesystem_alias, '')
+            logging.info(f"Validating startup_remote '{config.startup_remote}'")
+            rclone.rclone_config.reload()
             configured_remotes = rclone.rclone_config.list_remotes()
 
-            if resolved_remote in configured_remotes:
-                # It's still a remote, not local filesystem
+            if config.startup_remote not in configured_remotes:
                 logging.warning(
-                    f"local_filesystem_alias '{config.local_filesystem_alias}' does not resolve to local filesystem "
-                    f"(resolves to remote '{resolved_remote}'). Ignoring."
+                    f"startup_remote '{config.startup_remote}' not found in configured remotes. Ignoring."
                 )
-                config.local_filesystem_alias = None
+                config.startup_remote = None
             else:
-                # It's local filesystem - valid
-                logging.info(
-                    f"local_filesystem_alias '{config.local_filesystem_alias}' validated "
-                    f"(resolves to local path: {resolved_remote}{resolved_path})"
-                )
+                logging.info(f"startup_remote '{config.startup_remote}' validated")
         except Exception as e:
-            logging.warning(f"Failed to validate local_filesystem_alias '{config.local_filesystem_alias}': {e}. Ignoring.")
-            config.local_filesystem_alias = None
+            logging.warning(f"Failed to validate startup_remote '{config.startup_remote}': {e}. Ignoring.")
+            config.startup_remote = None
 
     # Cleanup upload cache from previous runs (exclude active jobs)
     running_job_ids = rclone.get_running_jobs()
@@ -656,7 +650,8 @@ def register_routes(app: Flask, config: Config):
             'max_upload_size_formatted': format_size(config.max_upload_size),
             'max_idle_time': config.max_idle_time,
             'allow_expert_mode': config.allow_expert_mode,
-            'local_filesystem_alias': config.local_filesystem_alias,
+            'startup_remote': config.startup_remote,
+            'local_fs': config.local_fs,
         })
 
     @app.route('/api/preferences', methods=['GET'])

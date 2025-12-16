@@ -7,7 +7,7 @@
     <div class="pane-toolbar">
       <div class="toolbar-row">
         <select v-model="selectedRemote" @change="onRemoteChange">
-          <option v-if="!localFilesystemAlias" value="">Local Filesystem</option>
+          <option v-if="localFsName" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
           </option>
@@ -212,7 +212,8 @@ const remotes = ref([])
 const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
-const localFilesystemAlias = ref(null) // Alias for local filesystem (replaces "Local Filesystem")
+const startupRemote = ref(null) // Default remote to show on startup
+const localFsName = ref('Local Filesystem') // Name for local filesystem entry (empty string hides it)
 const abortController = ref(null) // For aborting fetch requests
 
 // Download confirmation modal state
@@ -973,10 +974,11 @@ function handleJobCompleted(event) {
 // Initialize
 onMounted(async () => {
   try {
-    // Load config to get local filesystem alias
+    // Load config to get startup remote and local fs name
     try {
       const config = await apiCall('/api/config')
-      localFilesystemAlias.value = config.local_filesystem_alias || null
+      startupRemote.value = config.startup_remote || null
+      localFsName.value = config.local_fs || ''
     } catch (error) {
       console.error('Failed to load config:', error)
     }
@@ -984,10 +986,10 @@ onMounted(async () => {
     await loadRemotes()
 
     // Initialize selected remote
-    if (localFilesystemAlias.value) {
-      // Use the configured alias as default
-      selectedRemote.value = localFilesystemAlias.value
-      previousRemote.value = localFilesystemAlias.value
+    if (startupRemote.value) {
+      // Use the configured startup remote as default
+      selectedRemote.value = startupRemote.value
+      previousRemote.value = startupRemote.value
       currentPath.value = '/'
     } else {
       // Use local filesystem (empty string) as default

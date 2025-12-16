@@ -270,9 +270,14 @@ def main():
         help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_EXTRA_REMOTES env var)'
     )
     parser.add_argument(
-        '-l', '--local-filesystem-alias',
+        '-s', '--startup-remote',
         type=str,
-        help='Alias remote that resolves to local filesystem (replaces "Local Filesystem" in UI, MOTUS_LOCAL_FILESYSTEM_ALIAS env var)'
+        help='Default remote to show on both panes at startup (default: none, or MOTUS_STARTUP_REMOTE env var)'
+    )
+    parser.add_argument(
+        '-l', '--local-fs',
+        type=str,
+        help='Name for local filesystem remote (default: "Local Filesystem", empty string hides it, or MOTUS_LOCAL_FS env var)'
     )
     parser.add_argument(
         '--max-idle-time',
@@ -379,8 +384,10 @@ def main():
             config.extra_remotes_file = os.path.join(config.config_dir, args.extra_remotes)
         else:
             config.extra_remotes_file = args.extra_remotes
-    if args.local_filesystem_alias:
-        config.local_filesystem_alias = args.local_filesystem_alias
+    if args.startup_remote:
+        config.startup_remote = args.startup_remote
+    if args.local_fs is not None:  # Allow empty string to disable
+        config.local_fs = args.local_fs
     if args.max_idle_time is not None:
         config.max_idle_time = args.max_idle_time
     if args.auto_cleanup_db:
