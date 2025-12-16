@@ -16,7 +16,7 @@
       <div class="toolbar-row">
         <input
           type="text"
-          v-model="displayPath"
+          v-model="inputPath"
           @keypress.enter="browsePath"
           placeholder="Path..."
         />
@@ -207,6 +207,7 @@ const selectedRemote = ref('')
 const previousRemote = ref('') // Track last working remote
 const currentPath = ref('/')
 const previousPath = ref('/') // Track path before refresh for abort
+const inputPath = ref('/') // What user sees/types in input field
 const files = ref([])
 const remotes = ref([])
 const loading = ref(false)
@@ -233,21 +234,16 @@ const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : app
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
 
-// Display path - shows absolute paths in absolute paths mode
-const displayPath = computed({
-  get() {
-    if (absolutePathsMode.value && currentAliasBasePath.value) {
-      // In absolute paths mode with a local alias - show absolute path
-      return currentAliasBasePath.value + currentPath.value
-    }
+// Sync input path with current path (called after successful navigation)
+function syncInputPath() {
+  if (absolutePathsMode.value && currentAliasBasePath.value) {
+    // In absolute paths mode with a local alias - show absolute path
+    inputPath.value = currentAliasBasePath.value + currentPath.value
+  } else {
     // Normal mode or no local alias - show relative path
-    return currentPath.value
-  },
-  set(value) {
-    // User typed a path - store it
-    currentPath.value = value
+    inputPath.value = currentPath.value
   }
-})
+}
 
 // Visual order mapping for range selection
 const visualOrder = ref({})
@@ -404,9 +400,6 @@ async function refresh(preserveSelection = false) {
     previousRemote.value = selectedRemote.value
     previousPath.value = currentPath.value
 
-    // Auto-switch remote if in absolute paths mode (after navigation)
-    await autoSwitchRemote()
-
     // Restore selection if preserving
     if (preserveSelection && selectedFileNames.length > 0) {
       const newSelection = []
@@ -469,15 +462,22 @@ function onRemoteChange() {
   }
 
   currentPath.value = '/'
+  syncInputPath()
   refresh()
 }
 
 async function browsePath() {
   // Save the last successful path to restore on error
-  // (currentPath has already been updated by v-model when user typed)
   const lastSuccessfulPath = previousPath.value
+  const lastSuccessfulInputPath = inputPath.value
 
-  // Auto-switch remote if in absolute paths mode
+  // Parse the input path
+  const typedPath = inputPath.value
+
+  // Store in currentPath (will be processed by autoSwitchRemote)
+  currentPath.value = typedPath
+
+  // Auto-switch remote if in absolute paths mode (this updates currentPath and currentAliasBasePath)
   await autoSwitchRemote()
 
   // Expand ~ before refreshing (only for local filesystem, not aliases)
@@ -488,9 +488,12 @@ async function browsePath() {
 
   try {
     await refresh()
+    // Sync input path with the actual path after successful navigation
+    syncInputPath()
   } catch (error) {
     // Restore to the last successful path on error
     currentPath.value = lastSuccessfulPath
+    inputPath.value = lastSuccessfulInputPath
     console.log('Browse path failed, path restored to:', lastSuccessfulPath)
   }
 }
@@ -528,49 +531,97 @@ function setSortBy(field, asc = null) {
 async function navigateUp() {
   let newPath
 
-  if (currentPath.value.startsWith('~/')) {
-    if (currentPath.value === '~/' || currentPath.value === '~') {
-      return // Already at home
+  // In absolute paths mode, calculate parent from the absolute path
+  if (absolutePathsMode.value && inputPath.value.startsWith('/')) {
+    const pathParts = inputPath.value.split('/').filter(p => p)
+    if (pathParts.length === 0) {
+      return // Already at root
     }
-    const pathWithoutTilde = currentPath.value.substring(2)
-    const pathParts = pathWithoutTilde.split('/').filter(p => p)
-    pathParts.pop()
-    newPath = pathParts.length === 0 ? '~/' : '~/' + pathParts.join('/')
-  } else {
-    const pathParts = currentPath.value.split('/').filter(p => p)
     pathParts.pop()
     newPath = '/' + pathParts.join('/')
-  }
 
-  const oldPath = currentPath.value
+    // Update inputPath and currentPath
+    const oldInputPath = inputPath.value
+    const oldPath = currentPath.value
 
-  // Update previousPath before changing currentPath (for abort functionality)
-  previousPath.value = oldPath
+    inputPath.value = newPath
+    currentPath.value = newPath
 
-  currentPath.value = newPath
+    // Auto-switch based on new path
+    await autoSwitchRemote()
 
-  try {
-    await refresh()
-  } catch (error) {
-    currentPath.value = oldPath
+    try {
+      await refresh()
+      syncInputPath()
+    } catch (error) {
+      inputPath.value = oldInputPath
+      currentPath.value = oldPath
+      previousPath.value = oldPath
+    }
+  } else {
+    // Normal mode
+    if (currentPath.value.startsWith('~/')) {
+      if (currentPath.value === '~/' || currentPath.value === '~') {
+        return // Already at home
+      }
+      const pathWithoutTilde = currentPath.value.substring(2)
+      const pathParts = pathWithoutTilde.split('/').filter(p => p)
+      pathParts.pop()
+      newPath = pathParts.length === 0 ? '~/' : '~/' + pathParts.join('/')
+    } else {
+      const pathParts = currentPath.value.split('/').filter(p => p)
+      pathParts.pop()
+      newPath = '/' + pathParts.join('/')
+    }
+
+    const oldPath = currentPath.value
+
+    // Update previousPath before changing currentPath (for abort functionality)
     previousPath.value = oldPath
+
+    currentPath.value = newPath
+
+    try {
+      await refresh()
+      syncInputPath()
+    } catch (error) {
+      currentPath.value = oldPath
+      previousPath.value = oldPath
+    }
   }
 }
 
 async function navigateInto(dirname) {
   const oldPath = currentPath.value
+  const oldInputPath = inputPath.value
 
   // Update previousPath before changing currentPath (for abort functionality)
   previousPath.value = oldPath
 
-  currentPath.value = currentPath.value.endsWith('/')
-    ? currentPath.value + dirname
-    : currentPath.value + '/' + dirname
+  // In absolute paths mode, build absolute path and auto-switch
+  if (absolutePathsMode.value && inputPath.value.startsWith('/')) {
+    const newAbsPath = inputPath.value.endsWith('/')
+      ? inputPath.value + dirname
+      : inputPath.value + '/' + dirname
+
+    inputPath.value = newAbsPath
+    currentPath.value = newAbsPath
+
+    // Auto-switch based on new path
+    await autoSwitchRemote()
+  } else {
+    // Normal mode
+    currentPath.value = currentPath.value.endsWith('/')
+      ? currentPath.value + dirname
+      : currentPath.value + '/' + dirname
+  }
 
   try {
     await refresh()
+    syncInputPath()
   } catch (error) {
     currentPath.value = oldPath
+    inputPath.value = oldInputPath
     previousPath.value = oldPath
   }
 }
@@ -1038,47 +1089,56 @@ function findMatchingAlias(absolutePath) {
     return null
   }
 
-  // Sort aliases by path length (longest first) for best match
-  const sorted = [...localAliases.value].sort((a, b) =>
-    b.basePath.length - a.basePath.length
+  // Find all aliases that match (path equals or starts with alias base path)
+  const matches = localAliases.value.filter(a =>
+    absolutePath === a.basePath || absolutePath.startsWith(a.basePath + '/')
   )
 
-  for (const alias of sorted) {
-    if (absolutePath === alias.basePath ||
-        absolutePath.startsWith(alias.basePath + '/')) {
-      return alias
-    }
+  if (matches.length === 0) {
+    return null // No match - should use local filesystem
   }
 
-  return null // No match - should use local filesystem
+  // Sort by base path length (longest first) for most specific match
+  matches.sort((a, b) => b.basePath.length - a.basePath.length)
+
+  // If multiple aliases have same base path length, sort alphabetically
+  const longestLength = matches[0].basePath.length
+  const longestMatches = matches.filter(a => a.basePath.length === longestLength)
+
+  if (longestMatches.length > 1) {
+    longestMatches.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  return longestMatches[0]
 }
 
 // Auto-switch remote based on current path
 async function autoSwitchRemote() {
   if (!absolutePathsMode.value) return
 
-  const displayedPath = displayPath.value
+  const typedPath = currentPath.value
 
-  // If the displayed path is absolute, find matching alias
-  if (displayedPath.startsWith('/')) {
-    const matchingAlias = findMatchingAlias(displayedPath)
+  // If the typed path is absolute, find matching alias (longest prefix match)
+  if (typedPath.startsWith('/')) {
+    const matchingAlias = findMatchingAlias(typedPath)
 
     if (matchingAlias) {
-      // Found a matching alias
-      if (selectedRemote.value !== matchingAlias.name) {
-        // Switch to this alias
-        selectedRemote.value = matchingAlias.name
-        currentAliasBasePath.value = matchingAlias.basePath
-        // Calculate relative path from base
-        currentPath.value = displayedPath.substring(matchingAlias.basePath.length) || '/'
+      // Found a matching alias - switch to it
+      selectedRemote.value = matchingAlias.name
+      currentAliasBasePath.value = matchingAlias.basePath
+      // Calculate relative path from alias base
+      if (typedPath === matchingAlias.basePath) {
+        currentPath.value = '/'
+      } else {
+        // Remove base path to get relative path
+        currentPath.value = typedPath.substring(matchingAlias.basePath.length)
       }
     } else {
-      // No matching alias - switch to local filesystem
-      if (selectedRemote.value !== '') {
-        selectedRemote.value = ''
-        currentAliasBasePath.value = ''
-        currentPath.value = displayedPath
-      }
+      // No match - switch to local filesystem
+      selectedRemote.value = ''
+      currentAliasBasePath.value = ''
+      // Keep the absolute path
+      currentPath.value = typedPath
     }
   }
 }
@@ -1172,6 +1232,8 @@ onMounted(async () => {
     }
 
     await refresh()
+    // Sync input path with current path after initial load
+    syncInputPath()
   } catch (error) {
     console.warn('Backend not available:', error.message)
   }
