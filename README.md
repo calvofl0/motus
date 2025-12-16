@@ -268,45 +268,72 @@ motus
 - Happens once at startup
 - Changes are persisted to your rclone config
 
-#### Using an Alias for Local Filesystem
+#### Startup Remote and Local Filesystem Configuration
 
-You can configure a specific alias remote to represent the local filesystem instead of using the default "Local Filesystem" option. This is useful when:
-- You want a more descriptive name for your local storage
-- You're using an alias that points to a specific local path
-- You want to standardize the interface across different deployments
+You can customize which remote is shown by default at startup and how the local filesystem appears in the UI.
+
+##### Startup Remote (`--startup-remote` or `-s`)
+
+Set the default remote to show on both panes when the application starts:
 
 ```bash
-# Set a local filesystem alias
-motus -l mylocal
+# Set startup remote
+motus -s my_s3_bucket
 
 # Via environment variable
-export MOTUS_LOCAL_FILESYSTEM_ALIAS=mylocal
+export MOTUS_STARTUP_REMOTE=my_s3_bucket
 motus
 
 # Or in ~/.motus/config.yml:
-# local_filesystem_alias: mylocal
+# startup_remote: my_s3_bucket
 ```
 
-**Requirements and Behavior:**
-- The specified alias **must** resolve to a local filesystem path (not another remote)
-- Validation happens after `--add-remotes` is processed
-- If the alias doesn't exist or resolves to a remote (not local), it's ignored with a warning in the logs
-- When valid:
-  - The "Local Filesystem" option is hidden in the UI
-  - The specified alias becomes the default remote at startup
-  - The alias appears in the dropdown like any other remote
+**Behavior:**
+- Can be **any remote** (not restricted to local filesystem)
+- If the remote doesn't exist, falls back to local filesystem with `~/`
+- Both panes start on this remote at the root path (`/`)
 
-**Example:**
-```ini
-# In your rclone config:
-[mylocal]
-type = alias
-remote = /home/user/Documents
+##### Local Filesystem Entry (`--local-fs` or `-l`)
+
+Control how the "Local Filesystem" entry appears in the remote dropdown:
+
+```bash
+# Customize the label
+motus -l "My Computer"
+
+# Hide the local filesystem entry completely
+motus -l ""
+
+# Via environment variable
+export MOTUS_LOCAL_FS=""
+motus
+
+# Or in ~/.motus/config.yml:
+# local_fs: ""
 ```
 
-Then run: `motus -l mylocal`
+**Behavior:**
+- Default: `"Local Filesystem"` (shown in the dropdown)
+- Empty string `""` hides the entry from the list
+- Any custom string changes the label
 
-The UI will show "mylocal" instead of "Local Filesystem", and it will default to browsing `/home/user/Documents`.
+**Example Use Cases:**
+
+1. **Hide local filesystem, use remote as default:**
+   ```bash
+   motus -s my_remote -l ""
+   ```
+
+2. **Custom label for local filesystem:**
+   ```bash
+   motus -l "This Server"
+   ```
+
+3. **Start on a specific alias, keep local filesystem visible:**
+   ```bash
+   motus -s mylocal
+   # "Local Filesystem" still appears in the dropdown
+   ```
 
 ### Managing Remotes via UI
 
@@ -382,7 +409,8 @@ motus --expert-mode                               # Start in Expert mode (auto-e
 motus -e                                          # Show mode toggle in UI (--allow-expert-mode)
 motus --remote-templates templates.conf           # Remote templates file
 motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
-motus -l mylocal                                  # Use alias remote for local filesystem (--local-filesystem-alias)
+motus -s my_remote                                # Set startup remote (--startup-remote)
+motus -l ""                                       # Hide local filesystem entry (--local-fs)
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
 motus --max-upload-size 1G                        # Limit upload size
@@ -405,7 +433,8 @@ export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf    # Or relative: templates.conf (resolves to config_dir/templates.conf)
 export MOTUS_EXTRA_REMOTES=/path/to/rclone.conf          # Or relative: remotes.conf (resolves to config_dir/remotes.conf)
-export MOTUS_LOCAL_FILESYSTEM_ALIAS=mylocal              # Use alias remote for local filesystem
+export MOTUS_STARTUP_REMOTE=my_remote                    # Default remote at startup
+export MOTUS_LOCAL_FS=""                                 # Local filesystem label (empty string hides it)
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
@@ -438,7 +467,8 @@ allow_expert_mode: true
 # Remote configuration (relative paths resolved against config_dir)
 remote_templates_file: templates.conf           # Absolute or relative to config_dir
 extra_remotes_file: team-remotes.conf           # Absolute or relative to config_dir
-local_filesystem_alias: mylocal                 # Use alias remote for local filesystem
+startup_remote: my_remote                       # Default remote at startup
+local_fs: "Local Filesystem"                    # Local filesystem label (empty string hides it)
 
 # Limits and behavior
 max_idle_time: 3600
