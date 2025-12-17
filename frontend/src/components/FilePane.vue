@@ -274,9 +274,11 @@ function syncInputPath() {
       if (remotePath === '') {
         inputPath.value = currentPath.value
       } else if (currentPath.value === '/') {
-        inputPath.value = '/' + remotePath
+        // At alias root - show just the remotePath (ensure it starts with /)
+        inputPath.value = remotePath.startsWith('/') ? remotePath : '/' + remotePath
       } else {
-        inputPath.value = '/' + remotePath + currentPath.value
+        // In subdirectory - combine remotePath and currentPath
+        inputPath.value = (remotePath.startsWith('/') ? remotePath : '/' + remotePath) + currentPath.value
       }
     } else {
       // Local alias - show full absolute local path
@@ -328,14 +330,36 @@ const sortedRemotes = computed(() => {
 
 // Check if at root directory
 const isAtRoot = computed(() => {
-  // In absolute paths mode, check if we're at filesystem root using inputPath
+  // In absolute paths mode, check actual resolved position not display path
   if (absolutePathsMode.value) {
-    const absPath = inputPath.value
-    // At filesystem root
-    if (absPath === '/' || absPath === '~/' || absPath === '~') {
-      return true
+    // Reconstruct the full absolute path
+    if (currentAliasBasePath.value) {
+      // We're in an alias - check the full resolved path
+      if (currentAliasBasePath.value.includes(':')) {
+        // Remote alias
+        const fullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
+        const colonIndex = fullPath.indexOf(':')
+        const pathAfterColon = fullPath.substring(colonIndex + 1)
+        // At root if path is empty or just '/' after remote:
+        return pathAfterColon === '' || pathAfterColon === '/'
+      } else {
+        // Local alias
+        const fullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
+        return fullPath === '/' || fullPath === '~/' || fullPath === '~'
+      }
+    } else {
+      // No alias - check inputPath or currentPath
+      const absPath = inputPath.value || currentPath.value
+      if (absPath.includes(':')) {
+        // Direct remote
+        const colonIndex = absPath.indexOf(':')
+        const pathAfterColon = absPath.substring(colonIndex + 1)
+        return pathAfterColon === '' || pathAfterColon === '/'
+      } else {
+        // Local filesystem
+        return absPath === '/' || absPath === '~/' || absPath === '~'
+      }
     }
-    return false
   }
 
   // Normal mode - check currentPath
@@ -517,6 +541,17 @@ function onRemoteChange() {
       currentAliasBasePath.value = ''
     } else {
       currentAliasBasePath.value = alias ? alias.basePath : ''
+
+      // Auto-switch to best matching alias for this location
+      // (handles case where multiple aliases point to same location)
+      if (alias) {
+        const matchingAlias = findMatchingAlias(alias.basePath)
+        if (matchingAlias && matchingAlias.name !== selectedRemote.value) {
+          // Found a better alias (alphabetically first) - switch to it
+          selectedRemote.value = matchingAlias.name
+          currentAliasBasePath.value = matchingAlias.basePath
+        }
+      }
     }
   } else {
     currentAliasBasePath.value = ''
@@ -772,22 +807,50 @@ async function navigateInto(dirname) {
   previousPath.value = oldPath
 
   // In absolute paths mode
-  if (absolutePathsMode.value && (inputPath.value.startsWith('/') || inputPath.value.includes(':'))) {
+  if (absolutePathsMode.value) {
     // Check if we're in a remote alias (displaying path-only syntax)
     const inRemoteAlias = currentAliasBasePath.value && currentAliasBasePath.value.includes(':')
+    // Check if we're on a direct remote (not an alias)
+    const onDirectRemote = !currentAliasBasePath.value && selectedRemote.value
 
     if (inRemoteAlias) {
-      // Stay in current remote alias, just append to currentPath
-      currentPath.value = currentPath.value.endsWith('/')
-        ? currentPath.value + dirname
-        : currentPath.value + '/' + dirname
+      // In a remote alias - build full remote path and check for better alias
+      const fullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
+      const newFullPath = fullPath.endsWith('/')
+        ? fullPath + dirname
+        : fullPath + '/' + dirname
 
-      // Don't call autoSwitchRemote - we're staying in the same alias
+      // Try to find a better alias for this new location
+      const matchingAlias = findMatchingAlias(newFullPath)
+      if (matchingAlias && matchingAlias.name !== selectedRemote.value) {
+        // Switch to better alias
+        selectedRemote.value = matchingAlias.name
+        currentAliasBasePath.value = matchingAlias.basePath
+        // Calculate relative path
+        if (newFullPath === matchingAlias.basePath) {
+          currentPath.value = '/'
+        } else {
+          currentPath.value = newFullPath.substring(matchingAlias.basePath.length)
+        }
+      } else {
+        // Stay in same alias, just append to currentPath
+        currentPath.value = currentPath.value.endsWith('/')
+          ? currentPath.value + dirname
+          : currentPath.value + '/' + dirname
+      }
+    } else if (onDirectRemote) {
+      // On a direct remote - build remote:path and auto-switch
+      const newPath = (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + dirname
+      const newFullPath = selectedRemote.value + ':' + newPath
+
+      inputPath.value = newFullPath
+      currentPath.value = newFullPath
+
+      // Auto-switch to see if there's an alias for this location
+      await autoSwitchRemote()
     } else {
-      // Local path or not in alias - build full path and auto-switch
-      const newAbsPath = inputPath.value.endsWith('/')
-        ? inputPath.value + dirname
-        : inputPath.value + '/' + dirname
+      // Local path or no remote - build full path and auto-switch
+      const newAbsPath = (inputPath.value.endsWith('/') ? inputPath.value : inputPath.value + '/') + dirname
 
       inputPath.value = newAbsPath
       currentPath.value = newAbsPath
