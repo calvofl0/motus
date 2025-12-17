@@ -34,11 +34,71 @@ export function useFileOperations() {
   }
 
   /**
+   * Resolve pane location to actual remote and absolute path
+   * Returns {remote: string, path: string} where path is absolute on that remote
+   */
+  function getResolvedLocation(pane) {
+    const state = appStore[`${pane}Pane`]
+
+    if (!appStore.absolutePathsMode) {
+      // Not in absolute paths mode - return as-is
+      return {
+        remote: state.remote,
+        path: state.path
+      }
+    }
+
+    // In absolute paths mode - resolve through alias
+    if (state.aliasBasePath) {
+      // We're in an alias
+      if (state.aliasBasePath.includes(':')) {
+        // Remote alias
+        const colonIndex = state.aliasBasePath.indexOf(':')
+        const remote = state.aliasBasePath.substring(0, colonIndex)
+        const aliasPath = state.aliasBasePath.substring(colonIndex + 1)
+        // Combine alias path with current path
+        const fullPath = aliasPath + (state.path === '/' ? '' : state.path)
+        return { remote, path: fullPath }
+      } else {
+        // Local alias
+        const fullPath = state.aliasBasePath + (state.path === '/' ? '' : state.path)
+        return { remote: '', path: fullPath }
+      }
+    } else if (state.remote) {
+      // Direct remote (not an alias)
+      return { remote: state.remote, path: state.path }
+    } else {
+      // Local filesystem
+      return { remote: '', path: state.path }
+    }
+  }
+
+  /**
+   * Build operation path for a file (resolves aliases in absolute paths mode)
+   */
+  function buildOperationPath(pane, fileName) {
+    const resolved = getResolvedLocation(pane)
+    const filePath = buildPath(resolved.path, fileName)
+
+    if (resolved.remote) {
+      return `${resolved.remote}:${filePath}`
+    } else {
+      return filePath
+    }
+  }
+
+  /**
    * Get full path for a pane (with remote prefix if applicable)
+   * This resolves aliases in absolute paths mode
    */
   function getPaneFullPath(pane) {
-    const state = appStore[`${pane}Pane`]
-    return state.remote ? `${state.remote}:${state.path}` : state.path
+    const resolved = getResolvedLocation(pane)
+
+    if (resolved.remote) {
+      return `${resolved.remote}:${resolved.path}`
+    } else {
+      return resolved.path
+    }
   }
 
   /**
@@ -90,13 +150,9 @@ export function useFileOperations() {
         return
       }
 
-      const oldPath = state.remote
-        ? `${state.remote}:${buildPath(state.path, file.Name)}`
-        : buildPath(state.path, file.Name)
-
-      const newPath = state.remote
-        ? `${state.remote}:${buildPath(state.path, trimmedName)}`
-        : buildPath(state.path, trimmedName)
+      // Build paths using resolved location (handles absolute paths mode)
+      const oldPath = buildOperationPath(pane, file.Name)
+      const newPath = buildOperationPath(pane, trimmedName)
 
       // Use move API for rename operation
       await apiCall('/api/jobs/move', 'POST', {
@@ -157,9 +213,13 @@ export function useFileOperations() {
       // Support relative paths - resolve against current directory
       const resolvedPath = resolveRelativePath(state.path, trimmedName)
 
-      const path = state.remote
-        ? `${state.remote}:${resolvedPath}`
-        : resolvedPath
+      // Build path using resolved location (handles absolute paths mode)
+      const resolved = getResolvedLocation(pane)
+      const absoluteFolderPath = resolveRelativePath(resolved.path, trimmedName)
+
+      const path = resolved.remote
+        ? `${resolved.remote}:${absoluteFolderPath}`
+        : absoluteFolderPath
 
       await apiCall('/api/files/mkdir', 'POST', { path })
 
@@ -200,13 +260,10 @@ export function useFileOperations() {
     showDeleteModal.value = false
 
     try {
-      const state = appStore[`${pane}Pane`]
-
       // Delete each file
       for (const file of files) {
-        const path = state.remote
-          ? `${state.remote}:${buildPath(state.path, file.Name)}`
-          : buildPath(state.path, file.Name)
+        // Build path using resolved location (handles absolute paths mode)
+        const path = buildOperationPath(pane, file.Name)
 
         await apiCall('/api/files/delete', 'POST', { path })
       }
@@ -261,27 +318,30 @@ export function useFileOperations() {
       // Get selected file objects
       const selectedFiles = sourceState.selectedIndexes.map(idx => sourceState.files[idx])
 
+      // Get resolved locations for both panes (handles absolute paths mode)
+      const sourceResolved = getResolvedLocation(sourcePane)
+      const targetResolved = getResolvedLocation(targetPane)
+
       // Copy each file
       for (const file of selectedFiles) {
-        const srcPath = sourceState.remote
-          ? `${sourceState.remote}:${buildPath(sourceState.path, file.Name)}`
-          : buildPath(sourceState.path, file.Name)
+        // Build source path using resolved location
+        const srcPath = buildOperationPath(sourcePane, file.Name)
 
         // Build destination path with trailing slash for directory
         let dstPath
-        if (targetState.remote) {
-          const remotePath = `${targetState.remote}:${targetState.path}`
+        if (targetResolved.remote) {
+          const remotePath = `${targetResolved.remote}:${targetResolved.path}`
           dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
         } else {
-          dstPath = targetState.path.endsWith('/') ? targetState.path : targetState.path + '/'
+          dstPath = targetResolved.path.endsWith('/') ? targetResolved.path : targetResolved.path + '/'
         }
 
         console.log('Copy operation:', {
           srcPath,
           dstPath,
           file: file.Name,
-          sourceRemote: sourceState.remote,
-          targetRemote: targetState.remote
+          sourceRemote: sourceResolved.remote,
+          targetRemote: targetResolved.remote
         })
 
         const response = await apiCall('/api/jobs/copy', 'POST', {

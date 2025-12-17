@@ -13,6 +13,7 @@ export const useAppStore = defineStore('app', () => {
   const lastFocusedPane = ref('left')
   const maxUploadSize = ref(0)
   const showManageRemotesModal = ref(false)
+  const absolutePathsMode = ref(false) // Loaded from config
 
   // Left pane state
   const leftPane = ref({
@@ -21,7 +22,8 @@ export const useAppStore = defineStore('app', () => {
     files: [],
     selectedIndexes: [],
     sortBy: 'name',
-    sortAsc: true
+    sortAsc: true,
+    aliasBasePath: '' // Base path of current alias (if applicable, for absolute paths mode)
   })
 
   // Right pane state
@@ -31,7 +33,8 @@ export const useAppStore = defineStore('app', () => {
     files: [],
     selectedIndexes: [],
     sortBy: 'name',
-    sortAsc: true
+    sortAsc: true,
+    aliasBasePath: '' // Base path of current alias (if applicable, for absolute paths mode)
   })
 
   // Context menu state
@@ -189,9 +192,18 @@ export const useAppStore = defineStore('app', () => {
     state.remote = remote
   }
 
+  function setPaneAliasBasePath(pane, aliasBasePath) {
+    const state = pane === 'left' ? leftPane.value : rightPane.value
+    state.aliasBasePath = aliasBasePath
+  }
+
   function setPaneSelection(pane, selectedIndexes) {
     const state = pane === 'left' ? leftPane.value : rightPane.value
     state.selectedIndexes = selectedIndexes
+  }
+
+  function setAbsolutePathsMode(enabled) {
+    absolutePathsMode.value = enabled
   }
 
   function setLastFocusedPane(pane) {
@@ -216,6 +228,7 @@ export const useAppStore = defineStore('app', () => {
     lastFocusedPane,
     maxUploadSize,
     showManageRemotesModal,
+    absolutePathsMode,
     leftPane,
     rightPane,
     contextMenu,
@@ -236,7 +249,9 @@ export const useAppStore = defineStore('app', () => {
     setPaneFiles,
     setPanePath,
     setPaneRemote,
+    setPaneAliasBasePath,
     setPaneSelection,
+    setAbsolutePathsMode,
     setLastFocusedPane,
     openManageRemotes,
     closeManageRemotes

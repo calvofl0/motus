@@ -204,17 +204,61 @@ async function handleIntegrityCheck() {
     return basePath + '/' + fileName
   }
 
+  // Helper to get resolved location (for absolute paths mode)
+  function getResolvedLocation(pane) {
+    const state = appStore[`${pane}Pane`]
+
+    if (!appStore.absolutePathsMode) {
+      // Not in absolute paths mode - return as-is
+      return {
+        remote: state.remote,
+        path: state.path
+      }
+    }
+
+    // In absolute paths mode - resolve through alias
+    if (state.aliasBasePath) {
+      // We're in an alias
+      if (state.aliasBasePath.includes(':')) {
+        // Remote alias
+        const colonIndex = state.aliasBasePath.indexOf(':')
+        const remote = state.aliasBasePath.substring(0, colonIndex)
+        const aliasPath = state.aliasBasePath.substring(colonIndex + 1)
+        // Combine alias path with current path
+        const fullPath = aliasPath + (state.path === '/' ? '' : state.path)
+        return { remote, path: fullPath }
+      } else {
+        // Local alias
+        const fullPath = state.aliasBasePath + (state.path === '/' ? '' : state.path)
+        return { remote: '', path: fullPath }
+      }
+    } else if (state.remote) {
+      // Direct remote (not an alias)
+      return { remote: state.remote, path: state.path }
+    } else {
+      // Local filesystem
+      return { remote: '', path: state.path }
+    }
+  }
+
+  // Helper to build operation path
+  function buildOperationPath(pane, fileName) {
+    const resolved = getResolvedLocation(pane)
+    const filePath = buildPath(resolved.path, fileName)
+
+    if (resolved.remote) {
+      return `${resolved.remote}:${filePath}`
+    } else {
+      return filePath
+    }
+  }
+
   try {
     // Check each file (same pattern as copy)
     for (const file of selectedFiles) {
-      const srcPath = srcPaneState.remote
-        ? `${srcPaneState.remote}:${buildPath(srcPaneState.path, file.Name)}`
-        : buildPath(srcPaneState.path, file.Name)
-
-      // dst_path should be dst_working_dir/basename(src_path), same as rclone check
-      const dstPath = dstPaneState.remote
-        ? `${dstPaneState.remote}:${buildPath(dstPaneState.path, file.Name)}`
-        : buildPath(dstPaneState.path, file.Name)
+      // Build paths using resolved location (handles absolute paths mode)
+      const srcPath = buildOperationPath(srcPane, file.Name)
+      const dstPath = buildOperationPath(dstPane, file.Name)
 
       const response = await apiCall('/api/jobs/check', 'POST', {
         src_path: srcPath,
@@ -402,21 +446,59 @@ function handleContextMenuSort({ field, asc }) {
 async function handleDownload(pane) {
   try {
     const paneState = appStore[`${pane}Pane`]
-    const remote = paneState.remote
-    const currentPath = paneState.path
+
+    // Helper to get resolved location (for absolute paths mode)
+    function getResolvedLocation(pane) {
+      const state = appStore[`${pane}Pane`]
+
+      if (!appStore.absolutePathsMode) {
+        // Not in absolute paths mode - return as-is
+        return {
+          remote: state.remote,
+          path: state.path
+        }
+      }
+
+      // In absolute paths mode - resolve through alias
+      if (state.aliasBasePath) {
+        // We're in an alias
+        if (state.aliasBasePath.includes(':')) {
+          // Remote alias
+          const colonIndex = state.aliasBasePath.indexOf(':')
+          const remote = state.aliasBasePath.substring(0, colonIndex)
+          const aliasPath = state.aliasBasePath.substring(colonIndex + 1)
+          // Combine alias path with current path
+          const fullPath = aliasPath + (state.path === '/' ? '' : state.path)
+          return { remote, path: fullPath }
+        } else {
+          // Local alias
+          const fullPath = state.aliasBasePath + (state.path === '/' ? '' : state.path)
+          return { remote: '', path: fullPath }
+        }
+      } else if (state.remote) {
+        // Direct remote (not an alias)
+        return { remote: state.remote, path: state.path }
+      } else {
+        // Local filesystem
+        return { remote: '', path: state.path }
+      }
+    }
+
+    // Get resolved location
+    const resolved = getResolvedLocation(pane)
 
     // Get selected files
     const selectedFiles = paneState.selectedIndexes.map(idx => {
       const file = paneState.files[idx]
-      // Construct full path
+      // Construct full path using resolved location
       let fullPath
-      if (remote) {
+      const filePath = resolved.path === '/' ? `/${file.Name}` : `${resolved.path}/${file.Name}`
+      if (resolved.remote) {
         // Remote path
-        const filePath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
-        fullPath = `${remote}:${filePath}`
+        fullPath = `${resolved.remote}:${filePath}`
       } else {
         // Local path
-        fullPath = currentPath === '/' ? `/${file.Name}` : `${currentPath}/${file.Name}`
+        fullPath = filePath
       }
       return fullPath
     })
@@ -586,15 +668,53 @@ function watchJobForDownload(jobId) {
 // Alias creation functions
 async function openCreateAliasModal(pane, folder) {
   const paneState = appStore[`${pane}Pane`]
-  const remote = paneState.remote
-  const currentPath = paneState.path
 
-  // Construct target path
-  const folderPath = currentPath === '/' ? `/${folder.Name}` : `${currentPath}/${folder.Name}`
-  const targetPath = remote ? `${remote}:${folderPath}` : folderPath
+  // Helper to get resolved location (for absolute paths mode)
+  function getResolvedLocation(pane) {
+    const state = appStore[`${pane}Pane`]
+
+    if (!appStore.absolutePathsMode) {
+      // Not in absolute paths mode - return as-is
+      return {
+        remote: state.remote,
+        path: state.path
+      }
+    }
+
+    // In absolute paths mode - resolve through alias
+    if (state.aliasBasePath) {
+      // We're in an alias
+      if (state.aliasBasePath.includes(':')) {
+        // Remote alias
+        const colonIndex = state.aliasBasePath.indexOf(':')
+        const remote = state.aliasBasePath.substring(0, colonIndex)
+        const aliasPath = state.aliasBasePath.substring(colonIndex + 1)
+        // Combine alias path with current path
+        const fullPath = aliasPath + (state.path === '/' ? '' : state.path)
+        return { remote, path: fullPath }
+      } else {
+        // Local alias
+        const fullPath = state.aliasBasePath + (state.path === '/' ? '' : state.path)
+        return { remote: '', path: fullPath }
+      }
+    } else if (state.remote) {
+      // Direct remote (not an alias)
+      return { remote: state.remote, path: state.path }
+    } else {
+      // Local filesystem
+      return { remote: '', path: state.path }
+    }
+  }
+
+  // Get resolved location (handles absolute paths mode)
+  const resolved = getResolvedLocation(pane)
+
+  // Construct target path using resolved location
+  const folderPath = resolved.path === '/' ? `/${folder.Name}` : `${resolved.path}/${folder.Name}`
+  const targetPath = resolved.remote ? `${resolved.remote}:${folderPath}` : folderPath
 
   // Resolve alias chain to get underlying path
-  const resolvedPath = await resolveAliasPath(remote, folderPath)
+  const resolvedPath = await resolveAliasPath(resolved.remote, folderPath)
 
   aliasTargetPath.value = targetPath
   aliasResolvedPath.value = resolvedPath

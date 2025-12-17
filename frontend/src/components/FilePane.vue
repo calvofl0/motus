@@ -1493,6 +1493,15 @@ onMounted(async () => {
   window.addEventListener('job-completed', handleJobCompleted)
 })
 
+// Watch for changes to sync with store
+watch(absolutePathsMode, (newValue) => {
+  appStore.setAbsolutePathsMode(newValue)
+}, { immediate: true })
+
+watch(currentAliasBasePath, (newValue) => {
+  appStore.setPaneAliasBasePath(props.pane, newValue)
+}, { immediate: true })
+
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('remotes-changed', handleRemotesChanged)
