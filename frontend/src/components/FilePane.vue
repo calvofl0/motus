@@ -238,7 +238,13 @@ const showHiddenFiles = computed(() => appStore.showHiddenFiles)
 function syncInputPath() {
   if (absolutePathsMode.value && currentAliasBasePath.value) {
     // In absolute paths mode with a local alias - show absolute path
-    inputPath.value = currentAliasBasePath.value + currentPath.value
+    if (currentAliasBasePath.value === '/') {
+      // Special case: alias to root - currentPath is already absolute
+      inputPath.value = currentPath.value
+    } else {
+      // Normal case: concatenate base path and current path
+      inputPath.value = currentAliasBasePath.value + currentPath.value
+    }
   } else {
     // Normal mode or no local alias - show relative path
     inputPath.value = currentPath.value
@@ -1101,9 +1107,14 @@ function findMatchingAlias(absolutePath) {
   }
 
   // Find all aliases that match (path equals or starts with alias base path)
-  const matches = localAliases.value.filter(a =>
-    absolutePath === a.basePath || absolutePath.startsWith(a.basePath + '/')
-  )
+  const matches = localAliases.value.filter(a => {
+    // Special case: if basePath is '/', it matches all absolute paths
+    if (a.basePath === '/') {
+      return true
+    }
+    // Normal case: exact match or prefix match with '/'
+    return absolutePath === a.basePath || absolutePath.startsWith(a.basePath + '/')
+  })
 
   if (matches.length === 0) {
     return null // No match - should use local filesystem
@@ -1138,7 +1149,10 @@ async function autoSwitchRemote() {
       selectedRemote.value = matchingAlias.name
       currentAliasBasePath.value = matchingAlias.basePath
       // Calculate relative path from alias base
-      if (typedPath === matchingAlias.basePath) {
+      if (matchingAlias.basePath === '/') {
+        // Special case: alias to root - use the typed path directly
+        currentPath.value = typedPath
+      } else if (typedPath === matchingAlias.basePath) {
         currentPath.value = '/'
       } else {
         // Remove base path to get relative path
