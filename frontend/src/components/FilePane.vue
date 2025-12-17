@@ -535,22 +535,38 @@ async function browsePath() {
   // Parse the input path
   let typedPath = inputPath.value
 
-  // In absolute paths mode with remote alias displaying path-only syntax,
-  // reconstruct full remote:path if user typed path-only
-  if (absolutePathsMode.value && currentAliasBasePath.value && currentAliasBasePath.value.includes(':')) {
-    // We're in a remote alias
-    if (typedPath.startsWith('/') && !typedPath.includes(':')) {
-      // User typed path-only syntax - reconstruct full remote:path
-      const colonIndex = currentAliasBasePath.value.indexOf(':')
+  // In absolute paths mode with remote alias, interpret typed paths relative to that remote
+  if (absolutePathsMode.value && currentAliasBasePath.value) {
+    const colonIndex = currentAliasBasePath.value.indexOf(':')
+
+    if (colonIndex >= 0) {
+      // We're in a remote alias
       const remoteName = currentAliasBasePath.value.substring(0, colonIndex)
       const basePath = currentAliasBasePath.value.substring(colonIndex + 1)
 
-      // Remove the base path prefix if present in typed path
-      if (typedPath.startsWith('/' + basePath)) {
-        typedPath = remoteName + ':' + typedPath.substring(1)
-      } else {
-        // Typed path is different - treat as new path within same remote
-        typedPath = remoteName + ':' + typedPath.substring(1)
+      if (!typedPath.includes(':')) {
+        // User typed path without remote: prefix - interpret on current remote
+        if (typedPath.startsWith('/')) {
+          // Absolute path on remote - use as-is
+          typedPath = remoteName + ':' + typedPath.substring(1)
+        } else {
+          // Relative path - treat as relative to current location
+          // Combine basePath, currentPath, and typed relative path
+          const currentFullPath = basePath + currentPath.value
+          const newFullPath = currentFullPath.endsWith('/')
+            ? currentFullPath + typedPath
+            : currentFullPath + '/' + typedPath
+          typedPath = remoteName + ':' + newFullPath
+        }
+      }
+      // else: typed path already has remote: prefix, use as-is
+    } else if (currentAliasBasePath.value === '/' || currentAliasBasePath.value.startsWith('/')) {
+      // Local alias - if typed path is relative, make it absolute
+      if (!typedPath.startsWith('/') && !typedPath.includes(':')) {
+        const currentFullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
+        typedPath = currentFullPath.endsWith('/')
+          ? currentFullPath + typedPath
+          : currentFullPath + '/' + typedPath
       }
     }
   }
