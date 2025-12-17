@@ -1,11 +1,15 @@
 <template>
   <div class="pane" :class="`${pane}-pane`">
     <!-- Pane Header -->
-    <div class="pane-header">📂 {{ title }}</div>
+    <div class="pane-header">
+      <span class="header-icon">{{ selectedRemote ? '☁️' : '🖥️' }}</span>
+      {{ title }}
+    </div>
 
     <!-- Pane Toolbar -->
     <div class="pane-toolbar">
-      <div class="toolbar-row">
+      <div class="toolbar-row with-icon">
+        <span class="input-icon">🗃️</span>
         <select v-model="selectedRemote" @change="onRemoteChange">
           <option v-if="localFsName" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
@@ -13,7 +17,8 @@
           </option>
         </select>
       </div>
-      <div class="toolbar-row">
+      <div class="toolbar-row with-icon">
+        <span class="input-icon">📂</span>
         <input
           type="text"
           v-model="inputPath"
@@ -1514,3 +1519,33 @@ defineExpose({
   setSortBy
 })
 </script>
+
+<style scoped>
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.toolbar-row.with-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.input-icon {
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.toolbar-row.with-icon select,
+.toolbar-row.with-icon input[type="text"] {
+  flex: 1;
+}
+</style>
