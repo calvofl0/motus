@@ -330,6 +330,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAppStore } from '../../stores/app'
 import { apiCall } from '../../services/api'
 import { validateRemoteName } from '../../utils/remoteNameValidation'
+import { sortRemotes } from '../../utils/remoteSorting'
 import BaseModal from './BaseModal.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
@@ -397,11 +398,9 @@ const isCustomConfigValid = computed(() => {
   return customConfig.value.trim() && /^\[.+?\]/m.test(customConfig.value)
 })
 
-// Sort remotes alphabetically for display (preserves config file order for saves)
+// Sort remotes: readonly/extra remotes first, then user remotes, alphabetically within each group
 const sortedRemotes = computed(() => {
-  return [...remotes.value].sort((a, b) => {
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  })
+  return sortRemotes(remotes.value)
 })
 
 // Handle ESC key for main modal

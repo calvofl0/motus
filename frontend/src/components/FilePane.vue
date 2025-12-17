@@ -2,7 +2,7 @@
   <div class="pane" :class="`${pane}-pane`">
     <!-- Pane Header -->
     <div class="pane-header">
-      <span class="header-icon">{{ selectedRemote ? '☁️' : '🖥️' }}</span>
+      <span class="header-icon">{{ headerIcon }}</span>
       {{ title }}
     </div>
 
@@ -188,6 +188,7 @@ import { useAppStore } from '../stores/app'
 import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 import { useUpload } from '../composables/useUpload'
 import { formatFileSize } from '../services/helpers'
+import { sortRemotes } from '../utils/remoteSorting'
 import DownloadConfirmModal from './modals/DownloadConfirmModal.vue'
 
 const props = defineProps({
@@ -255,6 +256,22 @@ const title = computed(() => {
   }
   return localFsName.value || 'Local Filesystem'
 })
+
+// Computed icon for header (shows resolved location, not selected remote)
+const headerIcon = computed(() => {
+  // Check if we're on local filesystem by looking at resolved location
+  if (absolutePathsMode.value) {
+    const resolved = getResolvedLocation()
+    if (resolved) {
+      // Empty remote means local filesystem
+      return resolved.remote ? '☁️' : '🖥️'
+    }
+  }
+
+  // Normal mode: check selected remote
+  return selectedRemote.value ? '☁️' : '🖥️'
+})
+
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
@@ -312,11 +329,9 @@ const sortedFiles = computed(() => {
   return sorted
 })
 
-// Sort remotes alphabetically (Local Filesystem is always first in the template)
+// Sort remotes: readonly/extra remotes first, then user remotes, alphabetically within each group
 const sortedRemotes = computed(() => {
-  return [...remotes.value].sort((a, b) => {
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  })
+  return sortRemotes(remotes.value)
 })
 
 // Check if at root directory
