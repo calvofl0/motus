@@ -1241,9 +1241,21 @@ function findMatchingAlias(path) {
     if (isLocalPath && !a.isLocal) return false
     if (isRemotePath && a.isLocal) return false
 
-    // Special case: if basePath is '/' (root), it matches all local absolute paths
+    // Special case: if basePath is '/' (local root), it matches all local absolute paths
     if (a.basePath === '/' && isLocalPath) {
       return true
+    }
+
+    // Special case: if basePath is 'remote:' (remote root), it matches all paths on that remote
+    if (!a.isLocal && a.basePath.endsWith(':') && isRemotePath) {
+      // Extract remote name from path
+      const pathColonIndex = path.indexOf(':')
+      const pathRemoteName = path.substring(0, pathColonIndex)
+      const aliasRemoteName = a.basePath.substring(0, a.basePath.length - 1)
+
+      if (pathRemoteName === aliasRemoteName) {
+        return true
+      }
     }
 
     // Exact match
