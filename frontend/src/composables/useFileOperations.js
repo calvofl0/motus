@@ -356,9 +356,7 @@ export function useFileOperations() {
       // Clear source selection
       appStore.setPaneSelection(sourcePane, [])
 
-      // Refresh target pane
-      await refreshPane(targetPane)
-
+      // Note: Refresh will happen automatically when job completes via handleJobCompleted event
       // Trigger job update
       window.dispatchEvent(new CustomEvent('update-jobs'))
     } catch (error) {

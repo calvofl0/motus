@@ -883,7 +883,7 @@ function openFilePreview(path) {
   // Since we can't easily do this with fetch and window.open, we'll create a form and submit it
 
   const token = getAuthToken()
-  const url = '/api/files/preview'
+  const url = getApiUrl('/api/files/preview')
 
   // Create a form
   const form = document.createElement('form')
