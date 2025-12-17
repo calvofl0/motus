@@ -621,7 +621,40 @@ async function navigateUp() {
       // In remote alias - navigate up within currentPath
       const pathParts = currentPath.value.split('/').filter(p => p)
       if (pathParts.length === 0) {
-        return // Already at remote root
+        // At root of alias - navigate to parent of alias basePath
+        // Example: alias points to gdrive:/a, we're at /, navigate to parent means gdrive:/
+        const colonIndex = currentAliasBasePath.value.indexOf(':')
+        const remoteName = currentAliasBasePath.value.substring(0, colonIndex)
+        const aliasPath = currentAliasBasePath.value.substring(colonIndex + 1)
+
+        const aliasPathParts = aliasPath.split('/').filter(p => p)
+        if (aliasPathParts.length === 0) {
+          return // Already at remote root (alias points to remote:/)
+        }
+
+        // Navigate to parent of the alias basePath
+        aliasPathParts.pop()
+        const parentPath = aliasPathParts.length === 0 ? '' : aliasPathParts.join('/')
+        newPath = remoteName + ':' + parentPath
+
+        const oldInputPath = inputPath.value
+        const oldPath = currentPath.value
+
+        inputPath.value = newPath
+        currentPath.value = newPath
+
+        // Auto-switch to find if there's an alias for this parent path
+        await autoSwitchRemote()
+
+        try {
+          await refresh()
+          syncInputPath()
+        } catch (error) {
+          inputPath.value = oldInputPath
+          currentPath.value = oldPath
+          previousPath.value = oldPath
+        }
+        return
       }
       pathParts.pop()
       newPath = '/' + pathParts.join('/')
