@@ -237,16 +237,18 @@ const showHiddenFiles = computed(() => appStore.showHiddenFiles)
 // Sync input path with current path (called after successful navigation)
 function syncInputPath() {
   if (absolutePathsMode.value && currentAliasBasePath.value) {
-    // In absolute paths mode with a local alias - show absolute path
+    // In absolute paths mode with an alias - show full path
     if (currentAliasBasePath.value === '/') {
       // Special case: alias to root - currentPath is already absolute
       inputPath.value = currentPath.value
     } else {
       // Normal case: concatenate base path and current path
+      // Works for both local paths (/home/user/docs + /subfolder)
+      // and remote paths (gdrive:MyFiles + /subfolder)
       inputPath.value = currentAliasBasePath.value + currentPath.value
     }
   } else {
-    // Normal mode or no local alias - show relative path
+    // Normal mode or no alias - show relative path
     inputPath.value = currentPath.value
   }
 }
@@ -548,14 +550,31 @@ function setSortBy(field, asc = null) {
 async function navigateUp() {
   let newPath
 
-  // In absolute paths mode, calculate parent from the absolute path
-  if (absolutePathsMode.value && inputPath.value.startsWith('/')) {
-    const pathParts = inputPath.value.split('/').filter(p => p)
-    if (pathParts.length === 0) {
-      return // Already at root
+  // In absolute paths mode, calculate parent from the absolute path (local or remote)
+  if (absolutePathsMode.value && (inputPath.value.startsWith('/') || inputPath.value.includes(':'))) {
+    const isRemotePath = inputPath.value.includes(':') && !inputPath.value.startsWith('/')
+
+    if (isRemotePath) {
+      // Remote path like "gdrive:MyFiles/subfolder"
+      const colonIndex = inputPath.value.indexOf(':')
+      const remoteName = inputPath.value.substring(0, colonIndex)
+      const remotePath = inputPath.value.substring(colonIndex + 1)
+
+      const pathParts = remotePath.split('/').filter(p => p)
+      if (pathParts.length === 0) {
+        return // Already at remote root
+      }
+      pathParts.pop()
+      newPath = remoteName + ':' + (pathParts.length === 0 ? '' : pathParts.join('/'))
+    } else {
+      // Local path like "/home/user/docs"
+      const pathParts = inputPath.value.split('/').filter(p => p)
+      if (pathParts.length === 0) {
+        return // Already at root
+      }
+      pathParts.pop()
+      newPath = '/' + pathParts.join('/')
     }
-    pathParts.pop()
-    newPath = '/' + pathParts.join('/')
 
     // Update inputPath and currentPath
     const oldInputPath = inputPath.value
@@ -615,8 +634,8 @@ async function navigateInto(dirname) {
   // Update previousPath before changing currentPath (for abort functionality)
   previousPath.value = oldPath
 
-  // In absolute paths mode, build absolute path and auto-switch
-  if (absolutePathsMode.value && inputPath.value.startsWith('/')) {
+  // In absolute paths mode, build absolute path and auto-switch (works for both local and remote paths)
+  if (absolutePathsMode.value && (inputPath.value.startsWith('/') || inputPath.value.includes(':'))) {
     const newAbsPath = inputPath.value.endsWith('/')
       ? inputPath.value + dirname
       : inputPath.value + '/' + dirname
@@ -1044,9 +1063,9 @@ async function handleExternalFileDrop(files) {
 // Handle remotes changed event
 async function handleRemotesChanged() {
   await loadRemotes()
-  // Refresh local aliases detection when remotes change
+  // Refresh aliases detection when remotes change
   if (absolutePathsMode.value) {
-    await detectLocalAliases()
+    await detectAliases()
   }
 }
 
@@ -1100,24 +1119,49 @@ function buildOperationPath(relativePath) {
   }
 }
 
-// Find matching alias for an absolute path (longest prefix match)
-function findMatchingAlias(absolutePath) {
-  if (!absolutePathsMode.value || !absolutePath.startsWith('/')) {
+// Find matching alias for a path (longest prefix match)
+// Supports both local paths (e.g., "/home/user/docs") and remote paths (e.g., "gdrive:MyFiles/subfolder")
+function findMatchingAlias(path) {
+  if (!absolutePathsMode.value) {
     return null
   }
 
-  // Find all aliases that match (path equals or starts with alias base path)
+  // Determine if this is a local path or remote path
+  const isLocalPath = path.startsWith('/')
+  const isRemotePath = path.includes(':') && !path.startsWith('/')
+
+  if (!isLocalPath && !isRemotePath) {
+    return null // Not a valid absolute path
+  }
+
+  // Find all aliases that match
   const matches = localAliases.value.filter(a => {
-    // Special case: if basePath is '/', it matches all absolute paths
-    if (a.basePath === '/') {
+    // Only match local aliases with local paths, and remote aliases with remote paths
+    if (isLocalPath && !a.isLocal) return false
+    if (isRemotePath && a.isLocal) return false
+
+    // Special case: if basePath is '/' (root), it matches all local absolute paths
+    if (a.basePath === '/' && isLocalPath) {
       return true
     }
-    // Normal case: exact match or prefix match with '/'
-    return absolutePath === a.basePath || absolutePath.startsWith(a.basePath + '/')
+
+    // Exact match
+    if (path === a.basePath) {
+      return true
+    }
+
+    // Prefix match
+    if (isLocalPath) {
+      // For local paths: must start with basePath + '/'
+      return path.startsWith(a.basePath + '/')
+    } else {
+      // For remote paths: must start with basePath + '/'
+      return path.startsWith(a.basePath + '/')
+    }
   })
 
   if (matches.length === 0) {
-    return null // No match - should use local filesystem
+    return null // No match
   }
 
   // Sort by base path length (longest first) for most specific match
@@ -1140,43 +1184,66 @@ async function autoSwitchRemote() {
 
   const typedPath = currentPath.value
 
-  // If the typed path is absolute, find matching alias (longest prefix match)
-  if (typedPath.startsWith('/')) {
-    const matchingAlias = findMatchingAlias(typedPath)
+  // Check if this is a local path or remote path
+  const isLocalPath = typedPath.startsWith('/')
+  const isRemotePath = typedPath.includes(':') && !typedPath.startsWith('/')
 
-    if (matchingAlias) {
-      // Found a matching alias - switch to it
-      selectedRemote.value = matchingAlias.name
-      currentAliasBasePath.value = matchingAlias.basePath
-      // Calculate relative path from alias base
-      if (matchingAlias.basePath === '/') {
-        // Special case: alias to root - use the typed path directly
-        currentPath.value = typedPath
-      } else if (typedPath === matchingAlias.basePath) {
-        currentPath.value = '/'
-      } else {
-        // Remove base path to get relative path
-        currentPath.value = typedPath.substring(matchingAlias.basePath.length)
-      }
+  if (!isLocalPath && !isRemotePath) {
+    return // Not an absolute path, don't auto-switch
+  }
+
+  // Try to find a matching alias
+  const matchingAlias = findMatchingAlias(typedPath)
+
+  if (matchingAlias) {
+    // Found a matching alias - switch to it
+    selectedRemote.value = matchingAlias.name
+    currentAliasBasePath.value = matchingAlias.basePath
+
+    // Calculate relative path from alias base
+    if (matchingAlias.basePath === '/') {
+      // Special case: alias to root - use the typed path directly
+      currentPath.value = typedPath
+    } else if (typedPath === matchingAlias.basePath) {
+      currentPath.value = '/'
     } else {
-      // No match - switch to local filesystem
+      // Remove base path to get relative path
+      currentPath.value = typedPath.substring(matchingAlias.basePath.length)
+    }
+  } else {
+    // No matching alias found
+    if (isLocalPath) {
+      // For local paths: switch to local filesystem
       selectedRemote.value = ''
       currentAliasBasePath.value = ''
-      // Keep the absolute path
       currentPath.value = typedPath
+    } else {
+      // For remote paths: try to extract the remote name and switch to it
+      const colonIndex = typedPath.indexOf(':')
+      const remoteName = typedPath.substring(0, colonIndex)
+      const remotePath = typedPath.substring(colonIndex + 1)
+
+      // Check if this remote exists
+      const remoteExists = remotes.value.some(r => r.name === remoteName)
+      if (remoteExists) {
+        selectedRemote.value = remoteName
+        currentAliasBasePath.value = ''
+        currentPath.value = remotePath || '/'
+      }
+      // If remote doesn't exist, don't switch (leave current selection)
     }
   }
 }
 
-// Detect local filesystem aliases and their base paths
-async function detectLocalAliases() {
+// Detect all aliases and their base paths (local filesystem or remote)
+async function detectAliases() {
   if (!absolutePathsMode.value) return
 
   const detectedAliases = []
 
   for (const remote of remotes.value) {
     try {
-      // Resolve the alias to see if it points to local filesystem
+      // Resolve the alias to get its base location
       const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
         remote: remote.name,
         path: ''
@@ -1184,7 +1251,7 @@ async function detectLocalAliases() {
 
       const resolvedPath = response.resolved_path || ''
 
-      // Check if it resolves to a local filesystem path (starts with / and no colon, or has / before colon)
+      // Check if it resolves to something (local path or remote path)
       if (resolvedPath.includes(':')) {
         const colonIndex = resolvedPath.indexOf(':')
         const beforeColon = resolvedPath.substring(0, colonIndex)
@@ -1194,14 +1261,23 @@ async function detectLocalAliases() {
           // Local filesystem path - concatenate
           detectedAliases.push({
             name: remote.name,
-            basePath: beforeColon + afterColon
+            basePath: beforeColon + afterColon,
+            isLocal: true
+          })
+        } else {
+          // Remote path (e.g., "gdrive:MyFiles")
+          detectedAliases.push({
+            name: remote.name,
+            basePath: resolvedPath,
+            isLocal: false
           })
         }
       } else if (resolvedPath.startsWith('/')) {
         // Direct local path (no colon)
         detectedAliases.push({
           name: remote.name,
-          basePath: resolvedPath
+          basePath: resolvedPath,
+          isLocal: true
         })
       }
     } catch (error) {
@@ -1214,7 +1290,7 @@ async function detectLocalAliases() {
   detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
   localAliases.value = detectedAliases
 
-  console.log('Detected local filesystem aliases:', localAliases.value)
+  console.log('Detected aliases for absolute paths mode:', localAliases.value)
 }
 
 // Initialize
@@ -1232,9 +1308,9 @@ onMounted(async () => {
 
     await loadRemotes()
 
-    // Detect local filesystem aliases if in absolute paths mode
+    // Detect aliases if in absolute paths mode
     if (absolutePathsMode.value) {
-      await detectLocalAliases()
+      await detectAliases()
     }
 
     // Initialize selected remote
