@@ -23,12 +23,13 @@
           ref="nameInput"
           v-model="aliasName"
           type="text"
-          placeholder="Enter alias name"
+          placeholder="e.g., my_alias"
           class="alias-input"
+          :class="{ 'input-error': validationError }"
           @keydown.enter="submit"
-          pattern="[a-zA-Z0-9_\-]+"
-          title="Only letters, numbers, underscores, and hyphens allowed"
         />
+        <div v-if="validationError" class="error-message">{{ validationError }}</div>
+        <div v-else class="help-text">May contain letters, numbers, _, -, ., +, @, and space. Cannot start with '-' or space, or end with space.</div>
       </div>
     </template>
 
@@ -46,6 +47,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import BaseModal from './BaseModal.vue'
+import { validateRemoteName } from '../../utils/remoteNameValidation'
 
 const props = defineProps({
   modelValue: {
@@ -67,8 +69,14 @@ const emit = defineEmits(['update:modelValue', 'create'])
 const aliasName = ref('')
 const nameInput = ref(null)
 
+const validationError = computed(() => {
+  const validation = validateRemoteName(aliasName.value)
+  return validation.error
+})
+
 const isValid = computed(() => {
-  return aliasName.value.trim().length > 0 && /^[a-zA-Z0-9_\-]+$/.test(aliasName.value)
+  const validation = validateRemoteName(aliasName.value)
+  return validation.isValid
 })
 
 // Format the resolved path for display
@@ -141,5 +149,21 @@ watch(() => props.modelValue, async (isOpen) => {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.input-error {
+  border-color: #dc3545 !important;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: var(--font-size-sm);
+  margin-top: 4px;
+}
+
+.help-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: 4px;
 }
 </style>
