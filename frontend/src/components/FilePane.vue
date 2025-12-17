@@ -475,7 +475,14 @@ function onRemoteChange() {
   // Update current alias base path if in absolute paths mode
   if (absolutePathsMode.value && selectedRemote.value) {
     const alias = localAliases.value.find(a => a.name === selectedRemote.value)
-    currentAliasBasePath.value = alias ? alias.basePath : ''
+
+    // Special case: if alias points to filesystem root, use local filesystem instead
+    if (alias && alias.isLocal && alias.basePath === '/') {
+      selectedRemote.value = ''
+      currentAliasBasePath.value = ''
+    } else {
+      currentAliasBasePath.value = alias ? alias.basePath : ''
+    }
   } else {
     currentAliasBasePath.value = ''
   }
@@ -1196,19 +1203,24 @@ async function autoSwitchRemote() {
   const matchingAlias = findMatchingAlias(typedPath)
 
   if (matchingAlias) {
-    // Found a matching alias - switch to it
-    selectedRemote.value = matchingAlias.name
-    currentAliasBasePath.value = matchingAlias.basePath
-
-    // Calculate relative path from alias base
-    if (matchingAlias.basePath === '/') {
-      // Special case: alias to root - use the typed path directly
+    // Special case: if alias points to filesystem root, use local filesystem instead
+    // This avoids backend errors when aliases point to '/'
+    if (matchingAlias.isLocal && matchingAlias.basePath === '/') {
+      selectedRemote.value = ''
+      currentAliasBasePath.value = ''
       currentPath.value = typedPath
-    } else if (typedPath === matchingAlias.basePath) {
-      currentPath.value = '/'
     } else {
-      // Remove base path to get relative path
-      currentPath.value = typedPath.substring(matchingAlias.basePath.length)
+      // Found a matching alias - switch to it
+      selectedRemote.value = matchingAlias.name
+      currentAliasBasePath.value = matchingAlias.basePath
+
+      // Calculate relative path from alias base
+      if (typedPath === matchingAlias.basePath) {
+        currentPath.value = '/'
+      } else {
+        // Remove base path to get relative path
+        currentPath.value = typedPath.substring(matchingAlias.basePath.length)
+      }
     }
   } else {
     // No matching alias found
