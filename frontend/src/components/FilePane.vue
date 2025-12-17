@@ -261,14 +261,18 @@ const showHiddenFiles = computed(() => appStore.showHiddenFiles)
 // Sync input path with current path (called after successful navigation)
 function syncInputPath() {
   if (absolutePathsMode.value && currentAliasBasePath.value) {
-    // In absolute paths mode with an alias - show full path
+    // In absolute paths mode with an alias
     if (currentAliasBasePath.value === '/') {
       // Special case: alias to root - currentPath is already absolute
       inputPath.value = currentPath.value
+    } else if (currentAliasBasePath.value.includes(':')) {
+      // Remote alias (e.g., "gdrive:MyFiles") - show only path part
+      const colonIndex = currentAliasBasePath.value.indexOf(':')
+      const remotePath = currentAliasBasePath.value.substring(colonIndex + 1)
+      // Display as a path starting with '/'
+      inputPath.value = '/' + remotePath + currentPath.value
     } else {
-      // Normal case: concatenate base path and current path
-      // Works for both local paths (/home/user/docs + /subfolder)
-      // and remote paths (gdrive:MyFiles + /subfolder)
+      // Local alias - show full absolute local path
       inputPath.value = currentAliasBasePath.value + currentPath.value
     }
   } else {
@@ -522,7 +526,27 @@ async function browsePath() {
   const lastSuccessfulInputPath = inputPath.value
 
   // Parse the input path
-  const typedPath = inputPath.value
+  let typedPath = inputPath.value
+
+  // In absolute paths mode with remote alias displaying path-only syntax,
+  // reconstruct full remote:path if user typed path-only
+  if (absolutePathsMode.value && currentAliasBasePath.value && currentAliasBasePath.value.includes(':')) {
+    // We're in a remote alias
+    if (typedPath.startsWith('/') && !typedPath.includes(':')) {
+      // User typed path-only syntax - reconstruct full remote:path
+      const colonIndex = currentAliasBasePath.value.indexOf(':')
+      const remoteName = currentAliasBasePath.value.substring(0, colonIndex)
+      const basePath = currentAliasBasePath.value.substring(colonIndex + 1)
+
+      // Remove the base path prefix if present in typed path
+      if (typedPath.startsWith('/' + basePath)) {
+        typedPath = remoteName + ':' + typedPath.substring(1)
+      } else {
+        // Typed path is different - treat as new path within same remote
+        typedPath = remoteName + ':' + typedPath.substring(1)
+      }
+    }
+  }
 
   // Store in currentPath (will be processed by autoSwitchRemote)
   currentPath.value = typedPath
@@ -583,47 +607,73 @@ async function navigateUp() {
 
   // In absolute paths mode, calculate parent from the absolute path (local or remote)
   if (absolutePathsMode.value && (inputPath.value.startsWith('/') || inputPath.value.includes(':'))) {
-    const isRemotePath = inputPath.value.includes(':') && !inputPath.value.startsWith('/')
+    // Check if we're in a remote alias (displaying path-only syntax)
+    const inRemoteAlias = currentAliasBasePath.value && currentAliasBasePath.value.includes(':')
 
-    if (isRemotePath) {
-      // Remote path like "gdrive:MyFiles/subfolder"
-      const colonIndex = inputPath.value.indexOf(':')
-      const remoteName = inputPath.value.substring(0, colonIndex)
-      const remotePath = inputPath.value.substring(colonIndex + 1)
-
-      const pathParts = remotePath.split('/').filter(p => p)
+    if (inRemoteAlias) {
+      // In remote alias - navigate up within currentPath
+      const pathParts = currentPath.value.split('/').filter(p => p)
       if (pathParts.length === 0) {
         return // Already at remote root
       }
       pathParts.pop()
-      newPath = remoteName + ':' + (pathParts.length === 0 ? '' : pathParts.join('/'))
-    } else {
-      // Local path like "/home/user/docs"
-      const pathParts = inputPath.value.split('/').filter(p => p)
-      if (pathParts.length === 0) {
-        return // Already at root
-      }
-      pathParts.pop()
       newPath = '/' + pathParts.join('/')
-    }
 
-    // Update inputPath and currentPath
-    const oldInputPath = inputPath.value
-    const oldPath = currentPath.value
+      const oldPath = currentPath.value
+      currentPath.value = newPath
 
-    inputPath.value = newPath
-    currentPath.value = newPath
+      // Don't call autoSwitchRemote - stay in same alias
+      try {
+        await refresh()
+        syncInputPath()
+      } catch (error) {
+        currentPath.value = oldPath
+        previousPath.value = oldPath
+      }
+    } else {
+      // Not in remote alias - could be local path or inputPath contains full remote:path
+      const isRemotePath = inputPath.value.includes(':') && !inputPath.value.startsWith('/')
 
-    // Auto-switch based on new path
-    await autoSwitchRemote()
+      if (isRemotePath) {
+        // Remote path like "gdrive:MyFiles/subfolder"
+        const colonIndex = inputPath.value.indexOf(':')
+        const remoteName = inputPath.value.substring(0, colonIndex)
+        const remotePath = inputPath.value.substring(colonIndex + 1)
 
-    try {
-      await refresh()
-      syncInputPath()
-    } catch (error) {
-      inputPath.value = oldInputPath
-      currentPath.value = oldPath
-      previousPath.value = oldPath
+        const pathParts = remotePath.split('/').filter(p => p)
+        if (pathParts.length === 0) {
+          return // Already at remote root
+        }
+        pathParts.pop()
+        newPath = remoteName + ':' + (pathParts.length === 0 ? '' : pathParts.join('/'))
+      } else {
+        // Local path like "/home/user/docs"
+        const pathParts = inputPath.value.split('/').filter(p => p)
+        if (pathParts.length === 0) {
+          return // Already at root
+        }
+        pathParts.pop()
+        newPath = '/' + pathParts.join('/')
+      }
+
+      // Update inputPath and currentPath
+      const oldInputPath = inputPath.value
+      const oldPath = currentPath.value
+
+      inputPath.value = newPath
+      currentPath.value = newPath
+
+      // Auto-switch based on new path
+      await autoSwitchRemote()
+
+      try {
+        await refresh()
+        syncInputPath()
+      } catch (error) {
+        inputPath.value = oldInputPath
+        currentPath.value = oldPath
+        previousPath.value = oldPath
+      }
     }
   } else {
     // Normal mode
@@ -665,17 +715,30 @@ async function navigateInto(dirname) {
   // Update previousPath before changing currentPath (for abort functionality)
   previousPath.value = oldPath
 
-  // In absolute paths mode, build absolute path and auto-switch (works for both local and remote paths)
+  // In absolute paths mode
   if (absolutePathsMode.value && (inputPath.value.startsWith('/') || inputPath.value.includes(':'))) {
-    const newAbsPath = inputPath.value.endsWith('/')
-      ? inputPath.value + dirname
-      : inputPath.value + '/' + dirname
+    // Check if we're in a remote alias (displaying path-only syntax)
+    const inRemoteAlias = currentAliasBasePath.value && currentAliasBasePath.value.includes(':')
 
-    inputPath.value = newAbsPath
-    currentPath.value = newAbsPath
+    if (inRemoteAlias) {
+      // Stay in current remote alias, just append to currentPath
+      currentPath.value = currentPath.value.endsWith('/')
+        ? currentPath.value + dirname
+        : currentPath.value + '/' + dirname
 
-    // Auto-switch based on new path
-    await autoSwitchRemote()
+      // Don't call autoSwitchRemote - we're staying in the same alias
+    } else {
+      // Local path or not in alias - build full path and auto-switch
+      const newAbsPath = inputPath.value.endsWith('/')
+        ? inputPath.value + dirname
+        : inputPath.value + '/' + dirname
+
+      inputPath.value = newAbsPath
+      currentPath.value = newAbsPath
+
+      // Auto-switch based on new path
+      await autoSwitchRemote()
+    }
   } else {
     // Normal mode
     currentPath.value = currentPath.value.endsWith('/')
