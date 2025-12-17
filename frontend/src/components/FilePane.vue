@@ -230,15 +230,15 @@ const downloadConfirmPath = ref('')
 
 // Computed
 const title = computed(() => {
-  // Show the resolved remote name or local filesystem name
+  // Show the completely resolved remote name (never show alias names)
   if (selectedRemote.value) {
-    // Check if this is an alias and get its resolved remote (only in absolute paths mode)
+    // Check if this is an alias and get its resolved remote
     if (absolutePathsMode.value) {
       const alias = localAliases.value.find(a => a.name === selectedRemote.value)
       if (alias) {
         if (alias.isLocal) {
-          // Local alias - show the alias name itself
-          return selectedRemote.value
+          // Local alias - show local filesystem name (never the alias name)
+          return localFsName.value || 'Local Filesystem'
         } else {
           // Remote alias - extract and show the resolved remote name
           const colonIndex = alias.basePath.indexOf(':')
@@ -248,7 +248,7 @@ const title = computed(() => {
         }
       }
     }
-    // Direct remote or alias not yet resolved - show as-is
+    // Direct remote (not an alias) - show the remote name
     return selectedRemote.value
   }
   // Local filesystem - show local-fs name or default
@@ -270,7 +270,14 @@ function syncInputPath() {
       const colonIndex = currentAliasBasePath.value.indexOf(':')
       const remotePath = currentAliasBasePath.value.substring(colonIndex + 1)
       // Display as a path starting with '/'
-      inputPath.value = '/' + remotePath + currentPath.value
+      // Handle case where remotePath might be empty or currentPath already starts with /
+      if (remotePath === '') {
+        inputPath.value = currentPath.value
+      } else if (currentPath.value === '/') {
+        inputPath.value = '/' + remotePath
+      } else {
+        inputPath.value = '/' + remotePath + currentPath.value
+      }
     } else {
       // Local alias - show full absolute local path
       inputPath.value = currentAliasBasePath.value + currentPath.value
