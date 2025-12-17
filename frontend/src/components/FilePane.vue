@@ -9,7 +9,7 @@
     <!-- Pane Toolbar -->
     <div class="pane-toolbar">
       <div class="toolbar-row with-icon">
-        <span class="input-icon">🗃️</span>
+        <span class="input-icon">📦</span>
         <select v-model="selectedRemote" @change="onRemoteChange">
           <option v-if="localFsName" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
