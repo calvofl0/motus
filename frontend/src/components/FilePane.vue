@@ -426,24 +426,9 @@ async function refresh(preserveSelection = false) {
     if (absolutePathsMode.value && currentAliasBasePath.value) {
       // In absolute paths mode with an alias - use absolute path
       fullPath = currentAliasBasePath.value + currentPath.value
-
-      // If this is a remote path, quote the remote name if needed
-      if (fullPath.includes(':') && !fullPath.startsWith('/')) {
-        const colonIndex = fullPath.indexOf(':')
-        const remoteName = fullPath.substring(0, colonIndex)
-        const remotePath = fullPath.substring(colonIndex + 1)
-
-        // Quote remote name if it contains special characters
-        if (/[@\s]/.test(remoteName)) {
-          fullPath = `"${remoteName}":${remotePath}`
-        }
-      }
     } else if (selectedRemote.value) {
       // Normal remote - use remote:path format
-      // Quote remote name if it contains special characters (space, @, etc.)
-      const needsQuoting = /[@\s]/.test(selectedRemote.value)
-      const remotePart = needsQuoting ? `"${selectedRemote.value}"` : selectedRemote.value
-      fullPath = `${remotePart}:${currentPath.value}`
+      fullPath = `${selectedRemote.value}:${currentPath.value}`
     } else {
       // Local filesystem - use path as-is
       fullPath = currentPath.value
