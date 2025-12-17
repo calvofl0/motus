@@ -261,7 +261,12 @@ function syncInputPath() {
     const resolved = getResolvedLocation()
     if (resolved) {
       // Show the absolute path on the resolved remote
-      inputPath.value = resolved.path
+      // Display '/' for root instead of empty string
+      if (resolved.path === '' || resolved.path === '/') {
+        inputPath.value = '/'
+      } else {
+        inputPath.value = resolved.path
+      }
     } else {
       inputPath.value = currentPath.value
     }
@@ -419,11 +424,26 @@ async function refresh(preserveSelection = false) {
     // Construct path for API call
     let fullPath
     if (absolutePathsMode.value && currentAliasBasePath.value) {
-      // In absolute paths mode with a local alias - use absolute path
+      // In absolute paths mode with an alias - use absolute path
       fullPath = currentAliasBasePath.value + currentPath.value
+
+      // If this is a remote path, quote the remote name if needed
+      if (fullPath.includes(':') && !fullPath.startsWith('/')) {
+        const colonIndex = fullPath.indexOf(':')
+        const remoteName = fullPath.substring(0, colonIndex)
+        const remotePath = fullPath.substring(colonIndex + 1)
+
+        // Quote remote name if it contains special characters
+        if (/[@\s]/.test(remoteName)) {
+          fullPath = `"${remoteName}":${remotePath}`
+        }
+      }
     } else if (selectedRemote.value) {
       // Normal remote - use remote:path format
-      fullPath = `${selectedRemote.value}:${currentPath.value}`
+      // Quote remote name if it contains special characters (space, @, etc.)
+      const needsQuoting = /[@\s]/.test(selectedRemote.value)
+      const remotePart = needsQuoting ? `"${selectedRemote.value}"` : selectedRemote.value
+      fullPath = `${remotePart}:${currentPath.value}`
     } else {
       // Local filesystem - use path as-is
       fullPath = currentPath.value
