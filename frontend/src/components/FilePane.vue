@@ -229,7 +229,31 @@ const downloadConfirmSize = ref('')
 const downloadConfirmPath = ref('')
 
 // Computed
-const title = computed(() => props.pane === 'left' ? 'Server A' : 'Server B')
+const title = computed(() => {
+  // Show the resolved remote name or local filesystem name
+  if (selectedRemote.value) {
+    // Check if this is an alias and get its resolved remote (only in absolute paths mode)
+    if (absolutePathsMode.value) {
+      const alias = localAliases.value.find(a => a.name === selectedRemote.value)
+      if (alias) {
+        if (alias.isLocal) {
+          // Local alias - show the alias name itself
+          return selectedRemote.value
+        } else {
+          // Remote alias - extract and show the resolved remote name
+          const colonIndex = alias.basePath.indexOf(':')
+          if (colonIndex > 0) {
+            return alias.basePath.substring(0, colonIndex)
+          }
+        }
+      }
+    }
+    // Direct remote or alias not yet resolved - show as-is
+    return selectedRemote.value
+  }
+  // Local filesystem - show local-fs name or default
+  return localFsName.value || 'Local Filesystem'
+})
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
