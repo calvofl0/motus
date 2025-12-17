@@ -9,8 +9,8 @@
     <!-- Pane Toolbar -->
     <div class="pane-toolbar">
       <div class="toolbar-row with-icon">
-        <span class="input-icon">📦</span>
-        <select v-model="selectedRemote" @change="onRemoteChange">
+        <span class="input-icon" title="Storage Source">📦</span>
+        <select v-model="selectedRemote" @change="onRemoteChange" title="Storage Source">
           <option v-if="localFsName" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
@@ -18,12 +18,13 @@
         </select>
       </div>
       <div class="toolbar-row with-icon">
-        <span class="input-icon">📂</span>
+        <span class="input-icon" title="Folder Location">📂</span>
         <input
           type="text"
           v-model="inputPath"
           @keypress.enter="browsePath"
           placeholder="Path..."
+          title="Folder Location"
         />
         <button
           class="parent-btn"
