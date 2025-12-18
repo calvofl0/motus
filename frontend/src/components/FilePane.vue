@@ -251,8 +251,23 @@ const title = computed(() => {
     }
   }
 
-  // Normal mode: show selected remote or local filesystem
+  // Normal mode: resolve alias if applicable
   if (selectedRemote.value) {
+    // Check if this remote is an alias and has been resolved
+    const alias = localAliases.value?.find(a => a.name === selectedRemote.value)
+    if (alias) {
+      // This is an alias - show the resolved remote name
+      if (alias.isLocal) {
+        return localFsName.value || 'Local Filesystem'
+      } else {
+        // Extract remote name from basePath (format: "remote:/path")
+        const colonIndex = alias.basePath.indexOf(':')
+        if (colonIndex > 0) {
+          return alias.basePath.substring(0, colonIndex)
+        }
+      }
+    }
+    // Not an alias or not yet resolved - show as-is
     return selectedRemote.value
   }
   return localFsName.value || 'Local Filesystem'
@@ -269,8 +284,19 @@ const headerIcon = computed(() => {
     }
   }
 
-  // Normal mode: check selected remote
-  return selectedRemote.value ? '☁️' : '🖥️'
+  // Normal mode: check if selected remote is an alias pointing to local
+  if (selectedRemote.value) {
+    const alias = localAliases.value?.find(a => a.name === selectedRemote.value)
+    if (alias) {
+      // This is an alias - use resolved location
+      return alias.isLocal ? '🖥️' : '☁️'
+    }
+    // Not an alias - must be a cloud remote
+    return '☁️'
+  }
+
+  // No remote selected - local filesystem
+  return '🖥️'
 })
 
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
@@ -1404,9 +1430,8 @@ async function autoSwitchRemote() {
 }
 
 // Detect all aliases and their base paths (local filesystem or remote)
+// This runs in both normal and absolute-paths modes to support title/icon resolution
 async function detectAliases() {
-  if (!absolutePathsMode.value) return
-
   const detectedAliases = []
 
   for (const remote of remotes.value) {
