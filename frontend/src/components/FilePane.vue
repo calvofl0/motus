@@ -1,8 +1,8 @@
 <template>
   <div class="pane" :class="`${pane}-pane`">
     <!-- Pane Header -->
-    <div class="pane-header">
-      <span class="header-icon">{{ headerIcon }}</span>
+    <div class="pane-header" title="Remote">
+      <span class="header-icon" title="Remote">{{ headerIcon }}</span>
       {{ title }}
     </div>
 
@@ -237,65 +237,28 @@ const downloadConfirmPath = ref('')
 
 // Computed
 const title = computed(() => {
-  // In absolute paths mode, show the resolved remote name
-  if (absolutePathsMode.value) {
-    const resolved = getResolvedLocation()
-    if (resolved) {
-      if (resolved.remote) {
-        // Remote - show remote name
-        return resolved.remote
-      } else {
-        // Local filesystem
-        return localFsName.value || 'Local Filesystem'
-      }
+  // Always use resolved location for consistency
+  const resolved = getResolvedLocation()
+  if (resolved) {
+    if (resolved.remote) {
+      // Remote - show remote name
+      return resolved.remote
+    } else {
+      // Local filesystem
+      return localFsName.value || 'Local Filesystem'
     }
-  }
-
-  // Normal mode: resolve alias if applicable
-  if (selectedRemote.value) {
-    // Check if this remote is an alias and has been resolved
-    const alias = localAliases.value?.find(a => a.name === selectedRemote.value)
-    if (alias) {
-      // This is an alias - show the resolved remote name
-      if (alias.isLocal) {
-        return localFsName.value || 'Local Filesystem'
-      } else {
-        // Extract remote name from basePath (format: "remote:/path")
-        const colonIndex = alias.basePath.indexOf(':')
-        if (colonIndex > 0) {
-          return alias.basePath.substring(0, colonIndex)
-        }
-      }
-    }
-    // Not an alias or not yet resolved - show as-is
-    return selectedRemote.value
   }
   return localFsName.value || 'Local Filesystem'
 })
 
 // Computed icon for header (shows resolved location, not selected remote)
 const headerIcon = computed(() => {
-  // Check if we're on local filesystem by looking at resolved location
-  if (absolutePathsMode.value) {
-    const resolved = getResolvedLocation()
-    if (resolved) {
-      // Empty remote means local filesystem
-      return resolved.remote ? '☁️' : '🖥️'
-    }
+  // Always use resolved location for consistency
+  const resolved = getResolvedLocation()
+  if (resolved) {
+    // Empty remote means local filesystem
+    return resolved.remote ? '☁️' : '🖥️'
   }
-
-  // Normal mode: check if selected remote is an alias pointing to local
-  if (selectedRemote.value) {
-    const alias = localAliases.value?.find(a => a.name === selectedRemote.value)
-    if (alias) {
-      // This is an alias - use resolved location
-      return alias.isLocal ? '🖥️' : '☁️'
-    }
-    // Not an alias - must be a cloud remote
-    return '☁️'
-  }
-
-  // No remote selected - local filesystem
   return '🖥️'
 })
 
@@ -579,31 +542,54 @@ function onRemoteChange() {
 
 // Helper: Get the resolved location (actual remote and absolute path)
 // Returns {remote: string, path: string} where path is absolute on that remote
+// Works in both absolute-paths mode and normal mode
 function getResolvedLocation() {
-  if (!absolutePathsMode.value) {
-    return null
-  }
-
-  if (currentAliasBasePath.value) {
-    // We're in an alias
-    if (currentAliasBasePath.value.includes(':')) {
-      // Remote alias
-      const colonIndex = currentAliasBasePath.value.indexOf(':')
-      const remote = currentAliasBasePath.value.substring(0, colonIndex)
-      const aliasPath = currentAliasBasePath.value.substring(colonIndex + 1)
-      // Combine alias path with current path
-      const fullPath = aliasPath + (currentPath.value === '/' ? '' : currentPath.value)
-      return { remote, path: fullPath }
+  if (absolutePathsMode.value) {
+    // Absolute paths mode - use currentAliasBasePath
+    if (currentAliasBasePath.value) {
+      // We're in an alias
+      if (currentAliasBasePath.value.includes(':')) {
+        // Remote alias
+        const colonIndex = currentAliasBasePath.value.indexOf(':')
+        const remote = currentAliasBasePath.value.substring(0, colonIndex)
+        const aliasPath = currentAliasBasePath.value.substring(colonIndex + 1)
+        // Combine alias path with current path
+        const fullPath = aliasPath + (currentPath.value === '/' ? '' : currentPath.value)
+        return { remote, path: fullPath }
+      } else {
+        // Local alias
+        const fullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
+        return { remote: '', path: fullPath }
+      }
+    } else if (selectedRemote.value) {
+      // Direct remote (not an alias)
+      return { remote: selectedRemote.value, path: currentPath.value }
     } else {
-      // Local alias
-      const fullPath = currentAliasBasePath.value + (currentPath.value === '/' ? '' : currentPath.value)
-      return { remote: '', path: fullPath }
+      // Local filesystem
+      return { remote: '', path: currentPath.value }
     }
-  } else if (selectedRemote.value) {
-    // Direct remote (not an alias)
-    return { remote: selectedRemote.value, path: currentPath.value }
   } else {
-    // Local filesystem
+    // Normal mode - check if selected remote is an alias
+    if (selectedRemote.value) {
+      const alias = localAliases.value?.find(a => a.name === selectedRemote.value)
+      if (alias) {
+        // This is an alias - return resolved location
+        if (alias.isLocal) {
+          return { remote: '', path: alias.basePath }
+        } else {
+          // Extract remote name from basePath (format: "remote:/path")
+          const colonIndex = alias.basePath.indexOf(':')
+          if (colonIndex > 0) {
+            const remote = alias.basePath.substring(0, colonIndex)
+            const path = alias.basePath.substring(colonIndex + 1)
+            return { remote, path }
+          }
+        }
+      }
+      // Not an alias - return as-is
+      return { remote: selectedRemote.value, path: currentPath.value }
+    }
+    // No remote selected - local filesystem
     return { remote: '', path: currentPath.value }
   }
 }
@@ -1240,10 +1226,8 @@ async function handleExternalFileDrop(files) {
 // Handle remotes changed event
 async function handleRemotesChanged() {
   await loadRemotes()
-  // Refresh aliases detection when remotes change
-  if (absolutePathsMode.value) {
-    await detectAliases()
-  }
+  // Always detect aliases (needed for title/icon resolution in both modes)
+  await detectAliases()
 }
 
 // Handle job completion event
@@ -1501,10 +1485,8 @@ onMounted(async () => {
 
     await loadRemotes()
 
-    // Detect aliases if in absolute paths mode
-    if (absolutePathsMode.value) {
-      await detectAliases()
-    }
+    // Always detect aliases (needed for title/icon resolution in both modes)
+    await detectAliases()
 
     // Initialize selected remote
     if (startupRemote.value) {
