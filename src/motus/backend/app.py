@@ -679,7 +679,7 @@ def register_routes(app: Flask, config: Config):
         else:
             logging.info(f"No preferences file found at {prefs_file}, returning defaults")
 
-        # Return defaults
+        # Return defaults (absolute_paths not set means use config default)
         return jsonify({
             'view_mode': 'list',
             'show_hidden_files': False,

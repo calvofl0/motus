@@ -18,13 +18,13 @@
         </select>
       </div>
       <div class="toolbar-row with-icon">
-        <span class="input-icon" title="Folder Location">📂</span>
+        <span class="input-icon" :title="pathTooltip">📂</span>
         <input
           type="text"
           v-model="inputPath"
           @keypress.enter="browsePath"
           placeholder="Path..."
-          title="Folder Location"
+          :title="pathTooltip"
         />
         <button
           class="parent-btn"
@@ -260,6 +260,13 @@ const headerIcon = computed(() => {
     return resolved.remote ? '☁️' : '🖥️'
   }
   return '🖥️'
+})
+
+// Dynamic tooltip for path field based on mode
+const pathTooltip = computed(() => {
+  return absolutePathsMode.value
+    ? 'Folder Location (relative to the filesystem root)'
+    : 'Folder Location (relative to the storage source)'
 })
 
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
@@ -1483,12 +1490,12 @@ async function detectAliases() {
 // Initialize
 onMounted(async () => {
   try {
-    // Load config to get startup remote, local fs name, and absolute paths mode
+    // Load config to get startup remote and local fs name
+    // Note: absolutePathsMode is loaded in app store initialize()
     try {
       const config = await apiCall('/api/config')
       startupRemote.value = config.startup_remote || null
       localFsName.value = config.local_fs || ''
-      absolutePathsMode.value = config.absolute_paths || false
     } catch (error) {
       console.error('Failed to load config:', error)
     }

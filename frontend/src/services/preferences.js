@@ -11,6 +11,7 @@
  * @param {string} preferences.view_mode - View mode ('grid' or 'list')
  * @param {boolean} preferences.show_hidden_files - Show hidden files flag
  * @param {string} preferences.theme - Theme ('auto', 'light', or 'dark')
+ * @param {boolean} preferences.absolute_paths - Absolute paths mode (optional)
  * @returns {Promise<void>}
  */
 export async function savePreferences(apiCall, preferences) {
@@ -31,7 +32,8 @@ export async function loadPreferences(apiCall, defaults = {}) {
     const defaultPrefs = {
         view_mode: defaults.view_mode || 'list',
         show_hidden_files: defaults.show_hidden_files !== undefined ? defaults.show_hidden_files : false,
-        theme: defaults.theme || 'auto'
+        theme: defaults.theme || 'auto',
+        absolute_paths: defaults.absolute_paths  // undefined means use config default
     };
 
     try {
@@ -39,7 +41,8 @@ export async function loadPreferences(apiCall, defaults = {}) {
         return {
             view_mode: prefs.view_mode || defaultPrefs.view_mode,
             show_hidden_files: prefs.show_hidden_files !== undefined ? prefs.show_hidden_files : defaultPrefs.show_hidden_files,
-            theme: prefs.theme || defaultPrefs.theme
+            theme: prefs.theme || defaultPrefs.theme,
+            absolute_paths: prefs.absolute_paths !== undefined ? prefs.absolute_paths : defaultPrefs.absolute_paths
         };
     } catch (error) {
         console.error('Failed to load preferences:', error);

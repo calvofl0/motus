@@ -22,6 +22,9 @@
           <div class="view-menu-item" @click="toggleHiddenFiles">
             <span>{{ hiddenFilesText }}</span>
           </div>
+          <div class="view-menu-item" @click="toggleAbsolutePaths">
+            <span>{{ absolutePathsText }}</span>
+          </div>
         </div>
       </div>
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
@@ -72,6 +75,10 @@ const viewModeText = computed(() =>
 
 const hiddenFilesText = computed(() =>
   appStore.showHiddenFiles ? 'Hide hidden files' : 'Show hidden files'
+)
+
+const absolutePathsText = computed(() =>
+  appStore.absolutePathsMode ? 'Relative Paths' : 'Absolute Paths'
 )
 
 const themeIcon = computed(() => {
@@ -125,6 +132,11 @@ function toggleHiddenFiles() {
   showViewMenu.value = false
 }
 
+function toggleAbsolutePaths() {
+  appStore.toggleAbsolutePaths()
+  showViewMenu.value = false
+}
+
 function toggleThemeMenu(e) {
   e.stopPropagation()
   showThemeMenu.value = !showThemeMenu.value
@@ -140,7 +152,8 @@ function setTheme(themeName) {
   savePreferences(apiCall, {
     view_mode: appStore.viewMode,
     show_hidden_files: appStore.showHiddenFiles,
-    theme: themeName
+    theme: themeName,
+    absolute_paths: appStore.absolutePathsMode
   })
   showThemeMenu.value = false
 }

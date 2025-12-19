@@ -92,17 +92,19 @@ export const useAppStore = defineStore('app', () => {
       }
     }
 
-    // Load config
+    // Load config to get defaults
+    let configAbsolutePaths = false
     try {
       const config = await apiCall('/api/config')
       currentMode.value = config.default_mode || 'easy'
       maxUploadSize.value = config.max_upload_size || 0
+      configAbsolutePaths = config.absolute_paths || false
     } catch (e) {
       console.error('Failed to load config:', e)
       currentMode.value = 'easy'
     }
 
-    // Load user preferences
+    // Load user preferences (overrides config defaults)
     const prefs = await loadPreferences(apiCall)
     if (prefs.view_mode) {
       viewMode.value = prefs.view_mode
@@ -112,6 +114,12 @@ export const useAppStore = defineStore('app', () => {
     }
     if (prefs.theme) {
       theme.value = prefs.theme
+    }
+    // Use preference if set, otherwise use config default
+    if (prefs.absolute_paths !== undefined) {
+      absolutePathsMode.value = prefs.absolute_paths
+    } else {
+      absolutePathsMode.value = configAbsolutePaths
     }
 
     // Apply initial theme
@@ -136,7 +144,8 @@ export const useAppStore = defineStore('app', () => {
     savePreferences(apiCall, {
       view_mode: viewMode.value,
       show_hidden_files: showHiddenFiles.value,
-      theme: theme.value
+      theme: theme.value,
+      absolute_paths: absolutePathsMode.value
     })
   }
 
@@ -145,7 +154,18 @@ export const useAppStore = defineStore('app', () => {
     savePreferences(apiCall, {
       view_mode: viewMode.value,
       show_hidden_files: showHiddenFiles.value,
-      theme: theme.value
+      theme: theme.value,
+      absolute_paths: absolutePathsMode.value
+    })
+  }
+
+  function toggleAbsolutePaths() {
+    absolutePathsMode.value = !absolutePathsMode.value
+    savePreferences(apiCall, {
+      view_mode: viewMode.value,
+      show_hidden_files: showHiddenFiles.value,
+      theme: theme.value,
+      absolute_paths: absolutePathsMode.value
     })
   }
 
@@ -163,7 +183,8 @@ export const useAppStore = defineStore('app', () => {
     savePreferences(apiCall, {
       view_mode: viewMode.value,
       show_hidden_files: showHiddenFiles.value,
-      theme: theme.value
+      theme: theme.value,
+      absolute_paths: absolutePathsMode.value
     })
   }
 
@@ -243,6 +264,7 @@ export const useAppStore = defineStore('app', () => {
     setMode,
     toggleViewMode,
     toggleHiddenFiles,
+    toggleAbsolutePaths,
     toggleTheme,
     applyTheme,
     clearPaneSelection,
