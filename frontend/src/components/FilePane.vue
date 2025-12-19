@@ -224,8 +224,8 @@ const startupRemote = ref(null) // Default remote to show on startup
 const localFsName = ref('Local Filesystem') // Name for local filesystem entry (empty string hides it)
 const abortController = ref(null) // For aborting fetch requests
 
-// Absolute paths mode state
-const absolutePathsMode = ref(false) // Loaded from config
+// Absolute paths mode - use store value directly
+const absolutePathsMode = computed(() => appStore.absolutePathsMode)
 const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
 const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
 
@@ -1541,25 +1541,17 @@ onMounted(async () => {
   window.addEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
 })
 
-// Watch for changes to sync with store
-watch(absolutePathsMode, (newValue) => {
-  appStore.setAbsolutePathsMode(newValue)
-}, { immediate: true })
-
+// Watch for changes to currentAliasBasePath to sync with store
 watch(currentAliasBasePath, (newValue) => {
   appStore.setPaneAliasBasePath(props.pane, newValue)
 }, { immediate: true })
 
 // Handle absolute paths mode change
 async function handleAbsolutePathsModeChanged(event) {
-  const { enabled } = event.detail
-  console.log(`Absolute paths mode changed to: ${enabled}`)
+  console.log(`Absolute paths mode changed to: ${event.detail.enabled}`)
 
-  // Re-detect aliases (they work differently in each mode)
-  await detectAliases()
-
-  // Refresh current view
-  await refresh()
+  // Update address bar to show correct path format
+  syncInputPath()
 }
 
 // Cleanup
