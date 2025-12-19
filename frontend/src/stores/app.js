@@ -167,6 +167,12 @@ export const useAppStore = defineStore('app', () => {
       theme: theme.value,
       absolute_paths: absolutePathsMode.value
     })
+
+    // Notify components that absolute paths mode changed
+    // This triggers alias re-detection and pane refresh
+    window.dispatchEvent(new CustomEvent('absolute-paths-mode-changed', {
+      detail: { enabled: absolutePathsMode.value }
+    }))
   }
 
   function toggleTheme() {

@@ -1475,8 +1475,8 @@ async function detectAliases() {
         })
       }
     } catch (error) {
-      // Ignore errors for individual remotes
-      console.debug(`Could not resolve alias ${remote.name}:`, error)
+      // Ignore errors for individual remotes (they're not aliases)
+      // This is expected for non-alias remotes like regular cloud storage
     }
   }
 
@@ -1536,6 +1536,9 @@ onMounted(async () => {
 
   // Listen for job completion to auto-refresh
   window.addEventListener('job-completed', handleJobCompleted)
+
+  // Listen for absolute paths mode toggle
+  window.addEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
 })
 
 // Watch for changes to sync with store
@@ -1547,10 +1550,23 @@ watch(currentAliasBasePath, (newValue) => {
   appStore.setPaneAliasBasePath(props.pane, newValue)
 }, { immediate: true })
 
+// Handle absolute paths mode change
+async function handleAbsolutePathsModeChanged(event) {
+  const { enabled } = event.detail
+  console.log(`Absolute paths mode changed to: ${enabled}`)
+
+  // Re-detect aliases (they work differently in each mode)
+  await detectAliases()
+
+  // Refresh current view
+  await refresh()
+}
+
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('remotes-changed', handleRemotesChanged)
   window.removeEventListener('job-completed', handleJobCompleted)
+  window.removeEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
 })
 
 // Expose methods to parent
