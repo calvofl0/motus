@@ -1548,7 +1548,23 @@ watch(currentAliasBasePath, (newValue) => {
 
 // Handle absolute paths mode change
 async function handleAbsolutePathsModeChanged(event) {
-  console.log(`Absolute paths mode changed to: ${event.detail.enabled}`)
+  const enabled = event.detail.enabled
+  console.log(`Absolute paths mode changed to: ${enabled}`)
+
+  // Recalculate currentAliasBasePath based on new mode
+  if (enabled && selectedRemote.value) {
+    // Switching to absolute mode - set alias base path
+    const alias = localAliases.value.find(a => a.name === selectedRemote.value)
+    if (alias && alias.isLocal && alias.basePath === '/') {
+      // Special case: alias to filesystem root
+      currentAliasBasePath.value = ''
+    } else {
+      currentAliasBasePath.value = alias ? alias.basePath : ''
+    }
+  } else {
+    // Switching to relative mode - clear alias base path
+    currentAliasBasePath.value = ''
+  }
 
   // Update address bar to show correct path format
   syncInputPath()
