@@ -719,7 +719,11 @@ def resolve_alias():
         resolved_remote, resolved_path = rclone_config.resolve_alias_chain(remote_name, path)
 
         # Construct resolved path
-        resolved_full_path = f"{resolved_remote}:{resolved_path}"
+        # Don't add colon if resolved_remote is empty (local filesystem)
+        if resolved_remote:
+            resolved_full_path = f"{resolved_remote}:{resolved_path}"
+        else:
+            resolved_full_path = resolved_path
 
         logging.info(f"Resolved to: {resolved_full_path}")
 

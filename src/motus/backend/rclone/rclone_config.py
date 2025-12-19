@@ -597,6 +597,12 @@ class RcloneConfig:
         if not config:
             raise ValueError(f"Remote not found: {remote_name}")
 
+        # Special case: "local" type remotes point to local filesystem root
+        if config.get('type') == 'local':
+            # Treat as alias to root of local filesystem
+            # Return empty remote name (indicates local filesystem) and the path
+            return '', path
+
         # Check if this is an alias
         if config.get('type') != 'alias':
             # Not an alias, return as-is
