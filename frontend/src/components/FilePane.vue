@@ -1551,18 +1551,48 @@ async function handleAbsolutePathsModeChanged(event) {
   const enabled = event.detail.enabled
   console.log(`Absolute paths mode changed to: ${enabled}`)
 
-  // Recalculate currentAliasBasePath based on new mode
-  if (enabled && selectedRemote.value) {
-    // Switching to absolute mode - set alias base path
-    const alias = localAliases.value.find(a => a.name === selectedRemote.value)
-    if (alias && alias.isLocal && alias.basePath === '/') {
-      // Special case: alias to filesystem root
-      currentAliasBasePath.value = ''
+  if (enabled) {
+    // Switching TO absolute mode - find best matching alias for current location
+
+    // Construct the current absolute path
+    let absolutePath
+    if (selectedRemote.value) {
+      // We're on a remote - construct remote:path
+      absolutePath = `${selectedRemote.value}:${currentPath.value}`
     } else {
+      // We're on local filesystem - use path as-is
+      absolutePath = currentPath.value
+    }
+
+    // Find the best matching alias for this path
+    const matchingAlias = findMatchingAlias(absolutePath)
+
+    if (matchingAlias) {
+      // Found a matching alias - switch to it
+      if (matchingAlias.isLocal && matchingAlias.basePath === '/') {
+        // Special case: alias to filesystem root
+        selectedRemote.value = ''
+        currentAliasBasePath.value = ''
+        // currentPath stays the same
+      } else {
+        selectedRemote.value = matchingAlias.name
+        currentAliasBasePath.value = matchingAlias.basePath
+
+        // Recalculate relative path from alias base
+        if (absolutePath === matchingAlias.basePath) {
+          currentPath.value = '/'
+        } else {
+          // Remove base path to get relative path
+          currentPath.value = absolutePath.substring(matchingAlias.basePath.length)
+        }
+      }
+    } else {
+      // No matching alias - set currentAliasBasePath for current remote
+      const alias = localAliases.value.find(a => a.name === selectedRemote.value)
       currentAliasBasePath.value = alias ? alias.basePath : ''
     }
   } else {
-    // Switching to relative mode - clear alias base path
+    // Switching TO relative mode - clear alias base path
     currentAliasBasePath.value = ''
   }
 
