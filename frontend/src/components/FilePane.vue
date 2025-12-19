@@ -1420,6 +1420,16 @@ async function detectAliases() {
 
   for (const remote of remotes.value) {
     try {
+      // Special case: "local" type remotes are aliases to root of local filesystem
+      if (remote.type === 'local') {
+        detectedAliases.push({
+          name: remote.name,
+          basePath: '/',
+          isLocal: true
+        })
+        continue
+      }
+
       // Resolve the alias to get its base location
       const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
         remote: remote.name,
@@ -1467,7 +1477,7 @@ async function detectAliases() {
   detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
   localAliases.value = detectedAliases
 
-  console.log('Detected aliases for absolute paths mode:', localAliases.value)
+  console.log('Detected aliases (including local type remotes):', localAliases.value)
 }
 
 // Initialize
