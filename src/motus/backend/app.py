@@ -171,9 +171,10 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
 
 
 def cleanup_connection_info(config: Config):
-    """Remove PID and connection info files"""
+    """Remove PID, lock socket, and connection info files"""
     runtime_dir = Path(config.runtime_dir)
     pid_file = runtime_dir / 'motus.pid'
+    lock_socket_file = runtime_dir / 'motus.lock'
     connection_file = runtime_dir / 'connection.json'
     dev_port_file = runtime_dir / 'dev-port.json'
 
@@ -183,6 +184,13 @@ def cleanup_connection_info(config: Config):
             logging.debug(f"Removed PID file: {pid_file}")
     except Exception as e:
         logging.warning(f"Could not remove PID file: {e}")
+
+    try:
+        if lock_socket_file.exists():
+            lock_socket_file.unlink()
+            logging.debug(f"Removed lock socket: {lock_socket_file}")
+    except Exception as e:
+        logging.warning(f"Could not remove lock socket: {e}")
 
     try:
         if connection_file.exists():

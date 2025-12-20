@@ -18,7 +18,7 @@ try:
     import psutil
 except ImportError:
     psutil = None
-    print("Warning: psutil not installed. Multi-instance detection disabled.")
+    print("Warning: psutil not installed. Multi-instance detection will be limited.")
     print("Install with: pip install psutil")
 
 # Add src to path for development (when not installed)
@@ -26,6 +26,9 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from motus.backend.config import Config, parse_size
 from motus.backend.app import create_app
+
+# Global lock socket for instance detection
+_lock_socket = None
 
 
 def is_port_in_use(host: str, port: int) -> bool:
@@ -105,6 +108,148 @@ def print_banner(config: Config, original_port: int = None):
     print()
 
 
+def has_unix_sockets() -> bool:
+    """Check if Unix domain sockets are supported on this platform"""
+    return hasattr(socket, 'AF_UNIX')
+
+
+def check_via_socket(config: Config) -> dict:
+    """
+    Check if instance is running using socket-based locking
+
+    This method is robust against PID namespace issues in containers
+    and auto-cleans up on process crashes.
+
+    Returns:
+        dict with connection info if running, None otherwise
+    """
+    if not has_unix_sockets():
+        return None  # Fall back to PID checking
+
+    runtime_dir = Path(config.runtime_dir)
+    lock_socket_path = runtime_dir / 'motus.lock'
+    connection_file = runtime_dir / 'connection.json'
+
+    # If lock socket doesn't exist, no instance is running
+    if not lock_socket_path.exists():
+        return None
+
+    # Try to connect to the lock socket
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.connect(str(lock_socket_path))
+        # Connection successful = another instance is alive
+        sock.close()
+
+        # Read connection info
+        if connection_file.exists():
+            try:
+                with open(connection_file, 'r') as f:
+                    conn_info = json.load(f)
+                logging.debug(f"Found running instance via socket: {conn_info.get('url')}")
+                return conn_info
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                logging.warning(f"Running instance found but connection file corrupted: {e}")
+                return {'running': True}  # Running but no connection info
+
+        return {'running': True}
+
+    except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
+        # Socket exists but can't connect = stale socket from crash
+        logging.debug(f"Stale lock socket detected: {e}")
+        try:
+            lock_socket_path.unlink()
+            logging.debug("Removed stale lock socket")
+        except Exception as unlink_err:
+            logging.warning(f"Could not remove stale lock socket: {unlink_err}")
+        return None
+    except Exception as e:
+        logging.warning(f"Unexpected error checking lock socket: {e}")
+        return None
+    finally:
+        try:
+            sock.close()
+        except:
+            pass
+
+
+def create_lock_socket(config: Config):
+    """
+    Create and bind lock socket to prevent multiple instances
+
+    Returns:
+        Socket object if successful, None otherwise
+    """
+    global _lock_socket
+
+    if not has_unix_sockets():
+        logging.debug("Unix domain sockets not supported, skipping socket lock")
+        return None
+
+    runtime_dir = Path(config.runtime_dir)
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    lock_socket_path = runtime_dir / 'motus.lock'
+
+    # Remove stale socket if exists
+    if lock_socket_path.exists():
+        try:
+            lock_socket_path.unlink()
+            logging.debug("Removed existing lock socket")
+        except Exception as e:
+            logging.warning(f"Could not remove existing lock socket: {e}")
+            return None
+
+    # Create socket
+    try:
+        _lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        _lock_socket.bind(str(lock_socket_path))
+        _lock_socket.listen(1)
+        logging.debug(f"Created lock socket at {lock_socket_path}")
+
+        # Handle connections in background thread (just accept and close)
+        def handle_socket_connections():
+            while True:
+                try:
+                    conn, _ = _lock_socket.accept()
+                    conn.close()  # Just close - our presence means we're alive
+                except Exception as e:
+                    # Socket closed or error - thread should exit
+                    logging.debug(f"Lock socket handler exiting: {e}")
+                    break
+
+        thread = threading.Thread(target=handle_socket_connections, daemon=True)
+        thread.start()
+
+        return _lock_socket
+
+    except Exception as e:
+        logging.warning(f"Could not create lock socket: {e}")
+        _lock_socket = None
+        return None
+
+
+def cleanup_lock_socket(config: Config):
+    """Remove lock socket on shutdown"""
+    global _lock_socket
+
+    if _lock_socket:
+        try:
+            _lock_socket.close()
+            logging.debug("Closed lock socket")
+        except Exception as e:
+            logging.warning(f"Error closing lock socket: {e}")
+        finally:
+            _lock_socket = None
+
+    lock_socket_path = Path(config.runtime_dir) / 'motus.lock'
+    try:
+        if lock_socket_path.exists():
+            lock_socket_path.unlink()
+            logging.debug(f"Removed lock socket file: {lock_socket_path}")
+    except Exception as e:
+        logging.warning(f"Could not remove lock socket file: {e}")
+
+
 def is_process_running(pid: int) -> bool:
     """Check if a process with given PID is running"""
     if psutil is None:
@@ -116,15 +261,57 @@ def is_process_running(pid: int) -> bool:
         return False
 
 
+def is_process_motus(pid: int) -> bool:
+    """
+    Check if a process with given PID is actually Motus
+
+    This helps avoid false positives from PID reuse or container PID namespaces
+    """
+    if psutil is None:
+        return True  # Can't verify, assume true (fallback to old behavior)
+
+    try:
+        proc = psutil.Process(pid)
+        cmdline = ' '.join(proc.cmdline()).lower()
+        name = proc.name().lower()
+
+        # Check if process looks like Motus
+        # Could be "python run.py", "python -m motus", or "motus" executable
+        is_motus = (
+            'motus' in cmdline or
+            'motus' in name or
+            ('python' in name and 'run.py' in cmdline)
+        )
+
+        if not is_motus:
+            logging.debug(f"PID {pid} is running but doesn't look like Motus: {name} {cmdline}")
+
+        return is_motus
+
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return False
+    except Exception as e:
+        logging.warning(f"Error checking if process is Motus: {e}")
+        return True  # Can't verify, assume true
+
+
 def check_existing_instance(config: Config) -> dict:
     """
     Check if an instance is already running
 
+    Uses socket-based locking (primary) with fallback to PID checking.
+
     Returns:
         dict with connection info if running, None otherwise
     """
+    # Primary method: Socket-based checking (works in containers)
+    existing = check_via_socket(config)
+    if existing is not None:
+        return existing
+
+    # Fallback method: Enhanced PID file checking with process name verification
     if psutil is None:
-        return None  # Skip check if psutil not available
+        return None  # Skip PID check if psutil not available
 
     runtime_dir = Path(config.runtime_dir)
     pid_file = runtime_dir / 'motus.pid'
@@ -139,17 +326,32 @@ def check_existing_instance(config: Config) -> dict:
 
         if not is_process_running(pid):
             # Stale PID file from crash
+            logging.debug(f"Stale PID file detected (process {pid} not running)")
             pid_file.unlink()
             if connection_file.exists():
                 connection_file.unlink()
             return None
 
-        # Process is running, read connection info
-        if connection_file.exists():
-            with open(connection_file, 'r') as f:
-                return json.load(f)
+        # Process is running - verify it's actually Motus
+        if not is_process_motus(pid):
+            # PID reused by different process
+            logging.warning(f"PID {pid} is running but is not Motus (PID reuse). Cleaning up.")
+            pid_file.unlink()
+            if connection_file.exists():
+                connection_file.unlink()
+            return None
 
-        return None  # Process running but no connection file (shouldn't happen)
+        # Process is running and is Motus, read connection info
+        if connection_file.exists():
+            try:
+                with open(connection_file, 'r') as f:
+                    conn_info = json.load(f)
+                logging.debug(f"Found running instance via PID: {conn_info.get('url')}")
+                return conn_info
+            except json.JSONDecodeError as e:
+                logging.warning(f"Corrupted connection file: {e}")
+
+        return {'running': True}  # Process running but no connection file
 
     except (ValueError, FileNotFoundError, json.JSONDecodeError) as e:
         # Corrupted files, clean up
@@ -457,12 +659,20 @@ def main():
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Create lock socket to prevent multiple instances
+    try:
+        create_lock_socket(config)
+        logging.debug("Lock socket created successfully")
+    except Exception as e:
+        logging.warning(f"Could not create lock socket: {e}")
+
     # Create Flask app
     try:
         app = create_app(config)
     except Exception as e:
         print(f"Error creating application: {e}", file=sys.stderr)
         logging.exception("Application creation failed")
+        cleanup_lock_socket(config)
         sys.exit(1)
 
     # Write connection info for instance detection
@@ -495,11 +705,13 @@ def main():
         )
     except KeyboardInterrupt:
         print("\n\nShutting down...")
-        sys.exit(0)
     except Exception as e:
         print(f"Error running server: {e}", file=sys.stderr)
         logging.exception("Server error")
         sys.exit(1)
+    finally:
+        # Cleanup lock socket on shutdown
+        cleanup_lock_socket(config)
 
 
 if __name__ == '__main__':
