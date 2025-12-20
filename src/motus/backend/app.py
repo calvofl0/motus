@@ -35,6 +35,7 @@ _frontends_lock = threading.Lock()
 _startup_time = None
 _idle_timer_thread = None
 _idle_timer_stop_event = None
+_zero_frontends_grace_start = None  # Time when counter reached zero (for refresh grace period)
 
 
 def safe_remove(path):
@@ -233,9 +234,14 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
     Shutdown conditions:
     1. NEVER shutdown if running jobs exist (backend activity)
     2. If no frontends registered AND max_idle_time passed since startup → shutdown
-    3. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
+       (allows time for first frontend to register)
+    3. If counter reaches 0 after frontends existed → 10s grace period, then shutdown
+       (allows refresh/F5 to re-register before shutdown)
+    4. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
     """
-    global _idle_timer_stop_event, _registered_frontends, _frontends_lock, _startup_time
+    global _idle_timer_stop_event, _registered_frontends, _frontends_lock, _startup_time, _zero_frontends_grace_start
+
+    GRACE_PERIOD = 10  # seconds - grace period when counter reaches zero (for refresh)
 
     logging.info(f"Idle timer started - will shutdown after {max_idle_time} seconds of inactivity")
 
@@ -253,7 +259,9 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
             # Case 1: No frontends registered
             if frontend_count == 0:
                 time_since_startup = time.time() - _startup_time
-                if time_since_startup >= max_idle_time:
+
+                # If we never had any frontends, use max_idle_time (startup grace period)
+                if _zero_frontends_grace_start is None and time_since_startup >= max_idle_time:
                     logging.info(f"No frontends registered for {time_since_startup:.1f}s >= {max_idle_time}s - shutting down")
                     # Shutdown in separate thread to avoid blocking
                     def shutdown_delayed():
@@ -262,8 +270,24 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
                     threading.Thread(target=shutdown_delayed, daemon=True).start()
                     break
 
-            # Case 2: Frontends registered but all offline (no recent heartbeats)
+                # If we had frontends but counter reached zero, use grace period
+                elif _zero_frontends_grace_start is not None:
+                    time_since_zero = time.time() - _zero_frontends_grace_start
+                    if time_since_zero >= GRACE_PERIOD:
+                        logging.info(f"Frontend counter at zero for {time_since_zero:.1f}s >= {GRACE_PERIOD}s grace period - shutting down")
+                        # Shutdown in separate thread to avoid blocking
+                        def shutdown_delayed():
+                            perform_shutdown(rclone, db, config)
+                            os._exit(0)
+                        threading.Thread(target=shutdown_delayed, daemon=True).start()
+                        break
+
+            # Case 2: Frontends registered
             else:
+                # Reset grace period timer if counter is non-zero
+                _zero_frontends_grace_start = None
+
+                # Check if all frontends are offline (no recent heartbeats)
                 now = time.time()
                 most_recent_heartbeat = max(_registered_frontends.values()) if _registered_frontends else 0
                 time_since_last_heartbeat = now - most_recent_heartbeat
@@ -727,12 +751,17 @@ def register_routes(app: Flask, config: Config):
 
         Returns a unique frontend_id to be used for heartbeats and unregister
         """
-        global _registered_frontends, _frontends_lock
+        global _registered_frontends, _frontends_lock, _zero_frontends_grace_start
 
         frontend_id = str(uuid.uuid4())
 
         with _frontends_lock:
             _registered_frontends[frontend_id] = time.time()
+
+            # If counter increased from 0, cancel grace period (refresh scenario)
+            if len(_registered_frontends) == 1 and _zero_frontends_grace_start is not None:
+                logging.info(f"Frontend registered during grace period - canceling shutdown timer")
+                _zero_frontends_grace_start = None
 
         logging.info(f"Frontend registered: {frontend_id} (total: {len(_registered_frontends)})")
 
@@ -775,7 +804,7 @@ def register_routes(app: Flask, config: Config):
         request body if present, or skip auth check (unregister is safe to call
         multiple times and doesn't expose sensitive data).
         """
-        global _registered_frontends, _frontends_lock
+        global _registered_frontends, _frontends_lock, _zero_frontends_grace_start
 
         # Validate token from header (normal case) or body (sendBeacon case)
         from .auth import verify_token
@@ -800,7 +829,13 @@ def register_routes(app: Flask, config: Config):
         with _frontends_lock:
             if frontend_id in _registered_frontends:
                 del _registered_frontends[frontend_id]
-                logging.info(f"Frontend unregistered: {frontend_id} (remaining: {len(_registered_frontends)})")
+                remaining = len(_registered_frontends)
+                logging.info(f"Frontend unregistered: {frontend_id} (remaining: {remaining})")
+
+                # If counter reached zero, start grace period timer (for refresh scenario)
+                if remaining == 0:
+                    _zero_frontends_grace_start = time.time()
+                    logging.info("Frontend counter reached zero - starting 10s grace period")
             else:
                 logging.debug(f"Attempt to unregister unknown frontend: {frontend_id}")
 
