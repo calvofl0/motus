@@ -10,6 +10,7 @@ import signal
 import sys
 import time
 import threading
+import uuid
 from pathlib import Path
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
@@ -28,8 +29,10 @@ from .api.remotes import remotes_bp, init_remote_management
 from .api.upload import upload_bp, init_upload, cleanup_cache
 
 
-# Global variables for idle timer
-_last_activity_time = None
+# Global variables for idle timer and frontend tracking
+_registered_frontends = {}  # {frontend_id: last_heartbeat_time}
+_frontends_lock = threading.Lock()
+_startup_time = None
 _idle_timer_thread = None
 _idle_timer_stop_event = None
 
@@ -215,54 +218,67 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
     logging.info("Signal handlers registered for graceful shutdown")
 
 
-def update_activity():
-    """Update the last activity timestamp"""
-    global _last_activity_time
-    _last_activity_time = time.time()
-
-
 def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
-    """Background worker to monitor idle time and shutdown if exceeded"""
-    global _idle_timer_stop_event, _last_activity_time
+    """
+    Background worker to monitor idle time and shutdown if exceeded
+
+    Shutdown conditions:
+    1. NEVER shutdown if running jobs exist (backend activity)
+    2. If no frontends registered AND max_idle_time passed since startup → shutdown
+    3. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
+    """
+    global _idle_timer_stop_event, _registered_frontends, _frontends_lock, _startup_time
 
     logging.info(f"Idle timer started - will shutdown after {max_idle_time} seconds of inactivity")
 
     while not _idle_timer_stop_event.is_set():
         time.sleep(10)  # Check every 10 seconds
 
-        if _last_activity_time is None:
-            continue  # No activity yet, skip
-
-        # Check if there are any running jobs
+        # Always keep alive if there are running jobs (backend activity)
         running_jobs = rclone.get_running_jobs()
         if running_jobs:
-            # There are active jobs, reset activity time
-            update_activity()
             continue
 
-        # Calculate idle time
-        idle_time = time.time() - _last_activity_time
+        with _frontends_lock:
+            frontend_count = len(_registered_frontends)
 
-        if idle_time >= max_idle_time:
-            logging.info(f"Idle timeout reached ({idle_time:.1f}s >= {max_idle_time}s) - shutting down")
-            # Shutdown in separate thread to avoid blocking
-            def shutdown_delayed():
-                perform_shutdown(rclone, db, config)
-                os._exit(0)
+            # Case 1: No frontends registered
+            if frontend_count == 0:
+                time_since_startup = time.time() - _startup_time
+                if time_since_startup >= max_idle_time:
+                    logging.info(f"No frontends registered for {time_since_startup:.1f}s >= {max_idle_time}s - shutting down")
+                    # Shutdown in separate thread to avoid blocking
+                    def shutdown_delayed():
+                        perform_shutdown(rclone, db, config)
+                        os._exit(0)
+                    threading.Thread(target=shutdown_delayed, daemon=True).start()
+                    break
 
-            threading.Thread(target=shutdown_delayed, daemon=True).start()
-            break
+            # Case 2: Frontends registered but all offline (no recent heartbeats)
+            else:
+                now = time.time()
+                most_recent_heartbeat = max(_registered_frontends.values()) if _registered_frontends else 0
+                time_since_last_heartbeat = now - most_recent_heartbeat
+
+                if time_since_last_heartbeat >= max_idle_time:
+                    logging.info(f"Frontends registered but no heartbeat for {time_since_last_heartbeat:.1f}s >= {max_idle_time}s - shutting down")
+                    # Shutdown in separate thread to avoid blocking
+                    def shutdown_delayed():
+                        perform_shutdown(rclone, db, config)
+                        os._exit(0)
+                    threading.Thread(target=shutdown_delayed, daemon=True).start()
+                    break
 
 
 def start_idle_timer(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
     """Start the idle timer background thread"""
-    global _idle_timer_thread, _idle_timer_stop_event, _last_activity_time
+    global _idle_timer_thread, _idle_timer_stop_event, _startup_time
 
     if max_idle_time <= 0:
         return  # Idle timer disabled
 
     _idle_timer_stop_event = threading.Event()
-    _last_activity_time = time.time()  # Initialize with current time
+    _startup_time = time.time()  # Initialize startup time
 
     _idle_timer_thread = threading.Thread(
         target=idle_timer_worker,
@@ -600,14 +616,6 @@ def create_app(config: Config = None):
     # Setup signal handlers for graceful shutdown
     setup_signal_handlers(rclone, db, config)
 
-    # Add activity tracking middleware
-    @app.before_request
-    def track_activity():
-        """Track user activity for idle timer"""
-        # Only track API requests (not static files)
-        if request.path.startswith('/api/'):
-            update_activity()
-
     # Add routes
     register_routes(app, config)
 
@@ -702,6 +710,93 @@ def register_routes(app: Flask, config: Config):
         except Exception as e:
             logging.error(f"Failed to save preferences: {e}")
             return jsonify({'error': 'Failed to save preferences'}), 500
+
+    @app.route('/api/frontend/register', methods=['POST'])
+    @token_required
+    def register_frontend():
+        """
+        Register a new frontend instance
+
+        Returns a unique frontend_id to be used for heartbeats and unregister
+        """
+        global _registered_frontends, _frontends_lock
+
+        frontend_id = str(uuid.uuid4())
+
+        with _frontends_lock:
+            _registered_frontends[frontend_id] = time.time()
+
+        logging.info(f"Frontend registered: {frontend_id} (total: {len(_registered_frontends)})")
+
+        return jsonify({'frontend_id': frontend_id})
+
+    @app.route('/api/frontend/heartbeat', methods=['POST'])
+    @token_required
+    def frontend_heartbeat():
+        """
+        Update heartbeat timestamp for a registered frontend
+
+        Expects JSON: {frontend_id: string}
+        """
+        global _registered_frontends, _frontends_lock
+
+        data = request.get_json()
+        frontend_id = data.get('frontend_id')
+
+        if not frontend_id:
+            return jsonify({'error': 'frontend_id required'}), 400
+
+        with _frontends_lock:
+            if frontend_id not in _registered_frontends:
+                # Frontend was unregistered or never registered
+                return jsonify({'error': 'frontend_id not registered'}), 404
+
+            _registered_frontends[frontend_id] = time.time()
+
+        return jsonify({'status': 'ok'})
+
+    @app.route('/api/frontend/unregister', methods=['POST'])
+    def unregister_frontend():
+        """
+        Unregister a frontend instance
+
+        Expects JSON: {frontend_id: string, auth_token: string (optional for sendBeacon)}
+
+        Note: This endpoint doesn't use @token_required decorator because sendBeacon
+        from beforeunload can't send custom headers. We validate the token from the
+        request body if present, or skip auth check (unregister is safe to call
+        multiple times and doesn't expose sensitive data).
+        """
+        global _registered_frontends, _frontends_lock
+
+        # Validate token from header (normal case) or body (sendBeacon case)
+        from .auth import verify_token
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            # Normal API call with header
+            token = auth_header.replace('token ', '', 1)
+            if not verify_token(token, config.config_dir):
+                return jsonify({'error': 'Invalid token'}), 401
+        # If no header, allow it through (sendBeacon from beforeunload)
+        # Unregister is safe - worst case is duplicate unregister of non-existent frontend
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data'}), 400
+
+        frontend_id = data.get('frontend_id')
+
+        if not frontend_id:
+            return jsonify({'error': 'frontend_id required'}), 400
+
+        with _frontends_lock:
+            if frontend_id in _registered_frontends:
+                del _registered_frontends[frontend_id]
+                logging.info(f"Frontend unregistered: {frontend_id} (remaining: {len(_registered_frontends)})")
+            else:
+                logging.debug(f"Attempt to unregister unknown frontend: {frontend_id}")
+
+        return jsonify({'status': 'ok'})
 
     @app.route('/api/shutdown', methods=['POST'])
     @token_required
