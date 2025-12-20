@@ -328,6 +328,26 @@ def stop_idle_timer():
         _idle_timer_stop_event.set()
 
 
+def get_instance_status() -> str:
+    """
+    Get current instance status for lock socket protocol
+
+    Returns:
+        "grace_period" - Counter reached zero, waiting for re-registration (F5)
+        "running" - Normal operation, frontends registered
+        "startup" - No frontends yet, but not in grace period
+    """
+    global _zero_frontends_grace_start, _registered_frontends, _frontends_lock
+
+    with _frontends_lock:
+        if _zero_frontends_grace_start is not None:
+            return "grace_period"
+        elif len(_registered_frontends) > 0:
+            return "running"
+        else:
+            return "startup"
+
+
 def cleanup_orphaned_two_phase_downloads(db: Database, config: Config):
     """
     Cancel orphaned two-phase downloads from previous crash/shutdown

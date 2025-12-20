@@ -25,10 +25,11 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from motus.backend.config import Config, parse_size
-from motus.backend.app import create_app
+from motus.backend.app import create_app, get_instance_status
 
 # Global lock socket for instance detection
 _lock_socket = None
+_get_backend_status = None  # Callback to get backend status (set after app creation)
 
 
 def is_port_in_use(host: str, port: int) -> bool:
@@ -115,7 +116,14 @@ def has_unix_sockets() -> bool:
 
 def check_via_socket(config: Config) -> dict:
     """
-    Check if instance is running using socket-based locking
+    Check if instance is running using socket-based locking with status protocol
+
+    Protocol:
+    - Connect to lock socket
+    - Receive status: "running", "grace_period", or "startup"
+    - If "running": instance is active, exit
+    - If "grace_period": instance is waiting for re-registration (F5), poll and wait
+    - If "startup": instance is starting up, no frontends yet, exit
 
     This method is robust against PID namespace issues in containers
     and auto-cleans up on process crashes.
@@ -134,48 +142,89 @@ def check_via_socket(config: Config) -> dict:
     if not lock_socket_path.exists():
         return None
 
-    # Try to connect to the lock socket
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        sock.connect(str(lock_socket_path))
-        # Connection successful = another instance is alive
-        sock.close()
+    # Try to connect and get status
+    max_wait_time = 15  # Maximum time to wait for grace period (should be > 10s grace period)
+    poll_interval = 1   # Check every second
+    start_time = time.time()
 
-        # Read connection info
-        if connection_file.exists():
+    while True:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.connect(str(lock_socket_path))
+
+            # Receive status from backend
+            sock.settimeout(2.0)
             try:
-                with open(connection_file, 'r') as f:
-                    conn_info = json.load(f)
-                logging.debug(f"Found running instance via socket: {conn_info.get('url')}")
-                return conn_info
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                logging.warning(f"Running instance found but connection file corrupted: {e}")
-                return {'running': True}  # Running but no connection info
+                status = sock.recv(1024).decode('utf-8').strip()
+            except socket.timeout:
+                status = "running"  # Default if no response (backward compat)
 
-        return {'running': True}
-
-    except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
-        # Socket exists but can't connect = stale socket from crash
-        logging.debug(f"Stale lock socket detected: {e}")
-        try:
-            lock_socket_path.unlink()
-            logging.debug("Removed stale lock socket")
-        except Exception as unlink_err:
-            logging.warning(f"Could not remove stale lock socket: {unlink_err}")
-        return None
-    except Exception as e:
-        logging.warning(f"Unexpected error checking lock socket: {e}")
-        return None
-    finally:
-        try:
             sock.close()
-        except:
-            pass
+
+            # Handle different statuses
+            if status == "grace_period":
+                elapsed = time.time() - start_time
+                if elapsed < max_wait_time:
+                    logging.info(f"Instance in grace period, waiting... ({elapsed:.1f}s / {max_wait_time}s)")
+                    time.sleep(poll_interval)
+                    continue  # Poll again
+                else:
+                    logging.info("Grace period wait timeout, treating as stale")
+                    return None  # Timeout - let us start
+
+            elif status in ("running", "startup"):
+                # Instance is running or starting up
+                # Read connection info
+                if connection_file.exists():
+                    try:
+                        with open(connection_file, 'r') as f:
+                            conn_info = json.load(f)
+                        logging.debug(f"Found running instance via socket (status: {status}): {conn_info.get('url')}")
+                        return conn_info
+                    except (json.JSONDecodeError, FileNotFoundError) as e:
+                        logging.warning(f"Running instance found but connection file corrupted: {e}")
+                        return {'running': True}  # Running but no connection info
+
+                return {'running': True}
+
+            else:
+                # Unknown status, treat as running
+                logging.warning(f"Unknown instance status: {status}")
+                return {'running': True}
+
+        except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
+            # Socket exists but can't connect = stale socket from crash
+            logging.debug(f"Stale lock socket detected: {e}")
+            try:
+                lock_socket_path.unlink()
+                logging.debug("Removed stale lock socket")
+            except Exception as unlink_err:
+                logging.warning(f"Could not remove stale lock socket: {unlink_err}")
+            return None
+        except Exception as e:
+            logging.warning(f"Unexpected error checking lock socket: {e}")
+            return None
+        finally:
+            try:
+                sock.close()
+            except:
+                pass
+
+
+def set_backend_status_callback(callback):
+    """Set callback to query backend status for lock socket protocol"""
+    global _get_backend_status
+    _get_backend_status = callback
 
 
 def create_lock_socket(config: Config):
     """
     Create and bind lock socket to prevent multiple instances
+
+    The socket implements a status protocol:
+    - Accepts connections
+    - Sends status: "running", "grace_period", or "startup"
+    - Closes connection
 
     Returns:
         Socket object if successful, None otherwise
@@ -206,12 +255,26 @@ def create_lock_socket(config: Config):
         _lock_socket.listen(1)
         logging.debug(f"Created lock socket at {lock_socket_path}")
 
-        # Handle connections in background thread (just accept and close)
+        # Handle connections in background thread with status protocol
         def handle_socket_connections():
             while True:
                 try:
                     conn, _ = _lock_socket.accept()
-                    conn.close()  # Just close - our presence means we're alive
+
+                    # Get backend status
+                    if _get_backend_status:
+                        status = _get_backend_status()
+                    else:
+                        status = "startup"  # Default before backend is ready
+
+                    # Send status to client
+                    try:
+                        conn.sendall(status.encode('utf-8'))
+                    except Exception as send_err:
+                        logging.debug(f"Error sending status: {send_err}")
+
+                    conn.close()
+
                 except Exception as e:
                     # Socket closed or error - thread should exit
                     logging.debug(f"Lock socket handler exiting: {e}")
@@ -674,6 +737,9 @@ def main():
         logging.exception("Application creation failed")
         cleanup_lock_socket(config)
         sys.exit(1)
+
+    # Set backend status callback for lock socket protocol
+    set_backend_status_callback(get_instance_status)
 
     # Write connection info for instance detection
     try:
