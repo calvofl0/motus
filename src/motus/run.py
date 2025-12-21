@@ -25,7 +25,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from motus.backend.config import Config, parse_size
-from motus.backend.app import create_app, get_instance_status
+from motus.backend.app import create_app, get_instance_status, setup_logging
 
 # Global lock socket for instance detection
 _lock_socket = None
@@ -239,6 +239,10 @@ def create_lock_socket(config: Config):
     runtime_dir.mkdir(parents=True, exist_ok=True)
     lock_socket_path = runtime_dir / 'motus.lock'
 
+    logging.debug(f"Creating lock socket at: {lock_socket_path}")
+    logging.debug(f"Runtime directory exists: {runtime_dir.exists()}")
+    logging.debug(f"Runtime directory is writable: {os.access(runtime_dir, os.W_OK)}")
+
     # Remove stale socket if exists
     if lock_socket_path.exists():
         try:
@@ -253,7 +257,14 @@ def create_lock_socket(config: Config):
         _lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         _lock_socket.bind(str(lock_socket_path))
         _lock_socket.listen(1)
-        logging.debug(f"Created lock socket at {lock_socket_path}")
+
+        # Verify socket file was created
+        if lock_socket_path.exists():
+            logging.debug(f"Created lock socket at {lock_socket_path}")
+        else:
+            logging.error(f"Socket bind succeeded but file not created at {lock_socket_path}")
+            logging.error(f"Socket details: {_lock_socket}")
+            # Continue anyway - socket might still work
 
         # Handle connections in background thread with status protocol
         def handle_socket_connections():
@@ -685,6 +696,11 @@ def main():
     if args.allow_expert_mode:
         config.allow_expert_mode = True
 
+    # Configure logging EARLY, before any logging calls
+    # This must happen before check_existing_instance() and create_lock_socket()
+    # because those functions use logging
+    setup_logging(config)
+
     # Check for existing instance on this data directory
     existing = check_existing_instance(config)
     if existing:
@@ -724,10 +740,15 @@ def main():
 
     # Create lock socket to prevent multiple instances
     try:
-        create_lock_socket(config)
-        logging.debug("Lock socket created successfully")
+        sock = create_lock_socket(config)
+        if sock:
+            logging.debug(f"Lock socket created successfully")
+        else:
+            logging.warning("Lock socket creation returned None (likely not supported)")
     except Exception as e:
-        logging.warning(f"Could not create lock socket: {e}")
+        logging.error(f"Exception during lock socket creation: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
 
     # Create Flask app
     try:
