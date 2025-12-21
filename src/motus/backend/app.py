@@ -172,38 +172,38 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
 
 
 def cleanup_connection_info(config: Config):
-    """Remove PID, lock socket, and connection info files"""
+    """
+    Remove stale PID and connection info files from previous crashes
+
+    NOTE: Does NOT remove lock socket - that's managed by run.py and should
+    only be removed on graceful shutdown via cleanup_lock_socket()
+    """
     runtime_dir = Path(config.runtime_dir)
     pid_file = runtime_dir / 'motus.pid'
-    lock_socket_file = runtime_dir / 'motus.lock'
     connection_file = runtime_dir / 'connection.json'
     dev_port_file = runtime_dir / 'dev-port.json'
 
     try:
         if pid_file.exists():
             pid_file.unlink()
-            logging.debug(f"Removed PID file: {pid_file}")
+            logging.debug(f"Removed stale PID file: {pid_file}")
     except Exception as e:
         logging.warning(f"Could not remove PID file: {e}")
 
-    try:
-        if lock_socket_file.exists():
-            lock_socket_file.unlink()
-            logging.debug(f"Removed lock socket: {lock_socket_file}")
-    except Exception as e:
-        logging.warning(f"Could not remove lock socket: {e}")
+    # DO NOT remove lock socket here - it's actively managed by run.py
+    # Removing it here causes the socket to disappear after create_lock_socket()
 
     try:
         if connection_file.exists():
             connection_file.unlink()
-            logging.debug(f"Removed connection file: {connection_file}")
+            logging.debug(f"Removed stale connection file: {connection_file}")
     except Exception as e:
         logging.warning(f"Could not remove connection file: {e}")
 
     try:
         if dev_port_file.exists():
             dev_port_file.unlink()
-            logging.debug(f"Removed dev port file: {dev_port_file}")
+            logging.debug(f"Removed stale dev port file: {dev_port_file}")
     except Exception as e:
         logging.warning(f"Could not remove dev port file: {e}")
 
@@ -910,10 +910,19 @@ def register_routes(app: Flask, config: Config):
 
 def setup_logging(config: Config):
     """Setup logging configuration"""
+    import os
+    from pathlib import Path
+
     # Convert log level string to logging constant
     level = getattr(logging, config.log_level, logging.WARNING)
 
+    # Ensure log file directory exists
+    log_file_path = Path(config.log_file)
+    log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Configure root logger
+    # NOTE: basicConfig only works if logging hasn't been configured yet.
+    # This is why we call setup_logging() early in run.py before any logging calls.
     logging.basicConfig(
         level=level,
         format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
