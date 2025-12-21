@@ -60,9 +60,6 @@ onMounted(async () => {
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
-
-  // Setup quit-frontend handler for Quit button
-  window.addEventListener('quit-frontend', handleQuitFrontend)
 })
 
 async function checkInterruptedJobs() {
@@ -101,7 +98,14 @@ async function sendHeartbeat() {
   if (!frontendId) return
 
   try {
-    await apiCall('/api/frontend/heartbeat', 'POST', { frontend_id: frontendId })
+    const response = await apiCall('/api/frontend/heartbeat', 'POST', { frontend_id: frontendId })
+
+    // Check if server is shutting down
+    if (response.shutting_down) {
+      console.log('[Frontend] Server shutting down - showing shutdown page')
+      showShutdownPage()
+      return
+    }
 
     // Connection successful, clear connection lost flag
     if (connectionLost.value) {
@@ -137,10 +141,7 @@ function handleBeforeUnload() {
   }
 }
 
-async function handleQuitFrontend() {
-  // Handle Quit button click - unregister frontend and show closure message
-  console.log('[Frontend] Quit button pressed - unregistering and closing tab')
-
+function showShutdownPage() {
   // Stop heartbeat interval
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval)
@@ -150,20 +151,14 @@ async function handleQuitFrontend() {
   // Notify components to stop polling
   window.dispatchEvent(new CustomEvent('server-shutting-down'))
 
-  // Unregister frontend (backend will shutdown when last frontend unregisters)
-  await unregisterFrontend()
-
-  // Show tab closure message
+  // Show shutdown message
   document.body.innerHTML = `
     <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <h1 style="color:#28a745; margin-bottom:20px;">✓ Tab Closed</h1>
+      <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
       <p style="font-size:18px; color:#666; margin-bottom:30px;">
-        This tab has been disconnected from the server.
+        The Motus server has been shut down gracefully.
       </p>
       <p style="color:#999; font-size:14px;">
-        The server will shutdown automatically when all tabs are closed.
-      </p>
-      <p style="color:#999; font-size:14px; margin-top:20px;">
         You can close this window now.
       </p>
     </div>
@@ -292,7 +287,6 @@ onUnmounted(() => {
   })
 
   window.removeEventListener('beforeunload', handleBeforeUnload)
-  window.removeEventListener('quit-frontend', handleQuitFrontend)
 
   // Unregister frontend on component unmount (shouldn't happen in normal operation)
   unregisterFrontend()

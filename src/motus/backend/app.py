@@ -36,6 +36,7 @@ _startup_time = None
 _idle_timer_thread = None
 _idle_timer_stop_event = None
 _zero_frontends_grace_start = None  # Time when counter reached zero (for refresh grace period)
+_shutting_down = False  # Flag to notify frontends that server is shutting down
 
 
 def safe_remove(path):
@@ -801,8 +802,9 @@ def register_routes(app: Flask, config: Config):
         Update heartbeat timestamp for a registered frontend
 
         Expects JSON: {frontend_id: string}
+        Returns: {status: ok, shutting_down: bool}
         """
-        global _registered_frontends, _frontends_lock
+        global _registered_frontends, _frontends_lock, _shutting_down
 
         data = request.get_json()
         frontend_id = data.get('frontend_id')
@@ -817,7 +819,22 @@ def register_routes(app: Flask, config: Config):
 
             _registered_frontends[frontend_id] = time.time()
 
-        return jsonify({'status': 'ok'})
+        return jsonify({'status': 'ok', 'shutting_down': _shutting_down})
+
+    @app.route('/api/frontend/count', methods=['GET'])
+    @token_required
+    def frontend_count():
+        """
+        Get count of currently registered frontends
+
+        Returns: {count: int}
+        """
+        global _registered_frontends, _frontends_lock
+
+        with _frontends_lock:
+            count = len(_registered_frontends)
+
+        return jsonify({'count': count})
 
     @app.route('/api/frontend/unregister', methods=['POST'])
     def unregister_frontend():
@@ -874,9 +891,17 @@ def register_routes(app: Flask, config: Config):
         """
         Gracefully shutdown the server
 
+        Sets global shutdown flag to notify all frontends via heartbeat
+
         Returns count of running jobs that were stopped
         """
+        global _shutting_down
+
         running_jobs_count = len(app.rclone.get_running_jobs())
+
+        # Set shutdown flag so frontends are notified via heartbeat
+        _shutting_down = True
+        logging.info("Shutdown initiated - all frontends will be notified via heartbeat")
 
         # Shutdown in background thread to allow response to be sent
         def shutdown_delayed():

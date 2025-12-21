@@ -166,33 +166,50 @@ function toggleMode() {
 
 async function quitServer() {
   try {
+    // Check how many frontends are registered
+    const frontendData = await apiCall('/api/frontend/count')
+    const frontendCount = frontendData.count || 0
+
     // Check for running jobs
     const jobsData = await apiCall('/api/jobs?status=running')
     const runningCount = jobsData.jobs ? jobsData.jobs.length : 0
 
-    // Show confirmation with appropriate message
-    let confirmMessage = 'Are you sure you want to close this tab?\n\n' +
-      'The server will shutdown automatically if this is the last open tab.'
-    if (runningCount > 0) {
-      confirmMessage = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-        `If you close the last tab, these jobs will be stopped and marked as interrupted.\n\n` +
-        `Are you sure you want to close this tab?`
+    // Build confirmation message
+    let confirmMessage = 'Are you sure you want to quit the server?'
+
+    // Warn about other tabs if they exist
+    if (frontendCount > 1) {
+      const otherTabs = frontendCount - 1
+      confirmMessage = `⚠️ Warning: ${otherTabs} other tab(s) are currently open.\n\n` +
+        `Shutting down will close the server for all tabs.\n\n`
     }
+
+    // Warn about running jobs
+    if (runningCount > 0) {
+      confirmMessage += `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
+        `These jobs will be stopped and marked as interrupted.\n\n`
+    }
+
+    confirmMessage += `Are you sure you want to quit?`
 
     if (!confirm(confirmMessage)) {
       return
     }
 
-    // Dispatch event for App.vue to handle frontend unregistration
-    // App.vue will unregister the frontend, which triggers backend shutdown
-    // when the last frontend unregisters (via grace period mechanism)
-    window.dispatchEvent(new CustomEvent('quit-frontend'))
+    // Notify components to stop polling before shutdown
+    window.dispatchEvent(new CustomEvent('server-shutting-down'))
+
+    // Delay to let components clean up
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Shutdown server - backend will notify all frontends via heartbeat
+    await apiCall('/api/shutdown', 'POST')
+
+    // Note: No need to manually show shutdown page here
+    // The heartbeat will detect shutting_down flag and show it for all tabs
   } catch (error) {
-    console.error('[Quit] Failed to check running jobs:', error)
-    // Still allow quit even if job check fails
-    if (confirm('Failed to check running jobs. Close this tab anyway?')) {
-      window.dispatchEvent(new CustomEvent('quit-frontend'))
-    }
+    console.error('[Quit] Shutdown failed:', error)
+    alert(`Failed to shutdown server: ${error.message}`)
   }
 }
 
