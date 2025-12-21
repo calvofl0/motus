@@ -515,6 +515,11 @@ def main():
         help='Log level (default: WARNING, or MOTUS_LOG_LEVEL env var)'
     )
     parser.add_argument(
+        '--log-file',
+        type=str,
+        help='Path to log file (default: {cache_dir}/motus.log, or MOTUS_LOG_FILE env var)'
+    )
+    parser.add_argument(
         '-v', '--verbose',
         action='count',
         default=0,
@@ -647,6 +652,8 @@ def main():
         config.log_level = 'INFO'
     elif args.verbose >= 2:
         config.log_level = 'DEBUG'
+    if args.log_file:
+        config.log_file = args.log_file
     if args.allow_cors:
         config.allow_cors = True
     if args.expert_mode:

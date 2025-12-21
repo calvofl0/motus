@@ -265,8 +265,12 @@ class Config:
             default='WARNING'
         ).upper()
 
-        # Log file (in cache directory - logs are ephemeral)
-        self.log_file = os.path.join(self.cache_dir, 'motus.log')
+        # Log file (in cache directory - logs are ephemeral, unless overridden)
+        self.log_file = self._get_config(
+            'log_file',
+            env_var='MOTUS_LOG_FILE',
+            default=os.path.join(self.cache_dir, 'motus.log')
+        )
 
         # Flask secret key (for sessions)
         self.secret_key = self._get_config(

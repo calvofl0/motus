@@ -832,7 +832,7 @@ def register_routes(app: Flask, config: Config):
         if auth_header:
             # Normal API call with header
             token = auth_header.replace('token ', '', 1)
-            if not verify_token(token, config.config_dir):
+            if not verify_token(token):
                 return jsonify({'error': 'Invalid token'}), 401
         # If no header, allow it through (sendBeacon from beforeunload)
         # Unregister is safe - worst case is duplicate unregister of non-existent frontend
@@ -919,6 +919,13 @@ def setup_logging(config: Config):
     # Ensure log file directory exists
     log_file_path = Path(config.log_file)
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Wipe the log file to start fresh for this session
+    try:
+        with open(config.log_file, 'w') as f:
+            pass  # Truncate file
+    except Exception as e:
+        print(f"[WARNING] Could not wipe log file {config.log_file}: {e}", file=sys.stderr)
 
     # Get root logger
     root_logger = logging.getLogger()
