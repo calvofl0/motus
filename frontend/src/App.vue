@@ -60,6 +60,9 @@ onMounted(async () => {
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
+
+  // Setup quit-frontend handler for Quit button
+  window.addEventListener('quit-frontend', handleQuitFrontend)
 })
 
 async function checkInterruptedJobs() {
@@ -132,6 +135,39 @@ function handleBeforeUnload() {
     // The backend unregister endpoint should be lenient about this
     navigator.sendBeacon('/api/frontend/unregister', blob)
   }
+}
+
+async function handleQuitFrontend() {
+  // Handle Quit button click - unregister frontend and show closure message
+  console.log('[Frontend] Quit button pressed - unregistering and closing tab')
+
+  // Stop heartbeat interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval)
+    heartbeatInterval = null
+  }
+
+  // Notify components to stop polling
+  window.dispatchEvent(new CustomEvent('server-shutting-down'))
+
+  // Unregister frontend (backend will shutdown when last frontend unregisters)
+  await unregisterFrontend()
+
+  // Show tab closure message
+  document.body.innerHTML = `
+    <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h1 style="color:#28a745; margin-bottom:20px;">✓ Tab Closed</h1>
+      <p style="font-size:18px; color:#666; margin-bottom:30px;">
+        This tab has been disconnected from the server.
+      </p>
+      <p style="color:#999; font-size:14px;">
+        The server will shutdown automatically when all tabs are closed.
+      </p>
+      <p style="color:#999; font-size:14px; margin-top:20px;">
+        You can close this window now.
+      </p>
+    </div>
+  `
 }
 
 function handleConnectionError(error) {
@@ -256,6 +292,7 @@ onUnmounted(() => {
   })
 
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('quit-frontend', handleQuitFrontend)
 
   // Unregister frontend on component unmount (shouldn't happen in normal operation)
   unregisterFrontend()

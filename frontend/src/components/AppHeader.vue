@@ -171,49 +171,28 @@ async function quitServer() {
     const runningCount = jobsData.jobs ? jobsData.jobs.length : 0
 
     // Show confirmation with appropriate message
-    let confirmMessage = 'Are you sure you want to quit the server?'
+    let confirmMessage = 'Are you sure you want to close this tab?\n\n' +
+      'The server will shutdown automatically if this is the last open tab.'
     if (runningCount > 0) {
       confirmMessage = `⚠️ Warning: ${runningCount} job(s) are currently running.\n\n` +
-        `If you quit now, these jobs will be stopped and marked as interrupted.\n\n` +
-        `Are you sure you want to quit?`
+        `If you close the last tab, these jobs will be stopped and marked as interrupted.\n\n` +
+        `Are you sure you want to close this tab?`
     }
 
     if (!confirm(confirmMessage)) {
       return
     }
 
-    // Notify components to stop polling before shutdown
-    window.dispatchEvent(new CustomEvent('server-shutting-down'))
-
-    // Delay to let components clean up (intervals are 2-5s, need time for them to clear)
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Shutdown server
-    const shutdownData = await apiCall('/api/shutdown', 'POST')
-
-    // Show success message
-    const jobsStoppedMessage = shutdownData.running_jobs_stopped > 0
-      ? `<p style="color:#666; margin-bottom:20px;">
-          ${shutdownData.running_jobs_stopped} running job(s) were stopped and marked as interrupted.
-          You can resume them next time you start the server.
-        </p>`
-      : ''
-
-    document.body.innerHTML = `
-      <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <h1 style="color:#28a745; margin-bottom:20px;">✓ Server Stopped Successfully</h1>
-        <p style="font-size:18px; color:#666; margin-bottom:30px;">
-          The Motus server has been shut down gracefully.
-        </p>
-        ${jobsStoppedMessage}
-        <p style="color:#999; font-size:14px;">
-          You can close this window now.
-        </p>
-      </div>
-    `
+    // Dispatch event for App.vue to handle frontend unregistration
+    // App.vue will unregister the frontend, which triggers backend shutdown
+    // when the last frontend unregisters (via grace period mechanism)
+    window.dispatchEvent(new CustomEvent('quit-frontend'))
   } catch (error) {
-    console.error('[Quit] Shutdown failed:', error)
-    alert(`Failed to shutdown server: ${error.message}`)
+    console.error('[Quit] Failed to check running jobs:', error)
+    // Still allow quit even if job check fails
+    if (confirm('Failed to check running jobs. Close this tab anyway?')) {
+      window.dispatchEvent(new CustomEvent('quit-frontend'))
+    }
   }
 }
 
