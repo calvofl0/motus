@@ -459,6 +459,7 @@ motus -d /path/to/data                            # Custom data directory (--dat
 motus --cache-dir /path/to/cache                  # Custom cache directory (default: {data_dir}/cache)
 motus -c config.yml                               # Path to config file (--config)
 motus --log-level INFO                            # Set log level
+motus --log-file /path/to/logfile.log             # Custom log file location (default: {cache_dir}/motus.log)
 motus -v                                          # Verbose mode (INFO level, --log-level takes precedence)
 motus -vv                                         # Very verbose mode (DEBUG level)
 motus --no-browser                                # Don't open browser
@@ -486,6 +487,7 @@ export MOTUS_CONFIG_DIR=/path/to/config                  # Override config direc
 export MOTUS_CACHE_DIR=/path/to/cache                    # Override cache directory
 export MOTUS_RUNTIME_DIR=/path/to/runtime                # Override runtime directory (PID, connection files)
 export MOTUS_LOG_LEVEL=INFO
+export MOTUS_LOG_FILE=/path/to/logfile.log               # Override log file location (default: {cache_dir}/motus.log)
 export MOTUS_HOST=0.0.0.0                                # Bind to all interfaces
 export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
@@ -518,6 +520,7 @@ runtime_dir: /custom/runtime                    # Override runtime directory (PI
 port: 5000
 host: 127.0.0.1
 log_level: INFO
+log_file: /path/to/logfile.log                 # Custom log file location (default: {cache_dir}/motus.log)
 
 # UI configuration
 default_mode: expert
