@@ -920,17 +920,37 @@ def setup_logging(config: Config):
     log_file_path = Path(config.log_file)
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Configure root logger
-    # NOTE: basicConfig only works if logging hasn't been configured yet.
-    # This is why we call setup_logging() early in run.py before any logging calls.
-    logging.basicConfig(
-        level=level,
-        format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-        handlers=[
-            logging.FileHandler(config.log_file),
-            logging.StreamHandler(),
-        ]
-    )
+    # Get root logger
+    root_logger = logging.getLogger()
+
+    # CRITICAL: basicConfig() does NOTHING if root logger already has handlers
+    # Some imports may have already configured logging, so we must force it
+    # Clear any existing handlers first
+    if root_logger.handlers:
+        print(f"[WARNING] Root logger already has {len(root_logger.handlers)} handler(s). Clearing them.", file=sys.stderr)
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+
+    # Set log level
+    root_logger.setLevel(level)
+
+    # Create formatter
+    formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+
+    # Add file handler
+    file_handler = logging.FileHandler(config.log_file)
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+
+    # Add stream handler (stderr)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(level)
+    stream_handler.setFormatter(formatter)
+    root_logger.addHandler(stream_handler)
+
+    # Log confirmation that file logging is working
+    logging.info(f"Logging configured: level={config.log_level}, file={config.log_file}")
 
     # Reduce noise from libraries
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
