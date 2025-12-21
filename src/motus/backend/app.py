@@ -269,6 +269,8 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
                         os._exit(0)
                     threading.Thread(target=shutdown_delayed, daemon=True).start()
                     break
+                elif _zero_frontends_grace_start is None:
+                    logging.debug(f"No frontends registered yet - waiting ({time_since_startup:.1f}s / {max_idle_time}s)")
 
                 # If we had frontends but counter reached zero, use grace period
                 elif _zero_frontends_grace_start is not None:
@@ -281,6 +283,8 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
                             os._exit(0)
                         threading.Thread(target=shutdown_delayed, daemon=True).start()
                         break
+                    else:
+                        logging.debug(f"Grace period active - counter at zero for {time_since_zero:.1f}s / {GRACE_PERIOD}s")
 
             # Case 2: Frontends registered
             else:
@@ -300,6 +304,8 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
                         os._exit(0)
                     threading.Thread(target=shutdown_delayed, daemon=True).start()
                     break
+                else:
+                    logging.debug(f"Idle check: {frontend_count} frontend(s) registered, last heartbeat {time_since_last_heartbeat:.1f}s ago (idle timeout: {max_idle_time}s)")
 
 
 def start_idle_timer(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
@@ -780,7 +786,8 @@ def register_routes(app: Flask, config: Config):
 
             # If counter increased from 0, cancel grace period (refresh scenario)
             if len(_registered_frontends) == 1 and _zero_frontends_grace_start is not None:
-                logging.info(f"Frontend registered during grace period - canceling shutdown timer")
+                grace_elapsed = time.time() - _zero_frontends_grace_start
+                logging.info(f"Frontend registered during grace period (after {grace_elapsed:.1f}s) - canceling shutdown timer")
                 _zero_frontends_grace_start = None
 
         logging.info(f"Frontend registered: {frontend_id} (total: {len(_registered_frontends)})")
