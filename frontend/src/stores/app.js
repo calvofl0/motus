@@ -60,8 +60,9 @@ export const useAppStore = defineStore('app', () => {
   })
 
   // Actions
-  async function initialize() {
+  function initializeAuth() {
     // Try to load token from URL, localStorage, or cookie
+    // This must happen before any API calls (including frontend registration)
     const urlParams = new URLSearchParams(window.location.search)
     const tokenFromUrl = urlParams.get('token')
 
@@ -91,7 +92,9 @@ export const useAppStore = defineStore('app', () => {
         }
       }
     }
+  }
 
+  async function initialize() {
     // Load config to get defaults
     let configAbsolutePaths = false
     try {
@@ -266,6 +269,7 @@ export const useAppStore = defineStore('app', () => {
     effectiveTheme,
 
     // Actions
+    initializeAuth,
     initialize,
     setMode,
     toggleViewMode,

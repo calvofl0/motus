@@ -46,11 +46,14 @@ let lastActivityTime = Date.now()
 let idleCheckInterval = null
 
 onMounted(async () => {
-  // Initialize app on mount
-  await appStore.initialize()
+  // Load auth token FIRST (no API calls)
+  appStore.initializeAuth()
 
-  // Register frontend with backend
+  // Register frontend with backend - FIRST API call
   await registerFrontend()
+
+  // Initialize app (loads config and preferences)
+  await appStore.initialize()
 
   // Check for interrupted jobs after initialization
   await checkInterruptedJobs()
