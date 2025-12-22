@@ -60,9 +60,6 @@ onMounted(async () => {
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
-
-  // Setup show-shutdown-page handler for Quit button
-  window.addEventListener('show-shutdown-page', showShutdownPage)
 })
 
 async function checkInterruptedJobs() {
@@ -306,7 +303,6 @@ onUnmounted(() => {
   })
 
   window.removeEventListener('beforeunload', handleBeforeUnload)
-  window.removeEventListener('show-shutdown-page', showShutdownPage)
 
   // Unregister frontend on component unmount (shouldn't happen in normal operation)
   unregisterFrontend()

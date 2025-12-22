@@ -196,23 +196,42 @@ async function quitServer() {
       return
     }
 
+    // Show "Shutting down..." overlay before making the call
+    document.body.innerHTML = `
+      <div style="max-width:800px; margin:100px auto; text-align:center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="display: inline-block; position: relative;">
+          <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+          <style>
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          </style>
+        </div>
+        <h1 style="color:#3498db; margin-bottom:20px;">Shutting Down Server...</h1>
+        <p style="font-size:18px; color:#666; margin-bottom:30px;">
+          Please wait while the server shuts down gracefully.
+        </p>
+        <p style="color:#999; font-size:14px;">
+          All tabs will show a confirmation message shortly.
+        </p>
+      </div>
+    `
+
     // Notify components to stop polling before shutdown
     window.dispatchEvent(new CustomEvent('server-shutting-down'))
 
     // Delay to let components clean up
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    // Shutdown server - backend will notify all frontends via heartbeat
-    const shutdownData = await apiCall('/api/shutdown', 'POST')
+    // Shutdown server - backend will set shutting_down flag
+    // All frontends will detect it via heartbeat and show shutdown page
+    await apiCall('/api/shutdown', 'POST')
 
-    // Show shutdown page immediately (don't wait for heartbeat)
-    // Trigger the same mechanism that heartbeat would trigger
-    window.dispatchEvent(new CustomEvent('show-shutdown-page', {
-      detail: { running_jobs_stopped: shutdownData.running_jobs_stopped }
-    }))
+    // Heartbeat will detect shutting_down=true and show the final shutdown page
+    // for all tabs (including this one) within ~5 seconds
   } catch (error) {
     console.error('[Quit] Shutdown failed:', error)
+    // Restore the page since shutdown failed
     alert(`Failed to shutdown server: ${error.message}`)
+    location.reload()
   }
 }
 
