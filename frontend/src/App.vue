@@ -27,7 +27,7 @@ import AppHeader from './components/AppHeader.vue'
 import ManageRemotesModal from './components/modals/ManageRemotesModal.vue'
 import InterruptedJobsModal from './components/modals/InterruptedJobsModal.vue'
 import { useAppStore } from './stores/app'
-import { apiCall } from './services/api'
+import { apiCall, getApiUrl } from './services/api'
 
 const appStore = useAppStore()
 const showInterruptedJobsModal = ref(false)
@@ -143,7 +143,7 @@ function handleBeforeUnload() {
       console.log('[Frontend] Sending unregister beacon with payload:', payload)
 
       // sendBeacon returns false if queuing failed
-      const success = navigator.sendBeacon('/api/frontend/unregister', blob)
+      const success = navigator.sendBeacon(getApiUrl('/api/frontend/unregister'), blob)
       console.log('[Frontend] sendBeacon result:', success)
 
       if (!success) {
