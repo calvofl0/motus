@@ -38,6 +38,12 @@ _idle_timer_stop_event = None
 _zero_frontends_grace_start = None  # Time when counter reached zero (for refresh grace period)
 _shutting_down = False  # Flag to notify frontends that server is shutting down
 
+# Grace period for frontend disconnections and shutdown coordination (seconds)
+# Used when:
+# 1. Frontend counter reaches zero (allows F5/refresh to re-register)
+# 2. Shutdown initiated (allows all tabs to receive notification via heartbeat)
+GRACE_PERIOD = 10
+
 
 def safe_remove(path):
     """
@@ -250,8 +256,6 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
     4. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
     """
     global _idle_timer_stop_event, _registered_frontends, _frontends_lock, _startup_time, _zero_frontends_grace_start
-
-    GRACE_PERIOD = 10  # seconds - grace period when counter reaches zero (for refresh)
 
     logging.info(f"Idle timer started - will shutdown after {max_idle_time} seconds of inactivity")
 
@@ -921,8 +925,8 @@ def register_routes(app: Flask, config: Config):
         # Shutdown in background thread to allow response to be sent
         def shutdown_delayed():
             import sys
-            print("\n[Shutdown] Thread started, waiting 0.5s...", file=sys.stderr, flush=True)
-            time.sleep(0.5)  # Give time for response to be sent
+            print(f"\n[Shutdown] Thread started, waiting {GRACE_PERIOD}s for all frontends to be notified...", file=sys.stderr, flush=True)
+            time.sleep(GRACE_PERIOD)  # Give all tabs time to receive shutdown notification via heartbeat
             print("[Shutdown] Calling perform_shutdown()...", file=sys.stderr, flush=True)
             try:
                 perform_shutdown(app.rclone, app.db, app.motus_config)
