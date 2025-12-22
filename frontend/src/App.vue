@@ -45,6 +45,21 @@ let maxIdleTime = 0 // seconds, 0 = disabled
 let lastActivityTime = Date.now()
 let idleCheckInterval = null
 
+// Helper to stop all timers and intervals
+function stopAllTimers() {
+  // Stop heartbeat interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval)
+    heartbeatInterval = null
+  }
+
+  // Stop idle check interval
+  if (idleCheckInterval) {
+    clearInterval(idleCheckInterval)
+    idleCheckInterval = null
+  }
+}
+
 onMounted(async () => {
   // Load auth token FIRST (no API calls)
   appStore.initializeAuth()
@@ -169,11 +184,8 @@ function handleBeforeUnload() {
 }
 
 function showShutdownPage() {
-  // Stop heartbeat interval
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval)
-    heartbeatInterval = null
-  }
+  // Stop all timers and intervals
+  stopAllTimers()
 
   // Notify components to stop polling
   window.dispatchEvent(new CustomEvent('server-shutting-down'))
@@ -255,11 +267,8 @@ async function checkIdleStatus() {
 
 async function performAutoQuit() {
   try {
-    // Stop heartbeat interval
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval)
-      heartbeatInterval = null
-    }
+    // Stop all timers and intervals
+    stopAllTimers()
 
     // Notify components to stop polling
     window.dispatchEvent(new CustomEvent('server-shutting-down'))
@@ -297,15 +306,8 @@ async function performAutoQuit() {
 }
 
 onUnmounted(() => {
-  // Cleanup heartbeat interval
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval)
-  }
-
-  // Cleanup idle timeout
-  if (idleCheckInterval) {
-    clearInterval(idleCheckInterval)
-  }
+  // Stop all timers and intervals
+  stopAllTimers()
 
   // Remove event listeners
   const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
