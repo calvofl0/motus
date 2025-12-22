@@ -165,6 +165,15 @@ def perform_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
     # Clean up connection info files
     cleanup_connection_info(config)
 
+    # Clean up lock socket file (run.py's cleanup_lock_socket won't run due to os._exit)
+    lock_socket_path = Path(config.runtime_dir) / 'motus.lock'
+    try:
+        if lock_socket_path.exists():
+            lock_socket_path.unlink()
+            logging.debug(f"Removed lock socket file: {lock_socket_path}")
+    except Exception as e:
+        logging.warning(f"Could not remove lock socket file: {e}")
+
     # Clean up download cache - remove ALL zips on shutdown
     cleanup_download_cache(config, clean_all=True)
 
@@ -850,6 +859,9 @@ def register_routes(app: Flask, config: Config):
         """
         global _registered_frontends, _frontends_lock, _zero_frontends_grace_start
 
+        logging.debug(f"[Unregister] Request received - Content-Type: {request.content_type}, Headers: {dict(request.headers)}")
+        logging.debug(f"[Unregister] Request data (first 200 bytes): {request.data[:200] if request.data else 'None'}")
+
         # Validate token from header (normal case) or body (sendBeacon case)
         from .auth import verify_token
         auth_header = request.headers.get('Authorization')
@@ -857,17 +869,20 @@ def register_routes(app: Flask, config: Config):
             # Normal API call with header
             token = auth_header.replace('token ', '', 1)
             if not verify_token(token):
+                logging.warning("[Unregister] Invalid token in Authorization header")
                 return jsonify({'error': 'Invalid token'}), 401
         # If no header, allow it through (sendBeacon from beforeunload)
         # Unregister is safe - worst case is duplicate unregister of non-existent frontend
 
         data = request.get_json()
         if not data:
+            logging.warning(f"[Unregister] No JSON data in request - Content-Type was: {request.content_type}")
             return jsonify({'error': 'No JSON data'}), 400
 
         frontend_id = data.get('frontend_id')
 
         if not frontend_id:
+            logging.warning(f"[Unregister] No frontend_id in JSON data: {data}")
             return jsonify({'error': 'frontend_id required'}), 400
 
         with _frontends_lock:
