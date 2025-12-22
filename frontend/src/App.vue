@@ -60,6 +60,9 @@ onMounted(async () => {
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
+
+  // Setup show-shutdown-page handler for Quit button
+  window.addEventListener('show-shutdown-page', showShutdownPage)
 })
 
 async function checkInterruptedJobs() {
@@ -133,11 +136,27 @@ async function unregisterFrontend() {
 
 function handleBeforeUnload() {
   // Use sendBeacon for reliable delivery on tab close/refresh
+  console.log('[Frontend] beforeunload event fired, frontendId:', frontendId)
+
   if (frontendId) {
-    const blob = new Blob([JSON.stringify({ frontend_id: frontendId })], { type: 'application/json' })
-    // Note: sendBeacon doesn't support custom headers, so we'll include auth in the JSON
-    // The backend unregister endpoint should be lenient about this
-    navigator.sendBeacon('/api/frontend/unregister', blob)
+    try {
+      const payload = { frontend_id: frontendId }
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+
+      console.log('[Frontend] Sending unregister beacon with payload:', payload)
+
+      // sendBeacon returns false if queuing failed
+      const success = navigator.sendBeacon('/api/frontend/unregister', blob)
+      console.log('[Frontend] sendBeacon result:', success)
+
+      if (!success) {
+        console.warn('[Frontend] sendBeacon failed to queue the request')
+      }
+    } catch (error) {
+      console.error('[Frontend] Error in handleBeforeUnload:', error)
+    }
+  } else {
+    console.warn('[Frontend] beforeunload fired but no frontendId available')
   }
 }
 
@@ -287,6 +306,7 @@ onUnmounted(() => {
   })
 
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('show-shutdown-page', showShutdownPage)
 
   // Unregister frontend on component unmount (shouldn't happen in normal operation)
   unregisterFrontend()

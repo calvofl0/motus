@@ -203,10 +203,13 @@ async function quitServer() {
     await new Promise(resolve => setTimeout(resolve, 500))
 
     // Shutdown server - backend will notify all frontends via heartbeat
-    await apiCall('/api/shutdown', 'POST')
+    const shutdownData = await apiCall('/api/shutdown', 'POST')
 
-    // Note: No need to manually show shutdown page here
-    // The heartbeat will detect shutting_down flag and show it for all tabs
+    // Show shutdown page immediately (don't wait for heartbeat)
+    // Trigger the same mechanism that heartbeat would trigger
+    window.dispatchEvent(new CustomEvent('show-shutdown-page', {
+      detail: { running_jobs_stopped: shutdownData.running_jobs_stopped }
+    }))
   } catch (error) {
     console.error('[Quit] Shutdown failed:', error)
     alert(`Failed to shutdown server: ${error.message}`)
