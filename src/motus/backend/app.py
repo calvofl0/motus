@@ -791,7 +791,12 @@ def register_routes(app: Flask, config: Config):
 
         Returns a unique frontend_id to be used for heartbeats and unregister
         """
-        global _registered_frontends, _frontends_lock, _zero_frontends_grace_start
+        global _registered_frontends, _frontends_lock, _zero_frontends_grace_start, _shutting_down
+
+        # Reject registration if server is shutting down
+        if _shutting_down:
+            logging.info("Frontend registration rejected - server is shutting down")
+            return jsonify({'error': 'server_shutting_down', 'message': 'Server is shutting down'}), 503
 
         frontend_id = str(uuid.uuid4())
 

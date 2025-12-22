@@ -90,6 +90,14 @@ async function registerFrontend() {
     heartbeatInterval = setInterval(sendHeartbeat, 5000)
   } catch (error) {
     console.error('[Frontend] Registration failed:', error)
+
+    // Check if server is shutting down
+    if (error.error === 'server_shutting_down') {
+      console.log('[Frontend] Registration rejected - server is shutting down')
+      showShutdownPage()
+      return
+    }
+
     handleConnectionError(error)
   }
 }
