@@ -92,7 +92,7 @@ async function registerFrontend() {
     console.error('[Frontend] Registration failed:', error)
 
     // Check if server is shutting down
-    if (error.error === 'server_shutting_down') {
+    if (error.response && error.response.error === 'server_shutting_down') {
       console.log('[Frontend] Registration rejected - server is shutting down')
       showShutdownPage()
       return
