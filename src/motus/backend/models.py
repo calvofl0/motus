@@ -156,10 +156,10 @@ class Database:
 
         if status in ['completed', 'failed', 'cancelled', 'interrupted', 'resumed']:
             updates.append('finished_at = ?')
-            values.append(datetime.now().isoformat())
+            values.append(datetime.utcnow().isoformat())
 
         updates.append('updated_at = ?')
-        values.append(datetime.now().isoformat())
+        values.append(datetime.utcnow().isoformat())
 
         values.append(job_id)
 
@@ -247,7 +247,7 @@ class Database:
                     finished_at = ?,
                     updated_at = ?
                 WHERE status = 'running'
-            ''', (datetime.now().isoformat(), datetime.now().isoformat()))
+            ''', (datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
             conn.commit()
             return cursor.rowcount
 
@@ -262,7 +262,7 @@ class Database:
                     finished_at = ?,
                     updated_at = ?
                 WHERE job_id = ?
-            ''', (new_job_id, datetime.now().isoformat(), datetime.now().isoformat(), old_job_id))
+            ''', (new_job_id, datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), old_job_id))
             conn.commit()
 
     def list_aborted_jobs(self, limit: int = 100, offset: int = 0) -> List[Dict]:
