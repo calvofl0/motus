@@ -10,6 +10,7 @@ export function useFileOperations() {
   const showCreateFolderModal = ref(false)
   const showDeleteModal = ref(false)
   const showDragDropModal = ref(false)
+  const showCollisionModal = ref(false)
 
   // Modal data
   const renameData = ref({ pane: null, file: null })
@@ -21,6 +22,14 @@ export function useFileOperations() {
     files: [],
     sourcePath: '',
     destPath: ''
+  })
+  const collisionData = ref({
+    sourcePane: null,
+    targetPane: null,
+    files: [],
+    sourcePath: '',
+    destPath: '',
+    showSyncOption: false
   })
 
   /**
@@ -290,15 +299,36 @@ export function useFileOperations() {
     const sourcePath = getPaneFullPath(sourcePane)
     const destPath = getPaneFullPath(targetPane)
 
-    // Show confirmation modal
-    dragDropData.value = {
-      sourcePane,
-      targetPane,
-      files: selectedFiles.map(f => f.Name),
-      sourcePath,
-      destPath
+    // Check if any destination files already exist
+    const targetResolved = getResolvedLocation(targetPane)
+    const destFileNames = targetState.files.map(f => f.Name)
+    const collisions = selectedFiles.filter(f => destFileNames.includes(f.Name))
+
+    // Check if any source item is a directory (to determine if Sync option should be shown)
+    const hasDirectory = selectedFiles.some(f => f.IsDir)
+
+    if (collisions.length > 0) {
+      // Files already exist at destination - show collision modal
+      collisionData.value = {
+        sourcePane,
+        targetPane,
+        files: selectedFiles.map(f => f.Name),
+        sourcePath,
+        destPath,
+        showSyncOption: hasDirectory
+      }
+      showCollisionModal.value = true
+    } else {
+      // No collisions - show regular confirmation modal
+      dragDropData.value = {
+        sourcePane,
+        targetPane,
+        files: selectedFiles.map(f => f.Name),
+        sourcePath,
+        destPath
+      }
+      showDragDropModal.value = true
     }
-    showDragDropModal.value = true
   }
 
   /**
@@ -380,14 +410,168 @@ export function useFileOperations() {
     const sourcePath = getPaneFullPath(sourcePane)
     const destPath = getPaneFullPath(targetPane)
 
-    dragDropData.value = {
-      sourcePane,
-      targetPane,
-      files: files.map(f => f.Name),
-      sourcePath,
-      destPath
+    // Check if any destination files already exist
+    const destFileNames = targetState.files.map(f => f.Name)
+    const collisions = files.filter(f => destFileNames.includes(f.Name))
+
+    // Check if any source item is a directory (to determine if Sync option should be shown)
+    const hasDirectory = files.some(f => f.IsDir)
+
+    if (collisions.length > 0) {
+      // Files already exist at destination - show collision modal
+      collisionData.value = {
+        sourcePane,
+        targetPane,
+        files: files.map(f => f.Name),
+        sourcePath,
+        destPath,
+        showSyncOption: hasDirectory
+      }
+      showCollisionModal.value = true
+    } else {
+      // No collisions - show regular confirmation modal
+      dragDropData.value = {
+        sourcePane,
+        targetPane,
+        files: files.map(f => f.Name),
+        sourcePath,
+        destPath
+      }
+      showDragDropModal.value = true
     }
-    showDragDropModal.value = true
+  }
+
+  /**
+   * Handle collision resolution: Check Integrity
+   */
+  async function handleCollisionCheckIntegrity() {
+    const { sourcePane, targetPane, files } = collisionData.value
+    if (!sourcePane || !targetPane || files.length === 0) return
+
+    showCollisionModal.value = false
+
+    try {
+      const sourceState = appStore[`${sourcePane}Pane`]
+      const selectedFiles = sourceState.selectedIndexes.map(idx => sourceState.files[idx])
+      const targetResolved = getResolvedLocation(targetPane)
+
+      // Build destination path with trailing slash (rsync semantics)
+      let dstPath
+      if (targetResolved.remote) {
+        const remotePath = `${targetResolved.remote}:${targetResolved.path}`
+        dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
+      } else {
+        dstPath = targetResolved.path.endsWith('/') ? targetResolved.path : targetResolved.path + '/'
+      }
+
+      // Check integrity for each file
+      for (const file of selectedFiles) {
+        const srcPath = buildOperationPath(sourcePane, file.Name)
+
+        await apiCall('/api/jobs/check', 'POST', {
+          src_path: srcPath,
+          dst_path: dstPath
+        })
+      }
+
+      // Clear source selection
+      appStore.setPaneSelection(sourcePane, [])
+
+      // Trigger job update
+      window.dispatchEvent(new CustomEvent('update-jobs'))
+    } catch (error) {
+      console.error('Integrity check failed:', error)
+      alert(`Failed to start integrity check: ${error.message}`)
+    }
+  }
+
+  /**
+   * Handle collision resolution: Resume Copy
+   */
+  async function handleCollisionResumeCopy() {
+    const { sourcePane, targetPane, files } = collisionData.value
+    if (!sourcePane || !targetPane || files.length === 0) return
+
+    showCollisionModal.value = false
+
+    try {
+      const sourceState = appStore[`${sourcePane}Pane`]
+      const selectedFiles = sourceState.selectedIndexes.map(idx => sourceState.files[idx])
+      const targetResolved = getResolvedLocation(targetPane)
+
+      // Build destination path with trailing slash (rsync semantics)
+      let dstPath
+      if (targetResolved.remote) {
+        const remotePath = `${targetResolved.remote}:${targetResolved.path}`
+        dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
+      } else {
+        dstPath = targetResolved.path.endsWith('/') ? targetResolved.path : targetResolved.path + '/'
+      }
+
+      // Copy each file (rclone copy will resume/skip unchanged files)
+      for (const file of selectedFiles) {
+        const srcPath = buildOperationPath(sourcePane, file.Name)
+
+        await apiCall('/api/jobs/copy', 'POST', {
+          src_path: srcPath,
+          dst_path: dstPath,
+          copy_links: false
+        })
+      }
+
+      // Clear source selection
+      appStore.setPaneSelection(sourcePane, [])
+
+      // Trigger job update
+      window.dispatchEvent(new CustomEvent('update-jobs'))
+    } catch (error) {
+      console.error('Resume copy failed:', error)
+      alert(`Failed to resume copy: ${error.message}`)
+    }
+  }
+
+  /**
+   * Handle collision resolution: Sync
+   */
+  async function handleCollisionSync() {
+    const { sourcePane, targetPane, files } = collisionData.value
+    if (!sourcePane || !targetPane || files.length === 0) return
+
+    showCollisionModal.value = false
+
+    try {
+      const sourceState = appStore[`${sourcePane}Pane`]
+      const selectedFiles = sourceState.selectedIndexes.map(idx => sourceState.files[idx])
+      const targetResolved = getResolvedLocation(targetPane)
+
+      // Build destination path with trailing slash (rsync semantics)
+      let dstPath
+      if (targetResolved.remote) {
+        const remotePath = `${targetResolved.remote}:${targetResolved.path}`
+        dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
+      } else {
+        dstPath = targetResolved.path.endsWith('/') ? targetResolved.path : targetResolved.path + '/'
+      }
+
+      // Sync each directory
+      for (const file of selectedFiles) {
+        const srcPath = buildOperationPath(sourcePane, file.Name)
+
+        await apiCall('/api/jobs/sync', 'POST', {
+          src_path: srcPath,
+          dst_path: dstPath
+        })
+      }
+
+      // Clear source selection
+      appStore.setPaneSelection(sourcePane, [])
+
+      // Trigger job update
+      window.dispatchEvent(new CustomEvent('update-jobs'))
+    } catch (error) {
+      console.error('Sync failed:', error)
+      alert(`Failed to sync: ${error.message}`)
+    }
   }
 
   return {
@@ -396,12 +580,14 @@ export function useFileOperations() {
     showCreateFolderModal,
     showDeleteModal,
     showDragDropModal,
+    showCollisionModal,
 
     // Modal data
     renameData,
     createFolderPane,
     deleteData,
     dragDropData,
+    collisionData,
 
     // Functions
     openRenameModal,
@@ -413,6 +599,9 @@ export function useFileOperations() {
     copyToPane,
     confirmCopy,
     handleDragDrop,
+    handleCollisionCheckIntegrity,
+    handleCollisionResumeCopy,
+    handleCollisionSync,
     refreshPane
   }
 }

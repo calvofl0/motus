@@ -7,12 +7,6 @@
       <!-- Arrow Buttons -->
       <div class="arrow-buttons">
         <div class="arrow-button" :class="{ disabled: !canCopyRight }" @click="copyToRight">▶</div>
-        <div
-          class="check-button"
-          :class="{ disabled: !canCheck }"
-          @click="handleIntegrityCheck"
-          title="Integrity check"
-        >✓</div>
         <div class="arrow-button" :class="{ disabled: !canCopyLeft }" @click="copyToLeft">◀</div>
       </div>
 
@@ -49,6 +43,17 @@
       @confirm="fileOps.confirmCopy"
     />
 
+    <CopyCollisionModal
+      v-model="fileOps.showCollisionModal.value"
+      :files="fileOps.collisionData.value.files"
+      :source-path="fileOps.collisionData.value.sourcePath"
+      :dest-path="fileOps.collisionData.value.destPath"
+      :show-sync-option="fileOps.collisionData.value.showSyncOption"
+      @check-integrity="fileOps.handleCollisionCheckIntegrity"
+      @resume-copy="fileOps.handleCollisionResumeCopy"
+      @sync="fileOps.handleCollisionSync"
+    />
+
     <UploadProgressModal
       v-model="upload.showUploadModal.value"
       :message="upload.uploadMessage.value"
@@ -69,16 +74,6 @@
       v-model="showDownloadPreparingModal"
       :message="downloadPreparingMessage"
     />
-
-    <!-- Integrity Check Success Modal -->
-    <div v-if="showCheckSuccessModal" class="modal-overlay" @click="showCheckSuccessModal = false">
-      <div class="modal-content" @click.stop>
-        <h3>✓ Integrity Check Successful</h3>
-        <p><strong>Source:</strong> {{ checkSuccessSource }}</p>
-        <p><strong>Destination:</strong> {{ checkSuccessDest }}</p>
-        <button @click="showCheckSuccessModal = false">Close</button>
-      </div>
-    </div>
 
     <!-- Job Log Modal for Failed Checks -->
     <JobLogModal
@@ -111,6 +106,7 @@ import RenameModal from '../components/modals/RenameModal.vue'
 import CreateFolderModal from '../components/modals/CreateFolderModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import DragDropConfirmModal from '../components/modals/DragDropConfirmModal.vue'
+import CopyCollisionModal from '../components/modals/CopyCollisionModal.vue'
 import UploadProgressModal from '../components/modals/UploadProgressModal.vue'
 import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.vue'
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
@@ -143,11 +139,6 @@ const aliasPane = ref(null)
 const showDownloadPreparingModal = ref(false)
 const downloadPreparingMessage = ref('Downloading file from remote server...')
 
-// Integrity check success modal state
-const showCheckSuccessModal = ref(false)
-const checkSuccessSource = ref('')
-const checkSuccessDest = ref('')
-
 // Job log modal state
 const showJobLogModal = ref(false)
 const jobLogData = ref(null)
@@ -161,10 +152,6 @@ const canCopyLeft = computed(() =>
   appStore.rightPane.selectedIndexes.length > 0
 )
 
-const canCheck = computed(() =>
-  appStore.leftPane.selectedIndexes.length > 0 || appStore.rightPane.selectedIndexes.length > 0
-)
-
 // Copy functions
 function copyToRight() {
   if (!canCopyRight.value) return
@@ -176,221 +163,6 @@ function copyToLeft() {
   fileOps.copyToPane('right', 'left')
 }
 
-// Integrity check function
-async function handleIntegrityCheck() {
-  if (!canCheck.value) return
-
-  // Determine source and destination
-  let srcPane, dstPane
-  if (appStore.leftPane.selectedIndexes.length > 0) {
-    srcPane = 'left'
-    dstPane = 'right'
-  } else {
-    srcPane = 'right'
-    dstPane = 'left'
-  }
-
-  const srcPaneState = appStore[`${srcPane}Pane`]
-  const dstPaneState = appStore[`${dstPane}Pane`]
-
-  // Get selected files
-  const selectedFiles = srcPaneState.selectedIndexes.map(idx => srcPaneState.files[idx])
-
-  // Build helper function
-  function buildPath(basePath, fileName) {
-    if (basePath.endsWith('/')) {
-      return basePath + fileName
-    }
-    return basePath + '/' + fileName
-  }
-
-  // Helper to get resolved location (for absolute paths mode)
-  function getResolvedLocation(pane) {
-    const state = appStore[`${pane}Pane`]
-
-    if (!appStore.absolutePathsMode) {
-      // Not in absolute paths mode - return as-is
-      return {
-        remote: state.remote,
-        path: state.path
-      }
-    }
-
-    // In absolute paths mode - resolve through alias
-    if (state.aliasBasePath) {
-      // We're in an alias
-      if (state.aliasBasePath.includes(':')) {
-        // Remote alias
-        const colonIndex = state.aliasBasePath.indexOf(':')
-        const remote = state.aliasBasePath.substring(0, colonIndex)
-        const aliasPath = state.aliasBasePath.substring(colonIndex + 1)
-        // Combine alias path with current path
-        const fullPath = aliasPath + (state.path === '/' ? '' : state.path)
-        return { remote, path: fullPath }
-      } else {
-        // Local alias
-        const fullPath = state.aliasBasePath + (state.path === '/' ? '' : state.path)
-        return { remote: '', path: fullPath }
-      }
-    } else if (state.remote) {
-      // Direct remote (not an alias)
-      return { remote: state.remote, path: state.path }
-    } else {
-      // Local filesystem
-      return { remote: '', path: state.path }
-    }
-  }
-
-  // Helper to build operation path
-  function buildOperationPath(pane, fileName) {
-    const resolved = getResolvedLocation(pane)
-    const filePath = buildPath(resolved.path, fileName)
-
-    if (resolved.remote) {
-      return `${resolved.remote}:${filePath}`
-    } else {
-      return filePath
-    }
-  }
-
-  try {
-    // Get destination resolved location
-    const dstResolved = getResolvedLocation(dstPane)
-
-    // Build destination path with trailing slash (rsync semantics - same as copy)
-    let dstPath
-    if (dstResolved.remote) {
-      const remotePath = `${dstResolved.remote}:${dstResolved.path}`
-      dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
-    } else {
-      dstPath = dstResolved.path.endsWith('/') ? dstResolved.path : dstResolved.path + '/'
-    }
-
-    // Check each file (same pattern as copy)
-    for (const file of selectedFiles) {
-      // Build source path using resolved location (handles absolute paths mode)
-      const srcPath = buildOperationPath(srcPane, file.Name)
-
-      const response = await apiCall('/api/jobs/check', 'POST', {
-        src_path: srcPath,
-        dst_path: dstPath
-      })
-
-      if (response.job_id) {
-        // Watch for job completion
-        watchJobForCheck(response.job_id, srcPath, dstPath)
-      }
-    }
-  } catch (error) {
-    console.error('Failed to start integrity check:', error)
-    alert(`Failed to start integrity check: ${error.message}`)
-  }
-}
-
-// Watch integrity check job completion
-function watchJobForCheck(jobId, sourcePath, destPath) {
-  let pollInterval = null
-  let eventHandled = false
-
-  // Function to handle success
-  const handleSuccess = () => {
-    if (eventHandled) return
-    eventHandled = true
-
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = null
-    }
-
-    // Show success popup
-    checkSuccessSource.value = sourcePath
-    checkSuccessDest.value = destPath
-    showCheckSuccessModal.value = true
-
-    window.removeEventListener('job-completed', handleJobComplete)
-  }
-
-  // Function to handle failure
-  const handleFailure = async (job) => {
-    if (eventHandled) return
-    eventHandled = true
-
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = null
-    }
-
-    // Refetch job details to ensure we have the complete log text
-    // The job event might arrive before the database is fully updated
-    try {
-      const fullJobDetails = await apiCall(`/api/jobs/${job.job_id}`)
-      jobLogData.value = fullJobDetails
-    } catch (error) {
-      console.error('Failed to fetch full job details:', error)
-      // Fallback to the job object from the event
-      jobLogData.value = job
-    }
-
-    // Auto-open job log modal
-    showJobLogModal.value = true
-
-    window.removeEventListener('job-completed', handleJobComplete)
-  }
-
-  // Listen for job completion event
-  const handleJobComplete = async (event) => {
-    const job = event.detail
-    if (job.job_id === jobId) {
-      if (job.status === 'completed') {
-        handleSuccess()
-      } else if (job.status === 'failed') {
-        handleFailure(job)
-      } else if (job.status === 'interrupted') {
-        // Job was cancelled - stop polling and cleanup
-        if (pollInterval) clearInterval(pollInterval)
-        if (eventHandled) return
-        eventHandled = true
-        window.removeEventListener('job-completed', handleJobComplete)
-      }
-    }
-  }
-
-  window.addEventListener('job-completed', handleJobComplete)
-
-  // Poll job status
-  const pollJobStatus = async () => {
-    try {
-      const job = await apiCall(`/api/jobs/${jobId}`)
-      if (job.status === 'completed') {
-        handleSuccess()
-      } else if (job.status === 'failed') {
-        handleFailure(job)
-      } else if (job.status === 'interrupted') {
-        if (pollInterval) clearInterval(pollInterval)
-        if (eventHandled) return
-        eventHandled = true
-        window.removeEventListener('job-completed', handleJobComplete)
-      }
-    } catch (error) {
-      console.error(`Error polling job ${jobId}:`, error)
-    }
-  }
-
-  // Start polling every 500ms
-  pollInterval = setInterval(pollJobStatus, 500)
-
-  // Also check immediately
-  pollJobStatus()
-}
-
-// Context menu functions
-function showContextMenu(pane, event) {
-  const paneState = appStore[`${pane}Pane`]
-
-  // Determine if a single folder is selected (for Create Alias)
-  let targetFolder = null
-  if (paneState.selectedIndexes.length === 1) {
-    const file = paneState.files[paneState.selectedIndexes[0]]
     if (file && file.IsDir) {
       targetFolder = file
     }
@@ -867,8 +639,7 @@ onUnmounted(() => {
   padding: 0 15px;
 }
 
-.arrow-button,
-.check-button {
+.arrow-button {
   color: #28a745;
   font-size: 28px;
   cursor: pointer;
@@ -877,14 +648,12 @@ onUnmounted(() => {
   user-select: none;
 }
 
-.arrow-button.disabled,
-.check-button.disabled {
+.arrow-button.disabled {
   cursor: not-allowed;
   opacity: 0.3;
 }
 
-.arrow-button:not(.disabled):hover,
-.check-button:not(.disabled):hover {
+.arrow-button:not(.disabled):hover {
   transform: scale(1.2);
 }
 
