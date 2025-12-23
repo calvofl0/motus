@@ -1505,21 +1505,8 @@ onMounted(async () => {
     // Always detect aliases (needed for title/icon resolution in both modes)
     await detectAliases()
 
-    // Check if there's saved state in the store (from mode switching)
-    const savedRemote = paneState.value.remote
-    const savedPath = paneState.value.path
-    const savedAliasBasePath = paneState.value.aliasBasePath
-
-    // Initialize selected remote - prefer saved state over startup remote
-    // savedRemote can be empty string (local fs), so check if it's been explicitly set
-    if (savedPath !== '~/' || savedRemote !== '' || savedAliasBasePath !== '') {
-      // Restore from saved state (mode switching or previous session)
-      console.log(`[FilePane ${props.pane}] Restoring from saved state: remote=${savedRemote}, path=${savedPath}`)
-      selectedRemote.value = savedRemote
-      previousRemote.value = savedRemote
-      currentPath.value = savedPath
-      currentAliasBasePath.value = savedAliasBasePath || ''
-    } else if (startupRemote.value) {
+    // Initialize selected remote (only runs once due to <keep-alive>)
+    if (startupRemote.value) {
       // Use the configured startup remote as default
       selectedRemote.value = startupRemote.value
       previousRemote.value = startupRemote.value

@@ -38,9 +38,6 @@ export const useAppStore = defineStore('app', () => {
     aliasBasePath: '' // Base path of current alias (if applicable, for absolute paths mode)
   })
 
-  // Saved Easy Mode state (for restoring when switching from Expert back to Easy)
-  const savedEasyModeState = ref(null)
-
   // Context menu state
   const contextMenu = ref({
     pane: null,
@@ -143,56 +140,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setMode(mode) {
-    const oldMode = currentMode.value
-
-    // Save Easy Mode state when switching to Expert
-    if (oldMode === 'easy' && mode === 'expert') {
-      savedEasyModeState.value = {
-        leftPane: {
-          remote: leftPane.value.remote,
-          path: leftPane.value.path,
-          selectedIndexes: [...leftPane.value.selectedIndexes],
-          sortBy: leftPane.value.sortBy,
-          sortAsc: leftPane.value.sortAsc,
-          aliasBasePath: leftPane.value.aliasBasePath
-        },
-        rightPane: {
-          remote: rightPane.value.remote,
-          path: rightPane.value.path,
-          selectedIndexes: [...rightPane.value.selectedIndexes],
-          sortBy: rightPane.value.sortBy,
-          sortAsc: rightPane.value.sortAsc,
-          aliasBasePath: rightPane.value.aliasBasePath
-        },
-        lastFocusedPane: lastFocusedPane.value
-      }
-    }
-
-    // Restore Easy Mode state when switching from Expert
-    if (oldMode === 'expert' && mode === 'easy' && savedEasyModeState.value) {
-      const saved = savedEasyModeState.value
-
-      // Restore both panes to their previous state
-      leftPane.value.remote = saved.leftPane.remote
-      leftPane.value.path = saved.leftPane.path
-      leftPane.value.selectedIndexes = [...saved.leftPane.selectedIndexes]
-      leftPane.value.sortBy = saved.leftPane.sortBy
-      leftPane.value.sortAsc = saved.leftPane.sortAsc
-      leftPane.value.aliasBasePath = saved.leftPane.aliasBasePath
-      leftPane.value.files = [] // Will be refreshed by FilePane component
-
-      rightPane.value.remote = saved.rightPane.remote
-      rightPane.value.path = saved.rightPane.path
-      rightPane.value.selectedIndexes = [...saved.rightPane.selectedIndexes]
-      rightPane.value.sortBy = saved.rightPane.sortBy
-      rightPane.value.sortAsc = saved.rightPane.sortAsc
-      rightPane.value.aliasBasePath = saved.rightPane.aliasBasePath
-      rightPane.value.files = [] // Will be refreshed by FilePane component
-
-      // Restore last focused pane
-      lastFocusedPane.value = saved.lastFocusedPane
-    }
-
+    // With <keep-alive>, components stay mounted and preserve their own state
+    // We just update the mode value - router navigation is handled by AppHeader
     currentMode.value = mode
   }
 
@@ -325,7 +274,6 @@ export const useAppStore = defineStore('app', () => {
     leftPane,
     rightPane,
     contextMenu,
-    savedEasyModeState,
 
     // Computed
     isEasyMode,

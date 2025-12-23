@@ -9,7 +9,11 @@
     <div v-if="connectionLost" class="connection-overlay"></div>
 
     <AppHeader />
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <keep-alive>
+        <component :is="Component" />
+      </keep-alive>
+    </router-view>
 
     <!-- Global Modals -->
     <ManageRemotesModal />
@@ -23,7 +27,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 import ManageRemotesModal from './components/modals/ManageRemotesModal.vue'
 import CompletedJobsModal from './components/modals/CompletedJobsModal.vue'
@@ -32,6 +37,15 @@ import { useAppStore } from './stores/app'
 import { apiCall, getApiUrl } from './services/api'
 
 const appStore = useAppStore()
+const route = useRoute()
+
+// Keep store mode in sync with route
+watch(() => route.meta.mode, (newMode) => {
+  if (newMode && appStore.currentMode !== newMode) {
+    console.log(`[App] Route changed to ${newMode} mode, syncing store`)
+    appStore.currentMode = newMode
+  }
+}, { immediate: true })
 const showInterruptedJobsModal = ref(false)
 const interruptedJobs = ref([])
 
