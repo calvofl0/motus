@@ -37,47 +37,27 @@
               <td style="padding: 8px; text-align: center;">
                 <button
                   v-if="remote.is_oauth"
+                  class="remote-icon-btn oauth-refresh-btn"
                   @click.stop="refreshOAuth(remote.name)"
                   :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :style="{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '18px',
-                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
-                    color: (isActiveRemote(remote.name) || remote.is_readonly) ? '#ccc' : '#28a745',
-                    padding: '4px 8px',
-                    marginRight: '4px'
-                  }"
+                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
                   :title="remote.is_readonly ? 'Cannot refresh OAuth for read-only remote' : (isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token')"
                 >↻</button>
                 <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
 
                 <button
+                  class="remote-icon-btn"
                   @click.stop="editRemoteConfig(remote.name)"
                   :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :style="{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '14px',
-                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
-                    padding: '4px 8px',
-                    marginRight: '4px',
-                    filter: (isActiveRemote(remote.name) || remote.is_readonly) ? 'grayscale(100%) opacity(0.4)' : 'none'
-                  }"
+                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
                   :title="remote.is_readonly ? 'Cannot edit read-only remote' : (isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote')"
                 >✏️</button>
 
                 <button
+                  class="remote-icon-btn"
                   @click.stop="deleteRemote(remote.name)"
                   :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :style="{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '14px',
-                    cursor: (isActiveRemote(remote.name) || remote.is_readonly) ? 'not-allowed' : 'pointer',
-                    padding: '4px 8px',
-                    filter: (isActiveRemote(remote.name) || remote.is_readonly) ? 'grayscale(100%) opacity(0.4)' : 'none'
-                  }"
+                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
                   :title="remote.is_readonly ? 'Cannot delete read-only remote' : (isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote')"
                 >🗑️</button>
               </td>
@@ -1329,5 +1309,35 @@ async function handleOAuthRefreshed() {
 .template-fields {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+}
+
+/* Remote action icon buttons with hover effect */
+.remote-icon-btn {
+  background: none;
+  border: none;
+  fontSize: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-right: 4px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.remote-icon-btn:not(.disabled):hover {
+  transform: scale(1.2);
+  opacity: 0.7;
+}
+
+.remote-icon-btn.disabled {
+  cursor: not-allowed;
+  filter: grayscale(100%) opacity(0.4);
+}
+
+.oauth-refresh-btn {
+  fontSize: 18px;
+  color: var(--color-success);
+}
+
+.oauth-refresh-btn.disabled {
+  color: #ccc;
 }
 </style>

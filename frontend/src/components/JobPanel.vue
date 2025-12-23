@@ -43,7 +43,7 @@
             Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="interrupted-job-actions">
-            <button class="job-icon-btn resume" @click="resumeJob(job.job_id)" title="Resume this job">▶</button>
+            <button class="job-icon-btn resume" @click="resumeJob(job.job_id)" title="Resume this job">↻</button>
             <button class="job-icon-btn cancel" @click="cancelInterruptedJob(job.job_id)" title="Cancel this job">×</button>
           </div>
         </div>
