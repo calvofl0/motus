@@ -310,6 +310,7 @@ def get_job_status(job_id):
             'exit_status': exit_status,
             'created_at': job['created_at'],
             'updated_at': job['updated_at'],
+            'finished_at': job.get('finished_at'),
             # Log text (for failed job log viewer)
             'log_text': job.get('log_text'),
             # Download-specific fields (for download jobs)

@@ -796,6 +796,7 @@ def main():
             port=config.port,
             debug=False,
             threaded=True,
+            use_reloader=False,  # Disable Flask's signal handlers to allow custom SIGINT handling
         )
     except KeyboardInterrupt:
         print("\n\nShutting down...")
