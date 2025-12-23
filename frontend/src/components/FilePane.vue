@@ -215,6 +215,7 @@ const previousRemote = ref('') // Track last working remote
 const currentPath = ref('/')
 const previousPath = ref('/') // Track path before refresh for abort
 const inputPath = ref('/') // What user sees/types in input field
+const previousInputPath = ref('/') // Track last successful input path for error restoration
 const files = ref([])
 const remotes = ref([])
 const loading = ref(false)
@@ -459,9 +460,10 @@ async function refresh(preserveSelection = false) {
     appStore.setPanePath(props.pane, currentPath.value)
     appStore.setPaneRemote(props.pane, selectedRemote.value)
 
-    // Update previous remote and path on success
+    // Update previous remote, path, and input path on success
     previousRemote.value = selectedRemote.value
     previousPath.value = currentPath.value
+    previousInputPath.value = inputPath.value
 
     // Restore selection if preserving
     if (preserveSelection && selectedFileNames.length > 0) {
@@ -632,9 +634,10 @@ function parseInputInAbsoluteMode(inputText) {
 }
 
 async function browsePath() {
-  // Save the last successful path to restore on error
+  // Use previousPath and previousInputPath (updated on successful refresh)
+  // to restore on error
   const lastSuccessfulPath = previousPath.value
-  const lastSuccessfulInputPath = inputPath.value
+  const lastSuccessfulInputPath = previousInputPath.value
 
   // Parse the input path
   let typedPath = inputPath.value
