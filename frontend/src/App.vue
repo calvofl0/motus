@@ -13,6 +13,7 @@
 
     <!-- Global Modals -->
     <ManageRemotesModal />
+    <CompletedJobsModal v-model="appStore.showCompletedJobsModal" />
     <InterruptedJobsModal
       v-model="showInterruptedJobsModal"
       :jobs="interruptedJobs"
@@ -25,6 +26,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import ManageRemotesModal from './components/modals/ManageRemotesModal.vue'
+import CompletedJobsModal from './components/modals/CompletedJobsModal.vue'
 import InterruptedJobsModal from './components/modals/InterruptedJobsModal.vue'
 import { useAppStore } from './stores/app'
 import { apiCall, getApiUrl } from './services/api'

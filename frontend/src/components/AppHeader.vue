@@ -8,6 +8,9 @@
       </div>
     </div>
     <div class="header-right">
+      <button class="completed-jobs-button" @click="openCompletedJobs">
+        Completed Jobs
+      </button>
       <button class="manage-remotes-button" @click="openManageRemotes">
         Manage Remotes
       </button>
@@ -111,6 +114,10 @@ const modeButtonText = computed(() =>
 
 function openManageRemotes() {
   appStore.openManageRemotes()
+}
+
+function openCompletedJobs() {
+  appStore.openCompletedJobs()
 }
 
 function toggleViewMenu(e) {

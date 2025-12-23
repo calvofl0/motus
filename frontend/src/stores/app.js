@@ -13,6 +13,7 @@ export const useAppStore = defineStore('app', () => {
   const lastFocusedPane = ref('left')
   const maxUploadSize = ref(0)
   const showManageRemotesModal = ref(false)
+  const showCompletedJobsModal = ref(false)
   const absolutePathsMode = ref(false) // Loaded from config
 
   // Left pane state
@@ -301,6 +302,14 @@ export const useAppStore = defineStore('app', () => {
     showManageRemotesModal.value = false
   }
 
+  function openCompletedJobs() {
+    showCompletedJobsModal.value = true
+  }
+
+  function closeCompletedJobs() {
+    showCompletedJobsModal.value = false
+  }
+
   return {
     // State
     currentMode,
@@ -311,6 +320,7 @@ export const useAppStore = defineStore('app', () => {
     lastFocusedPane,
     maxUploadSize,
     showManageRemotesModal,
+    showCompletedJobsModal,
     absolutePathsMode,
     leftPane,
     rightPane,
@@ -340,6 +350,8 @@ export const useAppStore = defineStore('app', () => {
     setAbsolutePathsMode,
     setLastFocusedPane,
     openManageRemotes,
-    closeManageRemotes
+    closeManageRemotes,
+    openCompletedJobs,
+    closeCompletedJobs
   }
 })
