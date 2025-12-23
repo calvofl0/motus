@@ -321,29 +321,56 @@ def main():
     print("=" * 70)
     print()
 
-    # Setup signal handler for cleanup
-    def cleanup(signum=None, frame=None):
-        """Clean up processes on exit - shutdown in proper order"""
-        global npm_process, backend_process
+    # Setup signal handlers for cleanup
+    def cleanup_sigint(signum, frame):
+        """Handle Ctrl-C - let backend handle itself, just clean up Vite"""
+        global npm_process
 
-        print("\n\nShutting down gracefully...")
+        print("\n\n[dev-vue.py] Ctrl-C received")
 
-        # Step 1: Stop Vite first (so no more API requests are proxied)
+        # Only stop Vite - backend will handle its own SIGINT
+        # (it's in the same process group, so it got the signal too)
         if npm_process:
             print("  Stopping Vite dev server...")
             try:
-                # Terminate npm gracefully - the Node.js script will handle Vite shutdown
                 npm_process.terminate()
                 npm_process.wait(timeout=5)
                 print("  ✓ Vite stopped")
             except subprocess.TimeoutExpired:
-                # If it doesn't exit in 5 seconds, kill it
                 npm_process.kill()
                 print("  ✓ Vite stopped (forced)")
             except:
                 pass
 
-        # Step 2: Stop backend if we started it
+        # Monitor thread will handle exit when backend stops
+        if backend_process:
+            print("  Waiting for backend to shutdown...")
+            print("  (Backend is handling Ctrl-C with its job-aware logic)")
+        else:
+            # Backend was already running - we don't control it
+            print("  Shutdown complete")
+            sys.exit(0)
+
+    def cleanup_sigterm(signum, frame):
+        """Handle SIGTERM - actively shut down both processes"""
+        global npm_process, backend_process
+
+        print("\n\n[dev-vue.py] SIGTERM received - shutting down...")
+
+        # Stop Vite first
+        if npm_process:
+            print("  Stopping Vite dev server...")
+            try:
+                npm_process.terminate()
+                npm_process.wait(timeout=5)
+                print("  ✓ Vite stopped")
+            except subprocess.TimeoutExpired:
+                npm_process.kill()
+                print("  ✓ Vite stopped (forced)")
+            except:
+                pass
+
+        # Stop backend if we started it
         if backend_process:
             print("  Stopping backend...")
             try:
@@ -359,8 +386,8 @@ def main():
         print("  Shutdown complete")
         sys.exit(0)
 
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
+    signal.signal(signal.SIGINT, cleanup_sigint)
+    signal.signal(signal.SIGTERM, cleanup_sigterm)
 
     # Start backend monitoring thread
     global backend_monitor_thread, backend_process
