@@ -667,9 +667,9 @@ def create_app(config: Config = None):
             count, _ = db.delete_all_jobs()
             if count > 0:
                 logging.info(f"Deleted {count} jobs from database")
-            # Reset job counter to 1
-            rclone._job_counter = 0
-            logging.info("Reset job counter to start at 1")
+            # Recalculate next job ID based on remaining jobs
+            rclone.initialize_job_counter(db)
+            logging.info("Recalculated job counter after cleanup")
         else:
             logging.info("Auto-cleanup enabled but failed/interrupted jobs exist - skipping cleanup")
 

@@ -484,6 +484,9 @@ def delete_job(job_id):
         # Delete from database
         db.delete_job(job_id)
 
+        # Recalculate next job ID to use smallest available integer
+        rclone.initialize_job_counter(db)
+
         return jsonify({
             'message': 'Job deleted',
             'job_id': job_id,
