@@ -44,6 +44,10 @@ _shutting_down = False  # Flag to notify frontends that server is shutting down
 # 2. Shutdown initiated (allows all tabs to receive notification via heartbeat)
 GRACE_PERIOD = 10
 
+# Ctrl-C (SIGINT) tracking for confirmation
+_sigint_time = None  # Time when first SIGINT was received
+SIGINT_CONFIRMATION_WINDOW = 3  # Seconds to wait for second Ctrl-C
+
 
 def safe_remove(path):
     """
@@ -226,10 +230,11 @@ def cleanup_connection_info(config: Config):
 
 def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
     """Setup signal handlers for graceful shutdown"""
-    def shutdown_handler(signum, frame):
-        """Handle SIGTERM/SIGINT for graceful shutdown"""
-        sig_name = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
-        logging.info(f"\n{sig_name} received, shutting down gracefully...")
+    global _sigint_time, _shutting_down
+
+    def sigterm_handler(signum, frame):
+        """Handle SIGTERM - immediate graceful shutdown"""
+        logging.info("\nSIGTERM received, shutting down gracefully...")
 
         # Stop idle timer if running
         stop_idle_timer()
@@ -237,9 +242,70 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
         perform_shutdown(rclone, db, config)
         sys.exit(0)
 
+    def sigint_handler(signum, frame):
+        """Handle SIGINT (Ctrl-C) with job-aware confirmation"""
+        global _sigint_time, _shutting_down
+
+        now = time.time()
+
+        # Check if this is a second Ctrl-C within confirmation window
+        if _sigint_time is not None and (now - _sigint_time) <= SIGINT_CONFIRMATION_WINDOW:
+            print("\n\n⚠️  Second Ctrl-C received - forcing immediate shutdown!", file=sys.stderr, flush=True)
+            logging.warning("Second SIGINT received within confirmation window - forcing immediate shutdown")
+
+            # Stop idle timer if running
+            stop_idle_timer()
+
+            # Immediate shutdown without waiting for frontends
+            perform_shutdown(rclone, db, config)
+            sys.exit(0)
+
+        # First Ctrl-C or outside confirmation window
+        _sigint_time = now
+
+        # Check for running jobs
+        running_jobs = rclone.get_running_jobs()
+
+        if running_jobs:
+            # Backend activity detected - require confirmation
+            print(f"\n\n⚠️  WARNING: {len(running_jobs)} job(s) currently running!", file=sys.stderr, flush=True)
+            print(f"⚠️  Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force shutdown", file=sys.stderr, flush=True)
+            print(f"⚠️  Or wait {SIGINT_CONFIRMATION_WINDOW} seconds to cancel\n", file=sys.stderr, flush=True)
+            logging.warning(f"SIGINT received with {len(running_jobs)} running jobs - waiting for confirmation")
+        else:
+            # No backend activity - graceful shutdown with frontend notification
+            print("\n\n✓ No running jobs - initiating graceful shutdown...", file=sys.stderr, flush=True)
+            print(f"✓ Frontends will be notified and show shutdown page", file=sys.stderr, flush=True)
+            print(f"✓ Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force immediate shutdown\n", file=sys.stderr, flush=True)
+            logging.info("SIGINT received with no running jobs - initiating graceful shutdown")
+
+            # Stop idle timer if running
+            stop_idle_timer()
+
+            # Set shutdown flag so frontends are notified via heartbeat
+            _shutting_down = True
+
+            # Shutdown in background thread (same as /api/shutdown)
+            def shutdown_delayed():
+                print(f"\n[Shutdown] Waiting {GRACE_PERIOD}s for frontends to be notified...", file=sys.stderr, flush=True)
+                time.sleep(GRACE_PERIOD)  # Give all tabs time to receive shutdown notification
+                print("[Shutdown] Performing graceful shutdown...", file=sys.stderr, flush=True)
+                try:
+                    perform_shutdown(rclone, db, config)
+                    print("[Shutdown] Complete - exiting", file=sys.stderr, flush=True)
+                except Exception as e:
+                    print(f"[Shutdown] ERROR: {e}", file=sys.stderr, flush=True)
+                    import traceback
+                    traceback.print_exc(file=sys.stderr)
+
+                sys.stderr.flush()
+                os._exit(0)
+
+            threading.Thread(target=shutdown_delayed, daemon=True).start()
+
     # Register signal handlers
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+    signal.signal(signal.SIGINT, sigint_handler)
     logging.info("Signal handlers registered for graceful shutdown")
 
 
