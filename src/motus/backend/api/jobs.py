@@ -213,6 +213,8 @@ def get_job_status(job_id):
             log_text = None
             if finished:
                 log_text = rclone.job_log_text(job_id)
+                if log_text is None:
+                    logging.warning(f"Job {job_id}: Unable to read log file for finished job")
 
             # Update database with live status
             db.update_job(
@@ -223,9 +225,10 @@ def get_job_status(job_id):
                 log_text=log_text,
             )
 
-            # Clean up log file after storing in database (always cleanup when finished)
-            if finished:
+            # Clean up log file after storing in database (only if we successfully read it)
+            if finished and log_text is not None:
                 rclone.job_cleanup_log(job_id)
+                logging.debug(f"Job {job_id}: Cleaned up log file after saving to database")
         else:
             # Job not in queue - use database status as-is
             # (interrupted, cancelled, completed, failed jobs are not in the queue)
@@ -250,6 +253,8 @@ def get_job_status(job_id):
 
                     # Get log text
                     log_text = rclone.job_log_text(job_id)
+                    if log_text is None:
+                        logging.warning(f"Job {job_id}: Unable to read log file for fast finished job")
 
                     # Update database with final status
                     db.update_job(
@@ -260,8 +265,10 @@ def get_job_status(job_id):
                         log_text=log_text,
                     )
 
-                    # Clean up log file after storing in database (always cleanup)
-                    rclone.job_cleanup_log(job_id)
+                    # Clean up log file after storing in database (only if we successfully read it)
+                    if log_text is not None:
+                        rclone.job_cleanup_log(job_id)
+                        logging.debug(f"Job {job_id}: Cleaned up log file after saving to database")
                 else:
                     # Job says 'running' but not in queue and not finished?
                     # This shouldn't happen, but keep current status
@@ -274,6 +281,17 @@ def get_job_status(job_id):
                 progress = job.get('progress', 0)
                 error_text = job.get('error_text', '')
                 exit_status = -1
+
+                # Recovery: If job is finished but has no log_text in DB, try to recover from file
+                if status in ['completed', 'failed'] and not job.get('log_text'):
+                    log_text = rclone.job_log_text(job_id)
+                    if log_text is not None:
+                        logging.info(f"Job {job_id}: Recovered log file for finished job, saving to database")
+                        db.update_job(job_id=job_id, log_text=log_text)
+                        # Clean up log file after successful recovery
+                        rclone.job_cleanup_log(job_id)
+                    else:
+                        logging.debug(f"Job {job_id}: No log file available for recovery")
 
             text = ""
             finished = status in ['completed', 'failed', 'cancelled', 'interrupted']
@@ -697,9 +715,15 @@ def get_job_log(job_id):
         # Get log text from database (stored after job completion)
         log_text = job.get('log_text', '')
 
-        # If log text is not in database, try to get it from rclone (for running jobs)
+        # If log text is not in database, try to get it from rclone (for running jobs or recovery)
         if not log_text:
             log_text = rclone.job_log_text(job_id) or ''
+            # If we successfully recovered the log and job is finished, save it to database
+            if log_text and job['status'] in ['completed', 'failed']:
+                logging.info(f"Job {job_id}: Recovered log via /log endpoint, saving to database")
+                db.update_job(job_id=job_id, log_text=log_text)
+                # Clean up log file after successful recovery
+                rclone.job_cleanup_log(job_id)
 
         return jsonify({
             'job_id': job_id,
