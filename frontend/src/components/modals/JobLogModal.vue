@@ -21,6 +21,10 @@
             <span class="label">Destination:</span>
             <span class="value path">{{ job?.dst_path }}</span>
           </div>
+          <div v-if="job?.finished_at" class="info-row">
+            <span class="label">Completed:</span>
+            <span class="value">{{ formatDateTime(job.finished_at) }}</span>
+          </div>
           <div v-if="job?.error_text" class="info-row">
             <span class="label">Error:</span>
             <span class="value error">{{ job?.error_text }}</span>
@@ -40,13 +44,20 @@
     </template>
 
     <template #footer>
-      <button v-if="job?.log_text" @click="downloadLog" class="btn btn-info">⬇️ Download Log</button>
+      <div style="display: flex; gap: var(--spacing-sm);">
+        <button v-if="job?.log_text" @click="copyLog" class="btn btn-secondary" title="Copy log to clipboard (Ctrl+C)">
+          📋 Copy Log
+        </button>
+        <button v-if="job?.log_text" @click="downloadLog" class="btn btn-info">
+          ⬇️ Download Log
+        </button>
+      </div>
     </template>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 
 const props = defineProps({
@@ -71,6 +82,41 @@ watch(() => props.show, async (newVal) => {
   }
 })
 
+// Format date time for display
+function formatDateTime(isoString) {
+  if (!isoString) return 'N/A'
+  const date = new Date(isoString)
+  return date.toLocaleString()
+}
+
+// Copy log to clipboard
+async function copyLog() {
+  if (!props.job || !props.job.log_text) return
+
+  try {
+    await navigator.clipboard.writeText(props.job.log_text)
+    // Could show a toast notification here
+    console.log('Log copied to clipboard')
+  } catch (error) {
+    console.error('Failed to copy log:', error)
+    // Fallback for older browsers
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = props.job.log_text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      console.log('Log copied to clipboard (fallback)')
+    } catch (fallbackError) {
+      console.error('Fallback copy also failed:', fallbackError)
+      alert('Failed to copy log to clipboard')
+    }
+  }
+}
+
 // Download log as text file
 function downloadLog() {
   if (!props.job || !props.job.log_text) return
@@ -85,6 +131,26 @@ function downloadLog() {
   window.URL.revokeObjectURL(url)
   document.body.removeChild(a)
 }
+
+// Handle Ctrl+C to copy log
+function handleKeydown(e) {
+  if (props.show && (e.ctrlKey || e.metaKey) && e.key === 'c') {
+    // Only copy if we're focused on the modal, not on an input field
+    const activeElement = document.activeElement
+    if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
+      e.preventDefault()
+      copyLog()
+    }
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>

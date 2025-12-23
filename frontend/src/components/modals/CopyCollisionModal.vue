@@ -49,7 +49,8 @@
         <div class="option-content">
           <div class="option-title">Resume Copy</div>
           <div class="option-description">
-            Copy missing and modified files. <span class="warning-subtext">Different files will be overwritten.</span>
+            Copy missing and modified files.<br>
+            <span class="danger-text">Different files will be overwritten.</span>
           </div>
         </div>
       </button>
@@ -64,7 +65,8 @@
         <div class="option-content">
           <div class="option-title">Sync</div>
           <div class="option-description">
-            Make destination identical to source. <span class="danger-text">Deletes extra files at destination.</span>
+            Make destination identical to source.<br>
+            <span class="danger-text">Deletes extra files at destination.</span>
           </div>
         </div>
       </button>

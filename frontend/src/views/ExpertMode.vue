@@ -670,6 +670,20 @@ async function getJobStatus() {
 
   try {
     const job = await apiCall(`/api/jobs/${statusJobId.value}`)
+
+    // For finished jobs, fetch the log
+    let outputText = job.text || '(no output yet)'
+    if (job.status === 'completed' || job.status === 'failed') {
+      try {
+        const logData = await apiCall(`/api/jobs/${statusJobId.value}/log`)
+        if (logData.log_text) {
+          outputText = logData.log_text
+        }
+      } catch (logError) {
+        console.error('Failed to fetch log:', logError)
+      }
+    }
+
     const output = `
 Job ID: ${job.job_id}
 Operation: ${job.operation}
@@ -682,7 +696,7 @@ ${job.finished_at ? 'Finished: ' + job.finished_at : ''}
 ${job.error_text ? 'Error: ' + job.error_text : ''}
 
 Output:
-${job.text || '(no output yet)'}
+${outputText}
     `.trim()
     statusOutput.value = output
   } catch (error) {
