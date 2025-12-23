@@ -163,6 +163,14 @@ function copyToLeft() {
   fileOps.copyToPane('right', 'left')
 }
 
+// Context menu functions
+function showContextMenu(pane, event) {
+  const paneState = appStore[`${pane}Pane`]
+
+  // Determine if a single folder is selected (for Create Alias)
+  let targetFolder = null
+  if (paneState.selectedIndexes.length === 1) {
+    const file = paneState.files[paneState.selectedIndexes[0]]
     if (file && file.IsDir) {
       targetFolder = file
     }
