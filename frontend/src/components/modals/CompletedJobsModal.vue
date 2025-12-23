@@ -6,7 +6,7 @@
     size="large"
     @close="handleClose"
   >
-    <div class="completed-jobs-container" tabindex="-1">
+    <div class="completed-jobs-container">
       <div v-if="loading" class="loading">Loading completed jobs...</div>
 
       <div v-else-if="completedJobs.length === 0" class="no-jobs">
@@ -38,7 +38,7 @@
               <button
                 class="delete-btn"
                 @click.stop="handleDeleteJob(job.job_id)"
-                title="Delete this job"
+                title="Delete the log of this job"
               >
                 🗑️
               </button>
@@ -73,7 +73,7 @@
   <ConfirmModal
     v-model="showPurgeConfirm"
     title="⚠️ Confirm Purge"
-    message="Are you sure you want to delete ALL completed jobs? This cannot be undone."
+    message="Are you sure you want to delete the logs of ALL completed jobs? This cannot be undone."
     @confirm="confirmPurge"
   />
 </template>
@@ -177,11 +177,8 @@ async function handleJobLogClose() {
   showJobLogModal.value = false
   // Restore focus to parent modal after child modal closes
   await nextTick()
-  if (modalRef.value && modalRef.value.$el) {
-    const focusable = modalRef.value.$el.querySelector('[tabindex]')
-    if (focusable) {
-      focusable.focus()
-    }
+  if (modalRef.value && modalRef.value.focusOverlay) {
+    modalRef.value.focusOverlay()
   }
 }
 

@@ -264,11 +264,11 @@ onUnmounted(() => {
   top: -30px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-success);
-  color: white;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-text-primary);
+  color: var(--color-bg-white);
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   white-space: nowrap;
   pointer-events: none;
   z-index: 1000;

@@ -73,7 +73,7 @@
             Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="failed-job-actions">
-            <button class="job-icon-btn resume" @click.stop="resumeFailedJob(job.job_id)" title="Resume this job">🔄</button>
+            <button class="job-icon-btn resume" @click.stop="resumeFailedJob(job.job_id)" title="Resume this job">↻</button>
             <button class="job-icon-btn cancel" @click.stop="clearFailedJob(job.job_id)" title="Remove from list">×</button>
           </div>
         </div>
@@ -501,5 +501,35 @@ onUnmounted(() => {
   background: var(--color-bg-light);
   border-left: 3px solid var(--color-danger);
   padding-left: calc(var(--spacing-sm) - 3px);
+}
+
+/* Resume button green color */
+.job-icon-btn.resume {
+  color: var(--color-success);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 1.1em;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.job-icon-btn.resume:hover {
+  transform: scale(1.2);
+  opacity: 0.8;
+}
+
+/* Improve icon button hover effects - no blue rectangle */
+.job-icon-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.job-icon-btn:hover {
+  transform: scale(1.2);
+  opacity: 0.7;
 }
 </style>

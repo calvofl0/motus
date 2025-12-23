@@ -87,6 +87,17 @@ watch(() => props.modelValue, async (isOpen) => {
     }
   }
 })
+
+// Expose method to focus the overlay (useful when child modals close)
+function focusOverlay() {
+  if (overlayRef.value) {
+    overlayRef.value.focus()
+  }
+}
+
+defineExpose({
+  focusOverlay
+})
 </script>
 
 <style scoped>
