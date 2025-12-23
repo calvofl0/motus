@@ -256,8 +256,9 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
             # Stop idle timer if running
             stop_idle_timer()
 
-            # Set shutdown flag for frontends (even though we're not waiting)
-            _shutting_down = True
+            # NOTE: Do NOT set _shutting_down flag for forced shutdown
+            # Forced shutdown happens when jobs are running (non-clean shutdown)
+            # Frontends don't get notification - they'll just see connection loss
 
             # Immediate shutdown without waiting for frontends
             perform_shutdown(rclone, db, config)
