@@ -75,6 +75,7 @@
     title="⚠️ Confirm Purge"
     message="Are you sure you want to delete the logs of ALL completed jobs? This cannot be undone."
     @confirm="confirmPurge"
+    @close="handlePurgeConfirmClose"
   />
 </template>
 
@@ -182,6 +183,14 @@ async function handleJobLogClose() {
   }
 }
 
+async function handlePurgeConfirmClose() {
+  // Restore focus to parent modal after confirmation modal closes
+  await nextTick()
+  if (modalRef.value && modalRef.value.focusOverlay) {
+    modalRef.value.focusOverlay()
+  }
+}
+
 function formatOperation(op) {
   return op.charAt(0).toUpperCase() + op.slice(1)
 }
@@ -234,19 +243,35 @@ function truncatePath(path) {
   return `${remote}${dirPath}${filename}`
 }
 
+// Get user's timezone or fallback to UTC
+function getUserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
 function formatRelativeTime(isoString) {
   if (!isoString) return 'Unknown'
 
+  const timezone = getUserTimezone()
   const date = new Date(isoString)
   const now = new Date()
+
+  // Calculate difference in user's timezone
   const diffMs = now - date
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
   // Today: show time only
   if (diffDays === 0) {
-    const hours = date.getHours().toString().padStart(2, '0')
-    const minutes = date.getMinutes().toString().padStart(2, '0')
-    return `${hours}:${minutes}`
+    const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone
+    })
+    return timeFormatter.format(date)
   }
 
   // Yesterday
@@ -256,15 +281,20 @@ function formatRelativeTime(isoString) {
 
   // Less than 7 days: show day name
   if (diffDays < 7) {
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    return dayNames[date.getDay()]
+    const dayFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      timeZone: timezone
+    })
+    return dayFormatter.format(date)
   }
 
   // Older: show "23 Nov" format
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const day = date.getDate()
-  const month = monthNames[date.getMonth()]
-  return `${day} ${month}`
+  const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: timezone
+  })
+  return dateFormatter.format(date)
 }
 </script>
 

@@ -87,11 +87,70 @@ watch(() => props.show, async (newVal) => {
   }
 })
 
-// Format date time for display
+// Get user's timezone or fallback to UTC
+function getUserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
+// Format date time for display in standard format: "Tue 23 Dec 23:33:17 CET 2025"
 function formatDateTime(isoString) {
   if (!isoString) return 'N/A'
+
   const date = new Date(isoString)
-  return date.toLocaleString()
+  const timezone = getUserTimezone()
+
+  // Format: "Tue 23 Dec 23:33:17 CET 2025"
+  const options = {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+    timeZone: timezone
+  }
+
+  const formatted = date.toLocaleString('en-GB', options)
+  // toLocaleString may format as "Tue, 23 Dec 2025, 23:33:17 CET"
+  // We want "Tue 23 Dec 23:33:17 CET 2025"
+  // Let's build it manually for consistent format
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: timezone
+  })
+  const weekday = formatter.format(date)
+
+  const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: timezone
+  })
+  const datePart = dateFormatter.format(date) // "23 Dec 2025"
+
+  const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: timezone
+  })
+  const timePart = timeFormatter.format(date) // "23:33:17"
+
+  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZoneName: 'short',
+    timeZone: timezone
+  })
+  const tzPart = tzFormatter.formatToParts(date).find(part => part.type === 'timeZoneName')?.value || 'UTC'
+
+  return `${weekday} ${datePart} ${timePart} ${tzPart}`
 }
 
 // Copy log to clipboard
