@@ -322,59 +322,10 @@ def main():
     print()
 
     # Setup signal handlers for cleanup
-    def cleanup_sigint(signum, frame):
-        """Handle Ctrl-C - let backend handle itself, then clean up Vite"""
-        global npm_process, backend_process
-
-        print("\n\n[dev-vue.py] Ctrl-C received")
-
-        # Don't stop Vite immediately - let backend shutdown gracefully first
-        # (it's in the same process group, so it got the signal too)
-        # Vite will be stopped by the monitor thread after backend exits
-
-        if backend_process:
-            print("  Backend is handling Ctrl-C with its job-aware logic...")
-            print("  Waiting for backend to shutdown...")
-            print("  (Vite will be stopped after backend exits)")
-            # Wait for backend to exit, then cleanup
-            try:
-                backend_process.wait()
-                print("\n  Backend has exited")
-            except:
-                pass
-
-            # Now stop Vite
-            if npm_process:
-                print("  Stopping Vite dev server...")
-                try:
-                    npm_process.terminate()
-                    npm_process.wait(timeout=5)
-                    print("  ✓ Vite stopped")
-                except subprocess.TimeoutExpired:
-                    npm_process.kill()
-                    print("  ✓ Vite stopped (forced)")
-                except:
-                    pass
-
-            print("  Shutdown complete")
-            sys.exit(0)
-        else:
-            # Backend was already running - we don't control it
-            # Just stop Vite
-            if npm_process:
-                print("  Stopping Vite dev server...")
-                try:
-                    npm_process.terminate()
-                    npm_process.wait(timeout=5)
-                    print("  ✓ Vite stopped")
-                except subprocess.TimeoutExpired:
-                    npm_process.kill()
-                    print("  ✓ Vite stopped (forced)")
-                except:
-                    pass
-            print("  Shutdown complete")
-            sys.exit(0)
-
+    # IMPORTANT: When we started the backend, DON'T handle SIGINT!
+    # The backend and dev-vue.py are in the same process group, so backend
+    # will receive SIGINT directly and handle it with its job-aware logic.
+    # We'll catch KeyboardInterrupt in the main loop instead.
     def cleanup_sigterm(signum, frame):
         """Handle SIGTERM - actively shut down both processes"""
         global npm_process, backend_process
@@ -410,7 +361,7 @@ def main():
         print("  Shutdown complete")
         sys.exit(0)
 
-    signal.signal(signal.SIGINT, cleanup_sigint)
+    # Only handle SIGTERM - let SIGINT raise KeyboardInterrupt naturally
     signal.signal(signal.SIGTERM, cleanup_sigterm)
 
     # Start backend monitoring thread
@@ -432,7 +383,36 @@ def main():
         )
         npm_process.wait()
     except KeyboardInterrupt:
-        cleanup()
+        # Ctrl-C pressed - backend received SIGINT too and is handling it
+        print("\n\n[dev-vue.py] Ctrl-C received")
+
+        if backend_process:
+            # We started the backend - wait for it to complete its graceful shutdown
+            # (it has job-aware logic that might require user confirmation)
+            print("  Backend is handling shutdown (checking for running jobs)...")
+            print("  (Vite will stay running until backend finishes)")
+
+            try:
+                # Wait for backend to exit - no timeout, respect its shutdown logic
+                backend_process.wait()
+                print("  Backend has exited")
+            except:
+                pass
+
+        # Now stop Vite
+        if npm_process:
+            print("  Stopping Vite dev server...")
+            try:
+                npm_process.terminate()
+                npm_process.wait(timeout=5)
+                print("  ✓ Vite stopped")
+            except subprocess.TimeoutExpired:
+                npm_process.kill()
+                print("  ✓ Vite stopped (forced)")
+            except:
+                pass
+
+        print("  Shutdown complete")
 
 if __name__ == '__main__':
     main()
