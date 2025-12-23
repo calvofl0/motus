@@ -45,8 +45,9 @@
 
     <template #footer>
       <div style="display: flex; gap: var(--spacing-sm);">
-        <button v-if="job?.log_text" @click="copyLog" class="btn btn-secondary" title="Copy log to clipboard (Ctrl+C)">
+        <button v-if="job?.log_text" @click="copyLog" class="btn btn-secondary copy-btn" title="Copy log to clipboard (Ctrl+C)">
           📋 Copy Log
+          <span v-if="showCopyTooltip" class="copy-tooltip">Copied!</span>
         </button>
         <button v-if="job?.log_text" @click="downloadLog" class="btn btn-info">
           ⬇️ Download Log
@@ -59,6 +60,7 @@
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import BaseModal from './BaseModal.vue'
+import { useClipboard } from '../../composables/useClipboard'
 
 const props = defineProps({
   show: Boolean,
@@ -68,6 +70,9 @@ const props = defineProps({
 defineEmits(['close'])
 
 const logContainer = ref(null)
+
+// Use clipboard composable for copy functionality with tooltip
+const { copyToClipboard, showCopyTooltip } = useClipboard()
 
 // Auto-scroll to bottom when log is displayed
 watch(() => props.show, async (newVal) => {
@@ -94,26 +99,9 @@ async function copyLog() {
   if (!props.job || !props.job.log_text) return
 
   try {
-    await navigator.clipboard.writeText(props.job.log_text)
-    // Could show a toast notification here
-    console.log('Log copied to clipboard')
+    await copyToClipboard(props.job.log_text)
   } catch (error) {
-    console.error('Failed to copy log:', error)
-    // Fallback for older browsers
-    try {
-      const textarea = document.createElement('textarea')
-      textarea.value = props.job.log_text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      console.log('Log copied to clipboard (fallback)')
-    } catch (fallbackError) {
-      console.error('Fallback copy also failed:', fallbackError)
-      alert('Failed to copy log to clipboard')
-    }
+    alert('Failed to copy log to clipboard')
   }
 }
 
@@ -263,5 +251,34 @@ onUnmounted(() => {
 /* Override BaseModal footer alignment to space buttons */
 :deep(.modal-footer) {
   justify-content: space-between;
+}
+
+/* Copy button with tooltip */
+.copy-btn {
+  position: relative;
+}
+
+.copy-tooltip {
+  display: inline;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-success);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  animation: fadeInOut 1s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(5px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
 }
 </style>

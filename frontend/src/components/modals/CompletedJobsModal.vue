@@ -1,11 +1,12 @@
 <template>
   <BaseModal
+    ref="modalRef"
     v-model="isOpen"
     title="✅ Completed Jobs"
     size="large"
     @close="handleClose"
   >
-    <div class="completed-jobs-container">
+    <div class="completed-jobs-container" tabindex="-1">
       <div v-if="loading" class="loading">Loading completed jobs...</div>
 
       <div v-else-if="completedJobs.length === 0" class="no-jobs">
@@ -65,7 +66,7 @@
   <JobLogModal
     :show="showJobLogModal"
     :job="selectedJob"
-    @close="showJobLogModal = false"
+    @close="handleJobLogClose"
   />
 
   <!-- Purge Confirmation Modal -->
@@ -78,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
 import JobLogModal from './JobLogModal.vue'
@@ -103,6 +104,7 @@ const loading = ref(false)
 const selectedJob = ref(null)
 const showJobLogModal = ref(false)
 const showPurgeConfirm = ref(false)
+const modalRef = ref(null)
 
 // Fetch completed jobs when modal opens
 watch(isOpen, async (newVal) => {
@@ -169,6 +171,18 @@ async function confirmPurge() {
 
 function handleClose() {
   isOpen.value = false
+}
+
+async function handleJobLogClose() {
+  showJobLogModal.value = false
+  // Restore focus to parent modal after child modal closes
+  await nextTick()
+  if (modalRef.value && modalRef.value.$el) {
+    const focusable = modalRef.value.$el.querySelector('[tabindex]')
+    if (focusable) {
+      focusable.focus()
+    }
+  }
 }
 
 function formatOperation(op) {

@@ -53,7 +53,9 @@
     <!-- Failed Jobs Dropdown -->
     <div
       v-if="failedJobs.length > 0"
+      ref="failedJobsRef"
       class="failed-jobs-dropdown"
+      tabindex="-1"
     >
       <div class="failed-jobs-header" @click="toggleFailedJobs">
         <span>❌ Failed Jobs ({{ failedJobs.length }})</span>
@@ -71,6 +73,7 @@
             Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="failed-job-actions">
+            <button class="job-icon-btn resume" @click.stop="resumeFailedJob(job.job_id)" title="Resume this job">🔄</button>
             <button class="job-icon-btn cancel" @click.stop="clearFailedJob(job.job_id)" title="Remove from list">×</button>
           </div>
         </div>
@@ -82,12 +85,12 @@
   <JobLogModal
     :show="showLogModal"
     :job="selectedJob"
-    @close="showLogModal = false"
+    @close="handleJobLogClose"
   />
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { apiCall } from '../services/api'
 import JobLogModal from './modals/JobLogModal.vue'
 
@@ -104,6 +107,7 @@ const failedJobs = ref([])
 // Job log modal state
 const showLogModal = ref(false)
 const selectedJob = ref(null)
+const failedJobsRef = ref(null)
 
 // Tracking
 const trackedJobs = ref(new Set())
@@ -389,6 +393,19 @@ async function clearFailedJob(jobId) {
 }
 
 /**
+ * Resume a failed job
+ */
+async function resumeFailedJob(jobId) {
+  try {
+    await apiCall(`/api/jobs/${jobId}/resume`, 'POST')
+    await updateFailedJobs()
+    await updateJobs() // Refresh active jobs list
+  } catch (error) {
+    alert(`Failed to resume job: ${error.message}`)
+  }
+}
+
+/**
  * Show job log modal for a failed job
  */
 async function showJobLog(job) {
@@ -399,6 +416,18 @@ async function showJobLog(job) {
     showLogModal.value = true
   } catch (error) {
     alert(`Failed to load job log: ${error.message}`)
+  }
+}
+
+/**
+ * Handle job log modal close - restore focus to failed jobs dropdown
+ */
+async function handleJobLogClose() {
+  showLogModal.value = false
+  // Restore focus to failed jobs dropdown after modal closes
+  await nextTick()
+  if (failedJobsRef.value) {
+    failedJobsRef.value.focus()
   }
 }
 
@@ -460,3 +489,17 @@ onUnmounted(() => {
   window.removeEventListener('server-shutting-down', handleServerShutdown)
 })
 </script>
+
+<style scoped>
+/* Failed jobs hover effect to indicate clickability */
+.failed-job-item {
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.failed-job-item:hover {
+  background: var(--color-bg-light);
+  border-left: 3px solid var(--color-danger);
+  padding-left: calc(var(--spacing-sm) - 3px);
+}
+</style>
