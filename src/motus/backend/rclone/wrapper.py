@@ -519,9 +519,14 @@ class RcloneWrapper:
         """
         Check integrity by comparing hashes (async, returns job_id)
 
+        Applies rsync semantics to determine destination path, matching copy behavior:
+        - Source without trailing /: check source vs dst/basename(source)
+        - Source with trailing /: check source contents vs dst contents
+        - Destination with trailing /: treat as directory
+
         Args:
-            src_path: Source path
-            dst_path: Destination path
+            src_path: Source path (rsync semantics)
+            dst_path: Destination path (rsync semantics)
             src_config: Optional source remote config
             dst_config: Optional destination remote config
 
@@ -536,41 +541,72 @@ class RcloneWrapper:
             job_id = self._next_job_id
             self._next_job_id += 1
 
+        # Parse trailing slashes (rsync convention - same as copy)
+        src_has_slash = src_path.endswith('/')
+        dst_has_slash = dst_path.endswith('/')
+        src_path_clean = src_path.rstrip('/')
+        dst_path_clean = dst_path.rstrip('/')
+
         # Parse source path
-        src_remote_name, src_clean_path = self._parse_path(src_path)
+        src_remote_name, src_clean_path = self._parse_path(src_path_clean)
         if src_remote_name:
             # Use named remote from rclone config
             src = f"{src_remote_name}:{src_clean_path}"
         elif src_config:
             # Legacy: use provided credentials
             credentials.update(self._format_credentials(src_config, 'src'))
-            src = f"src:{src_path}"
+            src = f"src:{src_path_clean}"
             config_arg = '/dev/null'
         else:
             # Local path (use expanded path with tilde resolved)
             src = src_clean_path
 
         # Parse destination path
-        dst_remote_name, dst_clean_path = self._parse_path(dst_path)
+        dst_remote_name, dst_clean_path = self._parse_path(dst_path_clean)
         if dst_remote_name:
             # Use named remote from rclone config
             dst = f"{dst_remote_name}:{dst_clean_path}"
         elif dst_config:
             # Legacy: use provided credentials
             credentials.update(self._format_credentials(dst_config, 'dst'))
-            dst = f"dst:{dst_path}"
+            dst = f"dst:{dst_path_clean}"
             config_arg = '/dev/null'
         else:
             # Local path (use expanded path with tilde resolved)
             dst = dst_clean_path
 
-        # Build command - use rclone check with hash comparison (like Motuz)
+        # Apply rsync semantics to determine actual destination path
+        # (matching the behavior of copy operation)
+        src_is_dir = self._is_directory(src_path_clean, src_config)
+        src_basename = os.path.basename(src_clean_path)
+
+        actual_src = src
+        actual_dst = dst
+
+        if src_is_dir and not src_has_slash:
+            # Source is directory without trailing slash → "copy by name"
+            # After copy, it would be at dst/basename(src)
+            # So check src vs dst/basename(src)
+            actual_dst = f"{dst}/{src_basename}"
+            logging.debug(f"Check: source is directory without /, checking '{actual_src}' vs '{actual_dst}'")
+        elif src_has_slash:
+            # Source has trailing slash → copy contents
+            # Check source contents vs destination contents
+            # rclone check already compares directory contents, so just use paths as-is
+            logging.debug(f"Check: source has trailing /, checking contents '{actual_src}' vs '{actual_dst}'")
+        else:
+            # Source is file or other cases
+            # Check as-is
+            logging.debug(f"Check: file or default case, checking '{actual_src}' vs '{actual_dst}'")
+
+        # Build command - use rclone check with --download flag for real integrity check
         command = [
             self.rclone_path,
             '--config', config_arg if config_arg else DEVNULL,
             'check',
-            src,
-            dst,
+            actual_src,
+            actual_dst,
+            '--download',  # Download and hash files for real integrity check
             '--progress',
             '--stats', '2s',
         ]
@@ -583,7 +619,7 @@ class RcloneWrapper:
             self._job_log_files[job_id] = log_file_path
             logging.debug(f"Job {job_id} will log to: {log_file_path}")
 
-        logging.info(f"Starting integrity check: '{src}' vs '{dst}'")
+        logging.info(f"Starting integrity check: '{src_path}' vs '{dst_path}' (actual: '{actual_src}' vs '{actual_dst}')")
 
         self._log_command(command, credentials)
 

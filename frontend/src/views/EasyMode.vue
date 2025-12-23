@@ -254,11 +254,22 @@ async function handleIntegrityCheck() {
   }
 
   try {
+    // Get destination resolved location
+    const dstResolved = getResolvedLocation(dstPane)
+
+    // Build destination path with trailing slash (rsync semantics - same as copy)
+    let dstPath
+    if (dstResolved.remote) {
+      const remotePath = `${dstResolved.remote}:${dstResolved.path}`
+      dstPath = remotePath.endsWith('/') ? remotePath : remotePath + '/'
+    } else {
+      dstPath = dstResolved.path.endsWith('/') ? dstResolved.path : dstResolved.path + '/'
+    }
+
     // Check each file (same pattern as copy)
     for (const file of selectedFiles) {
-      // Build paths using resolved location (handles absolute paths mode)
+      // Build source path using resolved location (handles absolute paths mode)
       const srcPath = buildOperationPath(srcPane, file.Name)
-      const dstPath = buildOperationPath(dstPane, file.Name)
 
       const response = await apiCall('/api/jobs/check', 'POST', {
         src_path: srcPath,
