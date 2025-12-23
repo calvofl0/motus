@@ -31,7 +31,7 @@
       <button
         class="option-btn option-check"
         :class="{ 'option-selected': selectedOption === 0 }"
-        @click="handleCheckIntegrity"
+        @click="selectOption(0)"
       >
         <div class="option-icon">🔍</div>
         <div class="option-content">
@@ -43,12 +43,14 @@
       <button
         class="option-btn option-resume"
         :class="{ 'option-selected': selectedOption === 1 }"
-        @click="handleResumeCopy"
+        @click="selectOption(1)"
       >
         <div class="option-icon">▶️</div>
         <div class="option-content">
           <div class="option-title">Resume Copy</div>
-          <div class="option-description">Copy only missing or modified files</div>
+          <div class="option-description">
+            Copy missing and modified files. <span class="warning-subtext">Different files will be overwritten.</span>
+          </div>
         </div>
       </button>
 
@@ -56,13 +58,13 @@
         v-if="showSyncOption"
         class="option-btn option-sync"
         :class="{ 'option-selected': selectedOption === 2 }"
-        @click="handleSync"
+        @click="selectOption(2)"
       >
-        <div class="option-icon">⚠️</div>
+        <div class="option-icon">👥</div>
         <div class="option-content">
           <div class="option-title">Sync</div>
-          <div class="option-description warning-text">
-            Make destination identical to source (deletes extra files at destination)
+          <div class="option-description">
+            Make destination identical to source. <span class="danger-text">Deletes extra files at destination.</span>
           </div>
         </div>
       </button>
@@ -71,6 +73,9 @@
     <template #footer>
       <button class="btn btn-secondary" @click="handleClose">
         Cancel
+      </button>
+      <button class="btn btn-primary" @click="handleContinue">
+        Continue
       </button>
     </template>
   </BaseModal>
@@ -165,6 +170,14 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
+
+function selectOption(index) {
+  selectedOption.value = index
+}
+
+function handleContinue() {
+  executeSelectedOption()
+}
 
 function handleCheckIntegrity() {
   emit('check-integrity')
@@ -317,17 +330,13 @@ export default {
   color: var(--color-text-secondary);
 }
 
-.option-description.warning-text {
-  color: var(--color-danger);
+.warning-subtext {
+  color: var(--color-warning);
   font-weight: var(--font-weight-medium);
 }
 
-.option-sync {
-  border-color: var(--color-warning);
-}
-
-.option-sync:hover {
-  border-color: var(--color-danger);
-  background: var(--color-danger-light);
+.danger-text {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
 }
 </style>
