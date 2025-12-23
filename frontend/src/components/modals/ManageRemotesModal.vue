@@ -1315,7 +1315,7 @@ async function handleOAuthRefreshed() {
 .remote-icon-btn {
   background: none;
   border: none;
-  fontSize: 14px;
+  font-size: 14px;
   cursor: pointer;
   padding: 4px 8px;
   margin-right: 4px;
@@ -1333,7 +1333,7 @@ async function handleOAuthRefreshed() {
 }
 
 .oauth-refresh-btn {
-  fontSize: 18px;
+  font-size: 18px;
   color: var(--color-success);
 }
 

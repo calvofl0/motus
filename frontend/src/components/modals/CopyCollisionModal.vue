@@ -340,5 +340,7 @@ export default {
 .danger-text {
   color: var(--color-danger);
   font-weight: var(--font-weight-semibold);
+  display: inline-block;
+  margin-top: 0.5em;
 }
 </style>

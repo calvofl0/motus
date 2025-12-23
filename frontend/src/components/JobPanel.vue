@@ -532,4 +532,11 @@ onUnmounted(() => {
   transform: scale(1.2);
   opacity: 0.7;
 }
+
+/* Cancel button - light red to contrast with red background */
+.job-icon-btn.cancel {
+  color: #ffcccc;
+  font-size: 1.3em;
+  font-weight: bold;
+}
 </style>
