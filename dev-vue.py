@@ -379,7 +379,8 @@ def main():
         npm_process = subprocess.Popen(
             ['npm', 'run', 'dev:watch'],
             cwd=Path(__file__).parent / 'frontend',
-            env=os.environ.copy()
+            env=os.environ.copy(),
+            start_new_session=True  # Run in separate process group to avoid SIGINT from Ctrl-C
         )
         npm_process.wait()
     except KeyboardInterrupt:
