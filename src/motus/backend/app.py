@@ -658,18 +658,38 @@ def create_app(config: Config = None):
         logging.info(f"Preserved upload cache for {len(active_job_ids)} active/interrupted jobs")
 
     # Auto-cleanup database if configured and no failed/interrupted jobs
-    if config.auto_cleanup_db:
+    if config.auto_cleanup_db is not None:
+        from datetime import datetime, timedelta, timezone
+
         failed_jobs = db.list_jobs(status='failed', limit=1)
         interrupted_jobs = db.list_aborted_jobs(limit=1)
 
         if not failed_jobs and not interrupted_jobs:
-            logging.info("Auto-cleanup enabled and no failed/interrupted jobs found - cleaning database")
-            count, _ = db.delete_all_jobs()
+            cleanup_value = config.auto_cleanup_db
+
+            # Determine cutoff time based on cleanup value type
+            if cleanup_value is True:
+                # Delete all completed jobs
+                logging.info("Auto-cleanup enabled (all) - cleaning all completed jobs")
+                count, _ = db.delete_stopped_jobs()
+            elif isinstance(cleanup_value, datetime):
+                # Delete jobs completed before absolute timestamp
+                logging.info(f"Auto-cleanup enabled (before {cleanup_value}) - cleaning old completed jobs")
+                count, _ = db.delete_jobs_before(cleanup_value)
+            elif isinstance(cleanup_value, timedelta):
+                # Delete jobs completed more than X time ago
+                cutoff = datetime.now(timezone.utc) - cleanup_value
+                logging.info(f"Auto-cleanup enabled (older than {cleanup_value}) - cleaning old completed jobs")
+                count, _ = db.delete_jobs_before(cutoff)
+            else:
+                logging.warning(f"Unknown auto_cleanup_db value type: {type(cleanup_value)}")
+                count = 0
+
             if count > 0:
                 logging.info(f"Deleted {count} jobs from database")
-            # Recalculate next job ID based on remaining jobs
-            rclone.initialize_job_counter(db)
-            logging.info("Recalculated job counter after cleanup")
+                # Recalculate next job ID based on remaining jobs
+                rclone.initialize_job_counter(db)
+                logging.info("Recalculated job counter after cleanup")
         else:
             logging.info("Auto-cleanup enabled but failed/interrupted jobs exist - skipping cleanup")
 

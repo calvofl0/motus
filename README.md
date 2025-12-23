@@ -535,14 +535,31 @@ absolute_paths: true                            # Enable absolute paths mode for
 
 # Limits and behavior
 max_idle_time: 3600
-auto_cleanup_db: true
+auto_cleanup_db: true                           # Supports flexible time formats (see below)
 max_upload_size: "1G"                           # 1GB (also accepts bytes: 1073741824, or 0 for unlimited)
 max_download_size: "5G"                         # 5GB (also accepts bytes: 5368709120, or 0 for unlimited)
 max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104857600)
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
 
-**Note**: Relative paths for `remote_templates_file` and `extra_remotes_file` are resolved against the config directory (`config_dir`), making it easy to keep configuration files together.
+**Auto-Cleanup Database**: The `auto_cleanup_db` option supports flexible time formats:
+- `false`, `no`, `0`: Disabled (default)
+- `true`, `yes`, `1`: Delete all completed jobs at startup
+- **ISO timestamps**: `2006-08-14T02:34:56+01:00` or `2006-08-14` - Delete jobs completed before this date
+- **Relative times**: `5h`, `30min`, `45s`, `2d` - Delete jobs completed more than X time ago
+
+Examples:
+```yaml
+auto_cleanup_db: true              # Delete all completed jobs
+auto_cleanup_db: 7d                # Delete jobs older than 7 days
+auto_cleanup_db: 2024-01-01        # Delete jobs before Jan 1, 2024
+auto_cleanup_db: 24h               # Delete jobs older than 24 hours
+```
+
+**Note**:
+- Cleanup happens once at server startup
+- Only completed jobs are deleted (failed/interrupted jobs are preserved)
+- Relative paths for `remote_templates_file` and `extra_remotes_file` are resolved against the config directory (`config_dir`), making it easy to keep configuration files together.
 
 **Priority**: CLI arguments > MOTUS_* environment variables > Config file > XDG_* environment variables > Defaults
 

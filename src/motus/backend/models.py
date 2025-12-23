@@ -311,6 +311,42 @@ class Database:
             conn.commit()
             return cursor.rowcount, deleted_job_ids
 
+    def delete_jobs_before(self, cutoff_time) -> tuple[int, List[int]]:
+        """
+        Delete completed jobs finished before the cutoff time.
+        Only deletes completed jobs (not failed/interrupted).
+
+        Args:
+            cutoff_time: datetime object (timezone-aware or naive)
+
+        Returns:
+            Tuple of (count, list of deleted job IDs)
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Convert cutoff time to ISO format string for SQLite comparison
+            cutoff_str = cutoff_time.isoformat()
+
+            # First get the job IDs we're about to delete
+            cursor.execute('''
+                SELECT job_id FROM jobs
+                WHERE status = 'completed'
+                AND finished_at IS NOT NULL
+                AND finished_at < ?
+            ''', (cutoff_str,))
+            deleted_job_ids = [row[0] for row in cursor.fetchall()]
+
+            # Now delete them
+            cursor.execute('''
+                DELETE FROM jobs
+                WHERE status = 'completed'
+                AND finished_at IS NOT NULL
+                AND finished_at < ?
+            ''', (cutoff_str,))
+            conn.commit()
+            return cursor.rowcount, deleted_job_ids
+
     def delete_all_jobs(self) -> tuple[int, List[int]]:
         """Delete all jobs and return count + list of deleted job IDs"""
         with self._get_connection() as conn:

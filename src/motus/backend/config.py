@@ -386,11 +386,13 @@ class Config:
         ) or 0)
 
         # Auto-cleanup database at startup if no failed/interrupted jobs
-        self.auto_cleanup_db = self._get_config(
+        # Supports: 'true', 'false', ISO timestamps, relative times (5h, 30min, 45s)
+        auto_cleanup_str = self._get_config(
             'auto_cleanup_db',
             env_var='MOTUS_AUTO_CLEANUP_DB',
             default='false'
-        ).lower() == 'true'
+        )
+        self.auto_cleanup_db = self._parse_cleanup_time(auto_cleanup_str)
 
         # Allow expert mode toggle in UI
         # If false, the Expert/Easy Mode toggle will be hidden
@@ -459,6 +461,69 @@ class Config:
         os.makedirs(self.download_cache_dir, exist_ok=True)
         os.makedirs(self.upload_cache_dir, exist_ok=True)
         os.makedirs(self.log_cache_dir, exist_ok=True)
+
+    def _parse_cleanup_time(self, value: str):
+        """
+        Parse auto_cleanup_db time value. Returns one of:
+        - None: cleanup disabled
+        - True: cleanup all completed jobs
+        - datetime: cleanup jobs completed before this absolute timestamp
+        - timedelta: cleanup jobs completed more than this duration ago
+
+        Supported formats:
+        - 'false', 'no', '0': disabled
+        - 'true', 'yes', '1': cleanup all completed jobs
+        - ISO timestamp: '2006-08-14T02:34:56+01:00' or '2006-08-14'
+        - Relative time: '5h', '30min', '45s', '2d'
+        """
+        from datetime import datetime, timedelta
+        import re
+
+        value = value.strip().lower()
+
+        # Boolean: false/disabled
+        if value in ('false', 'no', '0', ''):
+            return None
+
+        # Boolean: true/enabled (cleanup all)
+        if value in ('true', 'yes', '1'):
+            return True
+
+        # Try parsing as ISO timestamp
+        try:
+            # Try full ISO format with timezone
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+
+        try:
+            # Try date-only format (assume start of day UTC)
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+                return datetime.fromisoformat(value + 'T00:00:00+00:00')
+        except ValueError:
+            pass
+
+        # Try parsing as relative time (e.g., "5h", "30min", "45s", "2d")
+        time_pattern = r'^(\d+(?:\.\d+)?)(s|sec|seconds?|m|min|minutes?|h|hr|hours?|d|days?)$'
+        match = re.match(time_pattern, value)
+        if match:
+            amount = float(match.group(1))
+            unit = match.group(2)
+
+            if unit in ('s', 'sec', 'second', 'seconds'):
+                return timedelta(seconds=amount)
+            elif unit in ('m', 'min', 'minute', 'minutes'):
+                return timedelta(minutes=amount)
+            elif unit in ('h', 'hr', 'hour', 'hours'):
+                return timedelta(hours=amount)
+            elif unit in ('d', 'day', 'days'):
+                return timedelta(days=amount)
+
+        # Invalid format - log warning and disable
+        import logging
+        logging.warning(f"Invalid auto_cleanup_db value '{value}' - disabling cleanup. "
+                       f"Use 'true', ISO timestamp, or relative time (e.g., '5h', '30min')")
+        return None
 
     def _get_config(self, key: str, env_var: str, default: any) -> any:
         """Get config value with priority: env var > config file > default"""
