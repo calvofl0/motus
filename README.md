@@ -263,10 +263,11 @@ motus
 ```
 
 **Behavior:**
-- Only remotes that don't already exist are added
+- Only remotes that don't already exist are added (merged into your local rclone config)
 - Existing remotes are never overwritten
 - Happens once at startup
-- Changes are persisted to your rclone config
+- Merged remotes become part of your local rclone config and can be modified
+- The source file specified by `--add-remotes` remains read-only and unchanged
 
 #### Startup Remote and Local Filesystem Configuration
 
@@ -290,7 +291,7 @@ motus
 
 **Behavior:**
 - Can be **any remote** (not restricted to local filesystem)
-- If the remote doesn't exist, falls back to local filesystem with `~/`
+- If the remote doesn't exist, falls back to local filesystem with `/`
 - Both panes start on this remote at the root path (`/`)
 
 ##### Local Filesystem Entry (`--local-fs` or `-l`)
@@ -396,7 +397,7 @@ motus --absolute-paths
 
 The graphical remote management interface allows you to:
 - View all configured remotes with their types
-- Delete existing remotes (click the `-` button)
+- Delete existing remotes
 - Add new remotes from templates (click **Add from Template**)
 - Create custom remotes via Wizard or Manual configuration
 - Handle OAuth authentication flow automatically
@@ -542,10 +543,10 @@ max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
 ```
 
-**Auto-Cleanup Database**: The `auto_cleanup_db` option supports flexible time formats:
+**Auto-Cleanup Database**: The `auto_cleanup_db` option automatically deletes **completed jobs only** (failed/interrupted jobs are always preserved). Supports flexible time formats:
 - `false`, `no`, `0`: Disabled (default)
 - `true`, `yes`, `1`: Delete all completed jobs at startup
-- **ISO timestamps**: `2006-08-14T02:34:56+01:00` or `2006-08-14` - Delete jobs completed before this date
+- **ISO timestamps**: `2006-08-14T02:34:56+01:00` or `2006-08-14` - Delete completed jobs finished before this date
 - **Relative times**: Flexible format with optional spaces between number and unit
   - **Compact format**: `5h`, `30min`, `45s`, `2d`, `3mo`, `1y`
   - **Spaced format**: `1 day`, `3 days`, `5 hours`, `1 month`, `3 months`, `2 years`

@@ -160,7 +160,7 @@ function handlePurge() {
 
 async function confirmPurge() {
   try {
-    await apiCall('/api/jobs/clear_stopped', 'POST')
+    await apiCall('/api/jobs/clear_completed', 'POST')
     // Clear the list
     completedJobs.value = []
     showPurgeConfirm.value = false

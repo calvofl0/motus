@@ -698,6 +698,42 @@ def clear_stopped_jobs():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+@jobs_bp.route('/api/jobs/clear_completed', methods=['POST'])
+@token_required
+def clear_completed_jobs():
+    """
+    Delete all completed jobs only (preserves failed/interrupted jobs)
+
+    Response:
+    {
+        "message": "Deleted N completed jobs",
+        "count": N
+    }
+    """
+    try:
+        count, deleted_job_ids = db.delete_completed_jobs()
+
+        # Clean up JobQueue in-memory state for deleted jobs
+        for job_id in deleted_job_ids:
+            try:
+                rclone.job_delete(job_id)
+            except Exception as e:
+                # Job might not be in queue anymore, that's OK
+                logging.debug(f"Could not delete job {job_id} from queue: {e}")
+
+        # Reinitialize job counter to max_id + 1
+        rclone.initialize_job_counter(db)
+
+        return jsonify({
+            'message': f'Deleted {count} completed jobs',
+            'count': count,
+        })
+
+    except Exception as e:
+        logging.error(f"Error clearing completed jobs: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @jobs_bp.route('/api/jobs/<int:job_id>/log', methods=['GET'])
 @token_required
 def get_job_log(job_id):

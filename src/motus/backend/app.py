@@ -742,7 +742,7 @@ def create_app(config: Config = None):
             if cleanup_value is True:
                 # Delete all completed jobs
                 logging.info("Auto-cleanup enabled (all) - cleaning all completed jobs")
-                count, _ = db.delete_stopped_jobs()
+                count, _ = db.delete_completed_jobs()
             elif isinstance(cleanup_value, datetime):
                 # Delete jobs completed before absolute timestamp
                 logging.info(f"Auto-cleanup enabled (before {cleanup_value}) - cleaning old completed jobs")

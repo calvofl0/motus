@@ -292,7 +292,8 @@ class Database:
             return [self._row_to_dict(row) for row in rows]
 
     def delete_stopped_jobs(self) -> tuple[int, List[int]]:
-        """Delete all non-running jobs and return count + list of deleted job IDs"""
+        """Delete all non-running jobs and return count + list of deleted job IDs.
+        Used by Expert Mode to clear all stopped jobs (completed, failed, interrupted)."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
@@ -307,6 +308,28 @@ class Database:
             cursor.execute('''
                 DELETE FROM jobs
                 WHERE status != 'running'
+            ''')
+            conn.commit()
+            return cursor.rowcount, deleted_job_ids
+
+    def delete_completed_jobs(self) -> tuple[int, List[int]]:
+        """Delete all completed jobs and return count + list of deleted job IDs.
+        Only deletes completed jobs (not failed/interrupted).
+        Used by Completed Jobs Modal and auto_cleanup_db."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # First get the job IDs we're about to delete
+            cursor.execute('''
+                SELECT job_id FROM jobs
+                WHERE status = 'completed'
+            ''')
+            deleted_job_ids = [row[0] for row in cursor.fetchall()]
+
+            # Now delete them
+            cursor.execute('''
+                DELETE FROM jobs
+                WHERE status = 'completed'
             ''')
             conn.commit()
             return cursor.rowcount, deleted_job_ids
