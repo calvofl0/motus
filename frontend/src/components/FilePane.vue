@@ -11,7 +11,7 @@
       <div class="toolbar-row with-icon">
         <span class="input-icon" title="Storage Source">📦</span>
         <select v-model="selectedRemote" @change="onRemoteChange" title="Storage Source">
-          <option v-if="localFsName" value="">{{ localFsName }}</option>
+          <option v-if="showLocalFs" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
           </option>
@@ -226,7 +226,7 @@ const abortController = ref(null) // For aborting fetch requests
 // Use store values for remote configuration (allows dynamic updates)
 const startupRemote = computed(() => appStore.startupRemote)
 const localFsName = computed(() => appStore.localFsName)
-const originalLocalFsValue = computed(() => appStore.originalLocalFsValue)
+const showLocalFs = computed(() => appStore.showLocalFs)
 const absolutePathsMode = computed(() => appStore.absolutePathsMode)
 const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
 const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
@@ -246,11 +246,11 @@ const title = computed(() => {
       // Remote - show remote name
       return resolved.remote
     } else {
-      // Local filesystem - use configured name
-      return localFsName.value || originalLocalFsValue.value
+      // Local filesystem - use configured name (always non-empty)
+      return localFsName.value
     }
   }
-  return localFsName.value || originalLocalFsValue.value
+  return localFsName.value
 })
 
 // Computed icon for header (shows resolved location, not selected remote)
