@@ -19,6 +19,7 @@
 - **REST API**: Clean REST API for file operations and job management
 - **Server-Sent Events**: Real-time progress updates via SSE
 - **Single-User Design**: No complex authentication or multi-tenancy
+- **Reverse Proxy Support**: Works seamlessly behind reverse proxies with custom base paths
 
 ## Architecture
 
