@@ -546,14 +546,27 @@ download_cache_max_age: 3600                    # ZIP file retention (seconds, d
 - `false`, `no`, `0`: Disabled (default)
 - `true`, `yes`, `1`: Delete all completed jobs at startup
 - **ISO timestamps**: `2006-08-14T02:34:56+01:00` or `2006-08-14` - Delete jobs completed before this date
-- **Relative times**: `5h`, `30min`, `45s`, `2d` - Delete jobs completed more than X time ago
+- **Relative times**: Flexible format with optional spaces between number and unit
+  - **Compact format**: `5h`, `30min`, `45s`, `2d`, `3mo`, `1y`
+  - **Spaced format**: `1 day`, `3 days`, `5 hours`, `1 month`, `3 months`, `2 years`
+  - **Supported units**:
+    - Seconds: `s`, `sec`, `second`, `seconds`
+    - Minutes: `m`, `min`, `minute`, `minutes`
+    - Hours: `h`, `hr`, `hour`, `hours`
+    - Days: `d`, `day`, `days`
+    - Months: `mo`, `mon`, `month`, `months` (approximated as 30 days)
+    - Years: `y`, `yr`, `year`, `years` (approximated as 365 days)
 
 Examples:
 ```yaml
 auto_cleanup_db: true              # Delete all completed jobs
-auto_cleanup_db: 7d                # Delete jobs older than 7 days
+auto_cleanup_db: 7d                # Delete jobs older than 7 days (compact)
+auto_cleanup_db: 7 days            # Delete jobs older than 7 days (spaced)
 auto_cleanup_db: 2024-01-01        # Delete jobs before Jan 1, 2024
-auto_cleanup_db: 24h               # Delete jobs older than 24 hours
+auto_cleanup_db: 24h               # Delete jobs older than 24 hours (compact)
+auto_cleanup_db: 1 day             # Delete jobs older than 1 day (spaced)
+auto_cleanup_db: 3 months          # Delete jobs older than 3 months (~90 days)
+auto_cleanup_db: 1 year            # Delete jobs older than 1 year (~365 days)
 ```
 
 **Note**:

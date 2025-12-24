@@ -474,7 +474,7 @@ class Config:
         - 'false', 'no', '0': disabled
         - 'true', 'yes', '1': cleanup all completed jobs
         - ISO timestamp: '2006-08-14T02:34:56+01:00' or '2006-08-14'
-        - Relative time: '5h', '30min', '45s', '2d'
+        - Relative time: '5h', '30min', '45s', '2d', '1 hour', '3 days', '1 month', '2 years'
         """
         from datetime import datetime, timedelta
         import re
@@ -503,8 +503,9 @@ class Config:
         except ValueError:
             pass
 
-        # Try parsing as relative time (e.g., "5h", "30min", "45s", "2d")
-        time_pattern = r'^(\d+(?:\.\d+)?)(s|sec|seconds?|m|min|minutes?|h|hr|hours?|d|days?)$'
+        # Try parsing as relative time (e.g., "5h", "1 day", "3 months", "2 years")
+        # Allow optional whitespace between number and unit
+        time_pattern = r'^(\d+(?:\.\d+)?)\s*(s|sec|seconds?|m|min|minutes?|h|hr|hours?|d|days?|mo|mon|months?|y|yr|years?)$'
         match = re.match(time_pattern, value)
         if match:
             amount = float(match.group(1))
@@ -518,11 +519,17 @@ class Config:
                 return timedelta(hours=amount)
             elif unit in ('d', 'day', 'days'):
                 return timedelta(days=amount)
+            elif unit in ('mo', 'mon', 'month', 'months'):
+                # Approximate: 1 month = 30 days
+                return timedelta(days=amount * 30)
+            elif unit in ('y', 'yr', 'year', 'years'):
+                # Approximate: 1 year = 365 days
+                return timedelta(days=amount * 365)
 
         # Invalid format - log warning and disable
         import logging
         logging.warning(f"Invalid auto_cleanup_db value '{value}' - disabling cleanup. "
-                       f"Use 'true', ISO timestamp, or relative time (e.g., '5h', '30min')")
+                       f"Use 'true', ISO timestamp, or relative time (e.g., '5h', '1 day', '3 months')")
         return None
 
     def _get_config(self, key: str, env_var: str, default: any) -> any:
