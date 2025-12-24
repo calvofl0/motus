@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { apiCall, setAuthToken, getAuthToken } from '../services/api'
 import { loadPreferences, savePreferences } from '../services/preferences'
 
@@ -15,6 +15,12 @@ export const useAppStore = defineStore('app', () => {
   const showManageRemotesModal = ref(false)
   const showCompletedJobsModal = ref(false)
   const absolutePathsMode = ref(false) // Loaded from config
+
+  // Remote configuration state (for dynamic local-fs behavior)
+  const localFsName = ref('Local Filesystem') // Current display name for local filesystem (empty string hides it)
+  const localFsLockedByStartup = ref(false) // True when startup-remote is unset (local-fs cannot be disabled)
+  const originalLocalFsValue = ref('') // The original local-fs value from config at startup
+  const startupRemote = ref(null) // The configured startup remote
 
   // Left pane state
   const leftPane = ref({
@@ -129,6 +135,9 @@ export const useAppStore = defineStore('app', () => {
     // Apply initial theme
     applyTheme()
 
+    // Initialize remote configuration
+    await initializeRemoteConfig()
+
     // Listen for OS theme changes when in auto mode
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -136,6 +145,52 @@ export const useAppStore = defineStore('app', () => {
           applyTheme()
         }
       })
+    }
+  }
+
+  async function initializeRemoteConfig() {
+    //  Load remote configuration from API
+    try {
+      const config = await apiCall('/api/config')
+      startupRemote.value = config.startup_remote || null
+      const configLocalFs = config.local_fs || ''
+
+      // Apply Constraint 2: If no startup-remote, local-fs must be enabled and locked
+      if (!startupRemote.value || startupRemote.value === 'none') {
+        localFsLockedByStartup.value = true
+        localFsName.value = configLocalFs || 'Local Filesystem' // Enforce default if empty
+      } else {
+        localFsName.value = configLocalFs
+      }
+
+      // Remember original value for toggle restoration
+      originalLocalFsValue.value = localFsName.value
+
+      // Apply Constraint 1: If absolute paths mode enabled, local-fs must be enabled
+      // Note: absolutePathsMode is already set by initialize() from preferences/config
+      if (absolutePathsMode.value && !localFsName.value) {
+        localFsName.value = 'Local Filesystem'
+      }
+
+      // Try to validate startup-remote if it's set
+      if (startupRemote.value && startupRemote.value !== 'none') {
+        try {
+          // Try browsing the startup remote to verify it exists and is accessible
+          await apiCall('/api/files/ls', 'POST', { path: `${startupRemote.value}:/` })
+        } catch (error) {
+          console.warn(`Startup remote '${startupRemote.value}' failed to browse:`, error.message)
+          // Fallback: Enable and lock local-fs
+          localFsLockedByStartup.value = true
+          if (!localFsName.value) {
+            localFsName.value = 'Local Filesystem'
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load remote config:', error)
+      // Fallback to safe defaults
+      localFsName.value = 'Local Filesystem'
+      localFsLockedByStartup.value = true
     }
   }
 
@@ -259,6 +314,28 @@ export const useAppStore = defineStore('app', () => {
     showCompletedJobsModal.value = false
   }
 
+  // Watch for absolutePathsMode changes to enforce dynamic local-fs behavior
+  watch(absolutePathsMode, (newVal, oldVal) => {
+    if (newVal && !oldVal) {
+      // Toggling TO absolute paths
+      if (!localFsName.value && !localFsLockedByStartup.value) {
+        localFsName.value = 'Local Filesystem'
+      }
+    } else if (!newVal && oldVal) {
+      // Toggling FROM absolute paths
+      if (!localFsLockedByStartup.value && originalLocalFsValue.value === '') {
+        // Emit event that local-fs is being disabled
+        // FilePanes will switch away from local-fs if they're on it
+        window.dispatchEvent(new CustomEvent('local-fs-disabling'))
+
+        // Wait for panes to react, then remove local-fs
+        setTimeout(() => {
+          localFsName.value = ''
+        }, 100)
+      }
+    }
+  })
+
   return {
     // State
     currentMode,
@@ -274,6 +351,10 @@ export const useAppStore = defineStore('app', () => {
     leftPane,
     rightPane,
     contextMenu,
+    localFsName,
+    localFsLockedByStartup,
+    originalLocalFsValue,
+    startupRemote,
 
     // Computed
     isEasyMode,
@@ -283,6 +364,7 @@ export const useAppStore = defineStore('app', () => {
     // Actions
     initializeAuth,
     initialize,
+    initializeRemoteConfig,
     setMode,
     toggleViewMode,
     toggleHiddenFiles,

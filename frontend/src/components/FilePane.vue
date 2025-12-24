@@ -221,11 +221,11 @@ const remotes = ref([])
 const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
-const startupRemote = ref(null) // Default remote to show on startup
-const localFsName = ref('Local Filesystem') // Name for local filesystem entry (empty string hides it)
 const abortController = ref(null) // For aborting fetch requests
 
-// Absolute paths mode - use store value directly
+// Use store values for remote configuration (allows dynamic updates)
+const startupRemote = computed(() => appStore.startupRemote)
+const localFsName = computed(() => appStore.localFsName)
 const absolutePathsMode = computed(() => appStore.absolutePathsMode)
 const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
 const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
@@ -1493,16 +1493,7 @@ async function detectAliases() {
 // Initialize
 onMounted(async () => {
   try {
-    // Load config to get startup remote and local fs name
-    // Note: absolutePathsMode is loaded in app store initialize()
-    try {
-      const config = await apiCall('/api/config')
-      startupRemote.value = config.startup_remote || null
-      localFsName.value = config.local_fs || ''
-    } catch (error) {
-      console.error('Failed to load config:', error)
-    }
-
+    // Note: Remote config (startupRemote, localFsName, absolutePathsMode) is loaded in app store initialize()
     await loadRemotes()
 
     // Always detect aliases (needed for title/icon resolution in both modes)
@@ -1542,6 +1533,9 @@ onMounted(async () => {
 
   // Listen for absolute paths mode toggle
   window.addEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
+
+  // Listen for local-fs being disabled (when toggling from absolute to relative paths)
+  window.addEventListener('local-fs-disabling', handleLocalFsDisabling)
 })
 
 // Watch for changes to currentAliasBasePath to sync with store
@@ -1603,11 +1597,29 @@ async function handleAbsolutePathsModeChanged(event) {
   syncInputPath()
 }
 
+// Handle local-fs being disabled (switch away if we're currently on it)
+async function handleLocalFsDisabling() {
+  // If this pane is currently on local-fs, switch to startup-remote
+  if (selectedRemote.value === '') {
+    const targetRemote = appStore.startupRemote || ''
+    console.log(`Local-fs being disabled, switching from '' to '${targetRemote}'`)
+
+    selectedRemote.value = targetRemote
+    previousRemote.value = targetRemote
+    currentPath.value = '/'
+    currentAliasBasePath.value = ''
+
+    await refresh()
+    syncInputPath()
+  }
+}
+
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('remotes-changed', handleRemotesChanged)
   window.removeEventListener('job-completed', handleJobCompleted)
   window.removeEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
+  window.removeEventListener('local-fs-disabling', handleLocalFsDisabling)
 })
 
 // Expose methods to parent
