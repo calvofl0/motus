@@ -144,6 +144,9 @@ export const useAppStore = defineStore('app', () => {
     // Initialize remote configuration
     await initializeRemoteConfig()
 
+    // Detect aliases once during initialization (before panes mount)
+    await detectAliases()
+
     // Listen for OS theme changes when in auto mode
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
