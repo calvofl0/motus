@@ -162,7 +162,14 @@ export const useAppStore = defineStore('app', () => {
     // Backend has already normalized: local_fs is always a string, hide_local_fs is always boolean
     try {
       const config = await apiCall('/api/config')
+      console.log('[AppStore] Received config from backend:', {
+        startup_remote: config.startup_remote,
+        local_fs: config.local_fs,
+        hide_local_fs: config.hide_local_fs,
+        absolute_paths: config.absolute_paths
+      })
       startupRemote.value = config.startup_remote || null
+      console.log('[AppStore] Set startupRemote to:', startupRemote.value)
 
       // Store the normalized values (both always set by backend)
       localFsName.value = config.local_fs || 'Local Filesystem'

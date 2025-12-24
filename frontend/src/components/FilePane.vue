@@ -1455,8 +1455,10 @@ onMounted(async () => {
     await loadRemotes()
 
     // Initialize selected remote (only runs once due to <keep-alive>)
+    console.log(`[${props.pane}] Initializing with startupRemote:`, startupRemote.value)
     if (startupRemote.value) {
       // Use the configured startup remote as default
+      console.log(`[${props.pane}] Using startup remote: ${startupRemote.value}`)
       selectedRemote.value = startupRemote.value
       previousRemote.value = startupRemote.value
       currentPath.value = '/'
@@ -1468,6 +1470,7 @@ onMounted(async () => {
       }
     } else {
       // Use local filesystem (empty string) as default
+      console.log(`[${props.pane}] No startup remote, using local filesystem`)
       selectedRemote.value = ''
       previousRemote.value = ''
       currentPath.value = '/'
