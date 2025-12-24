@@ -112,7 +112,7 @@
 
         .mode-toggle-button {
             background: var(--color-warning);
-            color: var(--color-text-primary);
+            color: #333; /* Dark text for readability on yellow background in both themes */
         }
 
         .mode-toggle-button:hover {
