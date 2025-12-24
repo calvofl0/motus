@@ -228,7 +228,7 @@ const startupRemote = computed(() => appStore.startupRemote)
 const localFsName = computed(() => appStore.localFsName)
 const showLocalFs = computed(() => appStore.showLocalFs)
 const absolutePathsMode = computed(() => appStore.absolutePathsMode)
-const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
+const localAliases = computed(() => appStore.allAliases) // Get aliases from store (shared between panes)
 const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
 
 // Download confirmation modal state
@@ -1240,8 +1240,8 @@ async function handleExternalFileDrop(files) {
 // Handle remotes changed event
 async function handleRemotesChanged() {
   await loadRemotes()
-  // Always detect aliases (needed for title/icon resolution in both modes)
-  await detectAliases()
+  // Re-detect aliases when remotes change (force=true to override cache)
+  await appStore.detectAliases(true)
 }
 
 // Handle job completion event
@@ -1356,15 +1356,32 @@ function findMatchingAlias(path) {
   // Sort by base path length (longest first) for most specific match
   matches.sort((a, b) => b.basePath.length - a.basePath.length)
 
-  // If multiple aliases have same base path length, sort alphabetically
+  // If multiple aliases have same base path length, apply priority:
+  // 1. Local filesystem paths (basePath is just a path like '/home/user')
+  // 2. Remotes (isRemote: true) - alphabetically
+  // 3. Aliases (isRemote: false) - alphabetically
   const longestLength = matches[0].basePath.length
   const longestMatches = matches.filter(a => a.basePath.length === longestLength)
 
   if (longestMatches.length > 1) {
-    longestMatches.sort((a, b) => a.name.localeCompare(b.name))
+    longestMatches.sort((a, b) => {
+      // Priority 1: Local filesystem paths (isLocal and basePath doesn't contain ':')
+      const aIsLocalPath = a.isLocal && !a.basePath.includes(':')
+      const bIsLocalPath = b.isLocal && !b.basePath.includes(':')
+
+      if (aIsLocalPath && !bIsLocalPath) return -1
+      if (!aIsLocalPath && bIsLocalPath) return 1
+
+      // Priority 2: Remotes before aliases (when both are non-local-paths)
+      if (a.isRemote && !b.isRemote) return -1
+      if (!a.isRemote && b.isRemote) return 1
+
+      // Priority 3: Alphabetically within same category
+      return a.name.localeCompare(b.name)
+    })
   }
 
-  console.log(`  findMatchingAlias: returning ${longestMatches[0].name} (basePath: ${longestMatches[0].basePath})`)
+  console.log(`  findMatchingAlias: returning ${longestMatches[0].name} (basePath: ${longestMatches[0].basePath}, isRemote: ${longestMatches[0].isRemote})`)
   return longestMatches[0]
 }
 
@@ -1430,84 +1447,14 @@ async function autoSwitchRemote() {
   }
 }
 
-// Detect all aliases and their base paths (local filesystem or remote)
-// This runs in both normal and absolute-paths modes to support title/icon resolution
-async function detectAliases() {
-  const detectedAliases = []
-
-  for (const remote of remotes.value) {
-    try {
-      // Special case: "local" type remotes are aliases to root of local filesystem
-      if (remote.type === 'local') {
-        detectedAliases.push({
-          name: remote.name,
-          basePath: '/',
-          isLocal: true
-        })
-        continue
-      }
-
-      // Resolve the alias to get its base location
-      const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
-        remote: remote.name,
-        path: ''
-      })
-
-      const resolvedPath = response.resolved_path || ''
-
-      // Check if it resolves to something (local path or remote path)
-      if (resolvedPath.includes(':')) {
-        const colonIndex = resolvedPath.indexOf(':')
-        const beforeColon = resolvedPath.substring(0, colonIndex)
-        const afterColon = resolvedPath.substring(colonIndex + 1)
-
-        if (beforeColon.startsWith('/')) {
-          // Local filesystem path - concatenate
-          detectedAliases.push({
-            name: remote.name,
-            basePath: beforeColon + afterColon,
-            isLocal: true
-          })
-        } else {
-          // Remote path (e.g., "gdrive:MyFiles")
-          detectedAliases.push({
-            name: remote.name,
-            basePath: resolvedPath,
-            isLocal: false
-          })
-        }
-      } else if (resolvedPath.startsWith('/')) {
-        // Direct local path (no colon)
-        detectedAliases.push({
-          name: remote.name,
-          basePath: resolvedPath,
-          isLocal: true
-        })
-      }
-    } catch (error) {
-      // Ignore errors for individual remotes (they're not aliases)
-      // This is expected for non-alias remotes like regular cloud storage
-    }
-  }
-
-  // Sort by name for consistent ordering
-  detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
-  localAliases.value = detectedAliases
-
-  console.log(`[${props.pane}] Detected ${localAliases.value.length} aliases:`)
-  localAliases.value.forEach(a => {
-    console.log(`  [${props.pane}] ${a.name}: ${a.basePath} (isLocal: ${a.isLocal})`)
-  })
-}
-
 // Initialize
 onMounted(async () => {
   try {
     // Note: Remote config (startupRemote, localFsName, absolutePathsMode) is loaded in app store initialize()
     await loadRemotes()
 
-    // Always detect aliases (needed for title/icon resolution in both modes)
-    await detectAliases()
+    // Detect aliases once in store (shared between panes, includes implicit remote aliases)
+    await appStore.detectAliases()
 
     // Initialize selected remote (only runs once due to <keep-alive>)
     if (startupRemote.value) {

@@ -23,6 +23,10 @@ export const useAppStore = defineStore('app', () => {
   const localFsLockedByStartup = ref(false) // True when startup-remote is unset (local-fs cannot be disabled)
   const startupRemote = ref(null) // The configured startup remote
 
+  // Alias detection state (shared between panes, detected once)
+  const allAliases = ref([]) // All detected aliases and implicit remote aliases
+  const aliasesDetected = ref(false) // Flag to ensure detection only runs once
+
   // Left pane state
   const leftPane = ref({
     remote: '',
@@ -313,6 +317,106 @@ export const useAppStore = defineStore('app', () => {
     showCompletedJobsModal.value = false
   }
 
+  // Detect all aliases and add implicit remote aliases (runs once, shared by both panes)
+  // Set force=true to re-detect (e.g., when remotes change)
+  async function detectAliases(force = false) {
+    if (aliasesDetected.value && !force) {
+      return // Already detected
+    }
+
+    try {
+      // Fetch all remotes
+      const remotesData = await apiCall('/api/remotes')
+      const remotes = remotesData.remotes || []
+
+      console.log('[AppStore] Detecting aliases from', remotes.length, 'remotes')
+
+      const detectedAliases = []
+
+      for (const remote of remotes) {
+        // Special case: "local" type remotes are aliases to root of local filesystem
+        if (remote.type === 'local') {
+          detectedAliases.push({
+            name: remote.name,
+            basePath: '/',
+            isLocal: true,
+            isRemote: false
+          })
+          continue
+        }
+
+        // Check if this is an alias type remote
+        if (remote.type === 'alias') {
+          try {
+            // Resolve the alias to get its base location
+            const response = await apiCall('/api/remotes/resolve-alias', 'POST', {
+              remote: remote.name,
+              path: ''
+            })
+
+            const resolvedPath = response.resolved_path || ''
+
+            // Check if it resolves to something (local path or remote path)
+            if (resolvedPath.includes(':')) {
+              const colonIndex = resolvedPath.indexOf(':')
+              const beforeColon = resolvedPath.substring(0, colonIndex)
+              const afterColon = resolvedPath.substring(colonIndex + 1)
+
+              if (beforeColon.startsWith('/')) {
+                // Local filesystem path - concatenate
+                detectedAliases.push({
+                  name: remote.name,
+                  basePath: beforeColon + afterColon,
+                  isLocal: true,
+                  isRemote: false
+                })
+              } else {
+                // Remote path (e.g., "gdrive:MyFiles")
+                detectedAliases.push({
+                  name: remote.name,
+                  basePath: resolvedPath,
+                  isLocal: false,
+                  isRemote: false
+                })
+              }
+            } else if (resolvedPath.startsWith('/')) {
+              // Direct local path (no colon)
+              detectedAliases.push({
+                name: remote.name,
+                basePath: resolvedPath,
+                isLocal: true,
+                isRemote: false
+              })
+            }
+          } catch (error) {
+            console.warn(`[AppStore] Failed to resolve alias '${remote.name}':`, error.message)
+          }
+        } else {
+          // Non-alias remote - add as implicit root alias (e.g., "onedrive" -> "onedrive:")
+          detectedAliases.push({
+            name: remote.name,
+            basePath: remote.name + ':',
+            isLocal: false,
+            isRemote: true // Mark as actual remote (not an alias)
+          })
+        }
+      }
+
+      // Sort by name for consistent ordering
+      detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
+      allAliases.value = detectedAliases
+      aliasesDetected.value = true
+
+      console.log(`[AppStore] Detected ${allAliases.value.length} aliases:`)
+      allAliases.value.forEach(a => {
+        console.log(`  [AppStore] ${a.name}: ${a.basePath} (isLocal: ${a.isLocal}, isRemote: ${a.isRemote})`)
+      })
+    } catch (error) {
+      console.error('[AppStore] Failed to detect aliases:', error)
+      aliasesDetected.value = true // Mark as attempted to avoid retries
+    }
+  }
+
   // Watch for absolutePathsMode changes to enforce dynamic local-fs behavior
   watch(absolutePathsMode, (newVal, oldVal) => {
     if (newVal && !oldVal) {
@@ -354,6 +458,7 @@ export const useAppStore = defineStore('app', () => {
     showLocalFs,
     localFsLockedByStartup,
     startupRemote,
+    allAliases,
 
     // Computed
     isEasyMode,
@@ -364,6 +469,7 @@ export const useAppStore = defineStore('app', () => {
     initializeAuth,
     initialize,
     initializeRemoteConfig,
+    detectAliases,
     setMode,
     toggleViewMode,
     toggleHiddenFiles,
