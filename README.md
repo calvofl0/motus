@@ -7,6 +7,39 @@
     <br>
 </div>
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Quick Start](#quick-start)
+  - [Development Mode](#development-mode)
+  - [User Interface Modes](#user-interface-modes)
+  - [Using rclone Remotes](#using-rclone-remotes)
+  - [Managing Remotes via UI](#managing-remotes-via-ui)
+- [Configuration Options](#configuration-options)
+  - [Command Line Arguments](#command-line-arguments)
+  - [Environment Variables](#environment-variables)
+  - [Configuration File](#configuration-file)
+  - [XDG Base Directory Support](#xdg-base-directory-support)
+  - [Cache Directory Structure](#cache-directory-structure)
+  - [Port Allocation](#port-allocation)
+  - [Multi-Instance Protection](#multi-instance-protection)
+- [Building the Frontend](#building-the-frontend)
+- [API Documentation](#api-documentation)
+- [Development](#development)
+  - [Project Structure](#project-structure)
+  - [Development Workflow](#development-workflow)
+  - [Running Tests](#running-tests)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
+- [License](#license)
+- [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
+- [Support](#support)
+
 ## Features
 
 - **Modern Vue.js Interface**: Responsive, keyboard-driven UI with Easy and Expert modes
