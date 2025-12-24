@@ -259,17 +259,24 @@ function formatRelativeTime(isoString) {
   const date = new Date(isoString)
   const now = new Date()
 
-  // Calculate calendar day difference in user's timezone (not absolute time)
-  // Get midnight of today in user's timezone
-  const todayStr = now.toLocaleString('en-US', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
-  const todayMidnight = new Date(todayStr)
+  // Get date parts in user's timezone
+  const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
 
-  // Get midnight of the job's day in user's timezone
-  const jobDayStr = date.toLocaleString('en-US', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
-  const jobDayMidnight = new Date(jobDayStr)
+  // Format both dates in user's timezone (returns YYYY-MM-DD)
+  const jobDateStr = dateFormatter.format(date)
+  const todayStr = dateFormatter.format(now)
+
+  // Parse as Date objects in UTC (consistent comparison)
+  const jobDateUTC = new Date(jobDateStr + 'T00:00:00Z')
+  const todayUTC = new Date(todayStr + 'T00:00:00Z')
 
   // Calculate difference in calendar days
-  const diffDays = Math.round((todayMidnight - jobDayMidnight) / (1000 * 60 * 60 * 24))
+  const diffDays = Math.round((todayUTC - jobDateUTC) / (1000 * 60 * 60 * 24))
 
   // Today: show time only
   if (diffDays === 0) {
