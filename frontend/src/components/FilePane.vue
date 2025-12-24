@@ -1451,10 +1451,8 @@ async function autoSwitchRemote() {
 onMounted(async () => {
   try {
     // Note: Remote config (startupRemote, localFsName, absolutePathsMode) is loaded in app store initialize()
+    // Note: Aliases are detected in app store initialize() before panes mount
     await loadRemotes()
-
-    // Detect aliases once in store (shared between panes, includes implicit remote aliases)
-    await appStore.detectAliases()
 
     // Initialize selected remote (only runs once due to <keep-alive>)
     if (startupRemote.value) {
