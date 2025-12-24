@@ -36,7 +36,7 @@
             gap: var(--spacing-sm);
         }
 
-        .mode-toggle-button, .quit-button, .view-toggle-button, .manage-remotes-button {
+        .mode-toggle-button, .quit-button, .view-toggle-button, .manage-remotes-button, .completed-jobs-button {
             padding: var(--spacing-sm) var(--spacing-xl);
             border: none;
             border-radius: var(--radius-sm);
@@ -44,6 +44,15 @@
             font-size: var(--font-size-base);
             font-weight: var(--font-weight-medium);
             transition: var(--transition-normal);
+        }
+
+        .completed-jobs-button {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .completed-jobs-button:hover {
+            background: var(--color-primary-hover);
         }
 
         .manage-remotes-button {
@@ -102,12 +111,12 @@
         }
 
         .mode-toggle-button {
-            background: var(--color-primary);
-            color: white;
+            background: var(--color-warning);
+            color: var(--color-text-primary);
         }
 
         .mode-toggle-button:hover {
-            background: var(--color-primary-hover);
+            background: var(--color-warning-hover);
         }
 
         .quit-button {

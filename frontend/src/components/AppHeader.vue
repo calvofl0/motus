@@ -30,7 +30,7 @@
           </div>
         </div>
       </div>
-      <button v-if="allowExpertMode" class="btn btn-warning mode-toggle-button" @click="toggleMode">
+      <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
       <button class="quit-button" @click="quitServer">Quit</button>
