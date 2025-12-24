@@ -295,7 +295,7 @@ motus
 - If the remote doesn't exist, falls back to local filesystem with `/`
 - Both panes start on this remote at the root path (`/`)
 
-##### Local Filesystem Entry (`--local-fs` or `-l`)
+##### Local Filesystem Entry (`--local-fs` or `-l`, `--hide-local-fs` or `-H`)
 
 Control how the "Local Filesystem" entry appears in the remote dropdown:
 
@@ -303,38 +303,58 @@ Control how the "Local Filesystem" entry appears in the remote dropdown:
 # Customize the label
 motus -l "My Computer"
 
-# Hide the local filesystem entry completely
+# Hide with default label (legacy approach)
 motus -l ""
 
-# Via environment variable
-export MOTUS_LOCAL_FS=""
+# Hide with custom label (shows "My Server" if forced visible by absolute-paths)
+motus -l "My Server" -H
+
+# Via environment variables
+export MOTUS_LOCAL_FS="My Server"
+export MOTUS_HIDE_LOCAL_FS=true
 motus
 
 # Or in ~/.motus/config.yml:
-# local_fs: ""
+# local_fs: "My Server"
+# hide_local_fs: true
 ```
 
+**Options:**
+- `--local-fs` / `-l`: Sets the display name for local filesystem (default: "Local Filesystem")
+- `--hide-local-fs` / `-H`: Hides local filesystem from dropdown initially (can be overridden)
+
 **Behavior:**
-- Default: `"Local Filesystem"` (shown in the dropdown)
-- Empty string `""` hides the entry from the list
-- Any custom string changes the label
+- Local filesystem can be forced to show when:
+  - No `--startup-remote` is set (requires browsing local filesystem)
+  - `--absolute-paths` is enabled (needed for navigating outside aliases)
+  - Configured `--startup-remote` fails to browse
+- When forced to show, uses the name from `--local-fs`
+- Default: Local filesystem shown with name "Local Filesystem"
 
 **Example Use Cases:**
 
 1. **Hide local filesystem, use remote as default:**
    ```bash
-   motus -s my_remote -l ""
+   motus -s my_remote -H
+   # Local filesystem hidden unless absolute-paths toggled on
    ```
 
-2. **Custom label for local filesystem:**
+2. **Hide with custom name (shows if absolute-paths enabled):**
+   ```bash
+   motus -l "This Server" -H --startup-remote my_s3
+   # Hidden initially, but shows as "This Server" if user enables absolute paths
+   ```
+
+3. **Custom label, always visible:**
    ```bash
    motus -l "This Server"
+   # "This Server" appears in dropdown (default behavior)
    ```
 
-3. **Start on a specific alias, keep local filesystem visible:**
+4. **Hide local filesystem (legacy syntax):**
    ```bash
-   motus -s mylocal
-   # "Local Filesystem" still appears in the dropdown
+   motus -l ""
+   # Equivalent to: motus -H
    ```
 
 #### Absolute Paths Mode (`--absolute-paths`)
@@ -470,7 +490,8 @@ motus -e                                          # Show mode toggle in UI (--al
 motus --remote-templates templates.conf           # Remote templates file
 motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
 motus -s my_remote                                # Set startup remote (--startup-remote)
-motus -l ""                                       # Hide local filesystem entry (--local-fs)
+motus -l "My Server"                              # Customize local filesystem name (--local-fs)
+motus -H                                          # Hide local filesystem entry (--hide-local-fs)
 motus --absolute-paths                            # Enable absolute paths mode for local aliases
 motus --max-idle-time 3600                        # Auto-quit after 1 hour idle
 motus --auto-cleanup-db                           # Clean DB at startup
@@ -496,7 +517,8 @@ export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf    # Or relative: templates.conf (resolves to config_dir/templates.conf)
 export MOTUS_EXTRA_REMOTES=/path/to/rclone.conf          # Or relative: remotes.conf (resolves to config_dir/remotes.conf)
 export MOTUS_STARTUP_REMOTE=my_remote                    # Default remote at startup
-export MOTUS_LOCAL_FS=""                                 # Local filesystem label (empty string hides it)
+export MOTUS_LOCAL_FS="My Server"                        # Local filesystem label (default: "Local Filesystem")
+export MOTUS_HIDE_LOCAL_FS=true                          # Hide local filesystem entry (default: false)
 export MOTUS_ABSOLUTE_PATHS=true                         # Enable absolute paths mode for local aliases
 export MOTUS_MAX_IDLE_TIME=3600
 export MOTUS_AUTO_CLEANUP_DB=true
@@ -532,7 +554,8 @@ allow_expert_mode: true
 remote_templates_file: templates.conf           # Absolute or relative to config_dir
 extra_remotes_file: team-remotes.conf           # Absolute or relative to config_dir
 startup_remote: my_remote                       # Default remote at startup
-local_fs: "Local Filesystem"                    # Local filesystem label (empty string hides it)
+local_fs: "My Server"                           # Local filesystem label (default: "Local Filesystem")
+hide_local_fs: false                            # Hide local filesystem entry (default: false)
 absolute_paths: true                            # Enable absolute paths mode for local aliases
 
 # Limits and behavior

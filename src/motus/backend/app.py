@@ -830,6 +830,7 @@ def register_routes(app: Flask, config: Config):
             'allow_expert_mode': config.allow_expert_mode,
             'startup_remote': config.startup_remote,
             'local_fs': config.local_fs,
+            'hide_local_fs': config.hide_local_fs,
             'absolute_paths': config.absolute_paths,
         })
 

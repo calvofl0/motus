@@ -558,12 +558,17 @@ def main():
     parser.add_argument(
         '-l', '--local-fs',
         type=str,
-        help='Name for local filesystem remote (default: "Local Filesystem", empty string hides it, or MOTUS_LOCAL_FS env var)'
+        help='Name for local filesystem remote (default: "Local Filesystem", or MOTUS_LOCAL_FS env var)'
+    )
+    parser.add_argument(
+        '-H', '--hide-local-fs',
+        action='store_true',
+        help='Hide local filesystem from remote dropdown (can be overridden by --absolute-paths or when no startup-remote, or MOTUS_HIDE_LOCAL_FS env var)'
     )
     parser.add_argument(
         '--absolute-paths',
         action='store_true',
-        help='Show absolute filesystem paths for local aliases with auto-switching (implies non-empty --local-fs, or MOTUS_ABSOLUTE_PATHS env var)'
+        help='Show absolute filesystem paths for local aliases with auto-switching (implies visible local-fs, or MOTUS_ABSOLUTE_PATHS env var)'
     )
     parser.add_argument(
         '--max-idle-time',

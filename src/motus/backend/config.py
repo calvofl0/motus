@@ -321,16 +321,40 @@ class Config:
             default=None
         )
 
-        # Local filesystem entry name - Name for local filesystem remote in UI
-        # Default: "Local Filesystem", empty string hides it from the list
-        self.local_fs = self._get_config(
+        # Local filesystem entry configuration
+        # Load raw values first, then normalize
+        local_fs_raw = self._get_config(
             'local_fs',
             env_var='MOTUS_LOCAL_FS',
-            default='Local Filesystem'
+            default=None
+        )
+        hide_local_fs_raw = self._get_config(
+            'hide_local_fs',
+            env_var='MOTUS_HIDE_LOCAL_FS',
+            default=None
         )
 
+        # Normalize: ensure local_fs is always a non-empty string (name to use)
+        # and hide_local_fs is always a boolean (visibility flag)
+        if local_fs_raw is None or local_fs_raw == '':
+            # Not set or empty string
+            self.local_fs = 'Local Filesystem'  # Default name
+            # Derive hide flag: if explicitly empty string, hide it
+            if hide_local_fs_raw is None:
+                self.hide_local_fs = (local_fs_raw == '')  # True if empty string
+            else:
+                self.hide_local_fs = str(hide_local_fs_raw).lower() in ('true', '1', 'yes')
+        else:
+            # Custom name provided
+            self.local_fs = local_fs_raw
+            # Derive hide flag
+            if hide_local_fs_raw is None:
+                self.hide_local_fs = False  # Show by default when custom name provided
+            else:
+                self.hide_local_fs = str(hide_local_fs_raw).lower() in ('true', '1', 'yes')
+
         # Absolute paths mode - Show absolute filesystem paths for local aliases
-        # Implies non-empty local_fs
+        # Implies visible local_fs
         self.absolute_paths = self._get_config(
             'absolute_paths',
             env_var='MOTUS_ABSOLUTE_PATHS',
