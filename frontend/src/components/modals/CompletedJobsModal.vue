@@ -304,12 +304,12 @@ function formatRelativeTime(isoString) {
   }
 
   // Older: show "23 Nov" format
-  const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+  const shortDateFormatter = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'short',
     timeZone: timezone
   })
-  return dateFormatter.format(date)
+  return shortDateFormatter.format(date)
 }
 </script>
 
