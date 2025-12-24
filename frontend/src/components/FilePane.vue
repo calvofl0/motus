@@ -522,6 +522,7 @@ function onRemoteChange() {
   // Update current alias base path if in absolute paths mode
   if (absolutePathsMode.value && selectedRemote.value) {
     const alias = localAliases.value.find(a => a.name === selectedRemote.value)
+    console.log(`[${props.pane}] onRemoteChange: selectedRemote="${selectedRemote.value}", alias=`, alias)
 
     // Special case: if alias points to filesystem root, use local filesystem instead
     if (alias && alias.isLocal && alias.basePath === '/') {
@@ -534,8 +535,10 @@ function onRemoteChange() {
       // (handles case where multiple aliases point to same location)
       if (alias) {
         const matchingAlias = findMatchingAlias(alias.basePath)
+        console.log(`[${props.pane}] findMatchingAlias("${alias.basePath}") returned:`, matchingAlias)
         if (matchingAlias && matchingAlias.name !== selectedRemote.value) {
           // Found a better alias (alphabetically first) - switch to it
+          console.log(`[${props.pane}] Switching from "${selectedRemote.value}" to "${matchingAlias.name}"`)
           selectedRemote.value = matchingAlias.name
           currentAliasBasePath.value = matchingAlias.basePath
         }
@@ -1344,6 +1347,8 @@ function findMatchingAlias(path) {
     }
   })
 
+  console.log(`  findMatchingAlias("${path}"): found ${matches.length} matches:`, matches.map(m => `${m.name}(${m.basePath})`))
+
   if (matches.length === 0) {
     return null // No match
   }
@@ -1359,6 +1364,7 @@ function findMatchingAlias(path) {
     longestMatches.sort((a, b) => a.name.localeCompare(b.name))
   }
 
+  console.log(`  findMatchingAlias: returning ${longestMatches[0].name} (basePath: ${longestMatches[0].basePath})`)
   return longestMatches[0]
 }
 
@@ -1488,7 +1494,10 @@ async function detectAliases() {
   detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
   localAliases.value = detectedAliases
 
-  console.log('Detected aliases (including local type remotes):', localAliases.value)
+  console.log(`[${props.pane}] Detected ${localAliases.value.length} aliases:`)
+  localAliases.value.forEach(a => {
+    console.log(`  [${props.pane}] ${a.name}: ${a.basePath} (isLocal: ${a.isLocal})`)
+  })
 }
 
 // Initialize
