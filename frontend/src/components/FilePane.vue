@@ -226,6 +226,7 @@ const abortController = ref(null) // For aborting fetch requests
 // Use store values for remote configuration (allows dynamic updates)
 const startupRemote = computed(() => appStore.startupRemote)
 const localFsName = computed(() => appStore.localFsName)
+const originalLocalFsValue = computed(() => appStore.originalLocalFsValue)
 const absolutePathsMode = computed(() => appStore.absolutePathsMode)
 const localAliases = ref([]) // [{name: "mylocal", basePath: "/home/user/docs"}, ...]
 const currentAliasBasePath = ref('') // Base path of current alias (if applicable)
@@ -245,11 +246,11 @@ const title = computed(() => {
       // Remote - show remote name
       return resolved.remote
     } else {
-      // Local filesystem
-      return localFsName.value || 'Local Filesystem'
+      // Local filesystem - use configured name
+      return localFsName.value || originalLocalFsValue.value
     }
   }
-  return localFsName.value || 'Local Filesystem'
+  return localFsName.value || originalLocalFsValue.value
 })
 
 // Computed icon for header (shows resolved location, not selected remote)
