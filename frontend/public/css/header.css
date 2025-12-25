@@ -69,16 +69,24 @@
             position: relative;
         }
 
-        .view-toggle-button,
-        .help-toggle-button {
+        .view-toggle-button {
             background: var(--color-success);
             color: white;
             padding: var(--spacing-sm) var(--spacing-xl);
         }
 
-        .view-toggle-button:hover,
-        .help-toggle-button:hover {
+        .view-toggle-button:hover {
             background: var(--color-success-hover);
+        }
+
+        .help-toggle-button {
+            background: var(--color-purple);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-xl);
+        }
+
+        .help-toggle-button:hover {
+            background: var(--color-purple-hover);
         }
 
         .view-dropdown-menu,

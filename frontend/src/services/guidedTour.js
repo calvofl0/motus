@@ -4,41 +4,66 @@
  */
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
+import { apiCall } from './api'
+import { loadPreferences, savePreferences } from './preferences'
+
+// Cache for preferences to avoid repeated API calls during tour
+let _preferencesCache = null
+
+/**
+ * Get current tour preferences from backend
+ */
+async function getTourPreferences() {
+  if (_preferencesCache) {
+    return _preferencesCache
+  }
+  _preferencesCache = await loadPreferences(apiCall)
+  return _preferencesCache
+}
 
 /**
  * Check if tour has been completed
  */
-export function isTourCompleted() {
-  return localStorage.getItem('motus-tour-completed') === 'true'
+export async function isTourCompleted() {
+  const prefs = await getTourPreferences()
+  return prefs.tour_completed === true
 }
 
 /**
  * Mark tour as completed
  */
-export function markTourCompleted() {
-  localStorage.setItem('motus-tour-completed', 'true')
+export async function markTourCompleted() {
+  const prefs = await getTourPreferences()
+  prefs.tour_completed = true
+  await savePreferences(apiCall, prefs)
 }
 
 /**
  * Check if tour auto-show is disabled
  */
-export function isTourAutoShowDisabled() {
-  return localStorage.getItem('motus-tour-auto-show') === 'false'
+export async function isTourAutoShowDisabled() {
+  const prefs = await getTourPreferences()
+  return prefs.tour_auto_show === false
 }
 
 /**
  * Disable tour auto-show
  */
-export function disableTourAutoShow() {
-  localStorage.setItem('motus-tour-auto-show', 'false')
+export async function disableTourAutoShow() {
+  const prefs = await getTourPreferences()
+  prefs.tour_auto_show = false
+  await savePreferences(apiCall, prefs)
 }
 
 /**
  * Reset tour preferences (for testing/debugging)
  */
-export function resetTourPreferences() {
-  localStorage.removeItem('motus-tour-completed')
-  localStorage.removeItem('motus-tour-auto-show')
+export async function resetTourPreferences() {
+  const prefs = await getTourPreferences()
+  prefs.tour_completed = false
+  prefs.tour_auto_show = true
+  await savePreferences(apiCall, prefs)
+  _preferencesCache = null
 }
 
 /**
@@ -62,7 +87,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 2: Left File Pane
     {
-      element: '.easy-mode-container .file-pane:first-child',
+      element: '.pane.left-pane',
       popover: {
         title: 'Source File Pane',
         description: 'This is your source file browser. Navigate through folders by double-clicking on them. You can browse different storage locations configured in your system.',
@@ -72,7 +97,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 3: Remote Dropdown (Left)
     {
-      element: '.easy-mode-container .file-pane:first-child select.remote-selector',
+      element: '.left-pane .toolbar-row.with-icon',
       popover: {
         title: 'Select Remote',
         description: 'Switch between different storage locations (called "remotes") using this dropdown. Choose from any configured storage service or file system. Later on we\'ll simply call them "storage locations".',
@@ -82,7 +107,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 4: Right File Pane
     {
-      element: '.easy-mode-container .file-pane:last-child',
+      element: '.pane.right-pane',
       popover: {
         title: 'Destination File Pane',
         description: 'This is your destination file browser. Select where you want to copy or move files. The left and right panes work symmetrically - you can transfer files in either direction.',
@@ -92,7 +117,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 5: Drag & Drop (Left to Right)
     {
-      element: '.easy-mode-container .file-pane:last-child .file-list',
+      element: '.right-pane .file-list',
       popover: {
         title: 'Drag & Drop Transfer',
         description: 'Simply drag files or folders from the left pane and drop them here to start a copy operation. You can also drag and drop files directly from your desktop! Select multiple files by holding Ctrl while clicking, or Shift to select a range of consecutive files.',
@@ -100,9 +125,9 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 6: Copy Button (Right to Left Arrow)
+    // Step 6: Copy Button (Arrow buttons)
     {
-      element: '.copy-controls',
+      element: '.arrow-buttons .arrow-button:first-child',
       popover: {
         title: 'Copy with Buttons',
         description: 'You can also use the arrow buttons to copy files. Select files in one pane and click the corresponding arrow button to copy them to the other side.',
@@ -110,92 +135,42 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 7: Context Menu (with fake menu)
+    // Step 7: Context Menu (with fake menu in popover)
     {
       popover: {
         title: 'Context Menu Actions',
-        description: 'Right-click on any file or folder in either pane to access actions: Copy, Move, Integrity Check, Rename, Delete, and more. You can also right-click on empty space to create new folders.',
+        description: `Right-click on any file or folder in either pane to access actions: Copy, Move, Integrity Check, Rename, Delete, and more. You can also right-click on empty space to create new folders.
+
+<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
+  <div style="padding: 8px 12px;">📁 New Folder</div>
+</div>`,
         side: 'center',
         align: 'center',
-        onPopoverRender: (popover) => {
-          // Create fake context menu
-          const fakeMenu = document.createElement('div')
-          fakeMenu.className = 'tour-fake-context-menu'
-          fakeMenu.style.cssText = `
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--color-bg-white);
-            border: 1px solid var(--color-border-darker);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-            min-width: 180px;
-            z-index: 9998;
-          `
-          fakeMenu.innerHTML = `
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer;">📁 New Folder</div>
-          `
-          document.body.appendChild(fakeMenu)
-
-          // Remove on step change
-          popover._fakeMenu = fakeMenu
-        },
-      },
-      onDeselected: (element, step, options) => {
-        // Clean up fake menu
-        const fakeMenu = document.querySelector('.tour-fake-context-menu')
-        if (fakeMenu) {
-          fakeMenu.remove()
-        }
       },
     },
 
-    // Step 8: New Alias Feature (with fake menu highlighting)
+    // Step 8: New Alias Feature (with highlighted menu in popover)
     {
       popover: {
         title: 'Create Aliases for Quick Access',
-        description: 'Here\'s a powerful feature: right-click on any folder and select "New Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.',
+        description: `Here's a powerful feature: right-click on any folder and select "New Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
+
+<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 New Folder</div>
+  <div style="padding: 8px 12px; background: var(--color-bg-primary-light); font-weight: bold;">🔗 New Alias</div>
+</div>`,
         side: 'center',
         align: 'center',
-        onPopoverRender: (popover) => {
-          // Create fake context menu with New Alias highlighted
-          const fakeMenu = document.createElement('div')
-          fakeMenu.className = 'tour-fake-context-menu'
-          fakeMenu.style.cssText = `
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--color-bg-white);
-            border: 1px solid var(--color-border-darker);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-            min-width: 180px;
-            z-index: 9998;
-          `
-          fakeMenu.innerHTML = `
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📁 New Folder</div>
-            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; background: var(--color-bg-primary-light); font-weight: bold;">🔗 New Alias</div>
-          `
-          document.body.appendChild(fakeMenu)
-        },
-      },
-      onDeselected: () => {
-        const fakeMenu = document.querySelector('.tour-fake-context-menu')
-        if (fakeMenu) {
-          fakeMenu.remove()
-        }
       },
     },
 
@@ -209,12 +184,12 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 10: Path Display Mode (with open View menu)
+    // Step 10: Path Display Mode (with open View menu and highlighted toggle)
     {
-      element: '.view-dropdown-container',
+      element: '.view-dropdown-container .view-menu-item:nth-child(3)',
       popover: {
         title: 'Understanding Path Display',
-        description: 'The path display toggle (third option in the View menu) controls how folder paths are shown. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
+        description: 'This toggle controls how folder paths are shown. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
         side: 'bottom',
       },
       onHighlightStarted: () => {
@@ -225,7 +200,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
         }
       },
       onDeselected: () => {
-        // Close View menu
+        // Close View menu if it's open
         const viewMenu = document.querySelector('.view-dropdown-menu')
         if (viewMenu && !viewMenu.classList.contains('hidden')) {
           const viewButton = document.querySelector('.view-toggle-button')
@@ -246,38 +221,50 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 12: Interrupted/Failed Jobs (make visible and highlight both)
+    // Step 12: Interrupted/Failed Jobs (highlight both headers)
     {
-      element: '.job-panel',
+      element: '.interrupted-jobs-header, .failed-jobs-header',
       popover: {
         title: 'Resume Failed Operations',
-        description: 'If a job is interrupted (server shutdown) or fails, it will appear in dropdowns at the top of this panel. You can resume or restart them with a single click.',
+        description: 'If a job is interrupted (server shutdown) or fails, it will appear in these dropdowns. You can resume or restart them with a single click.',
         side: 'top',
       },
       onHighlightStarted: () => {
         // Make dropdowns temporarily visible
-        const interruptedDropdown = document.querySelector('.interrupted-jobs-dropdown')
-        const failedDropdown = document.querySelector('.failed-jobs-dropdown')
+        const interruptedHeader = document.querySelector('.interrupted-jobs-header')
+        const failedHeader = document.querySelector('.failed-jobs-header')
 
-        if (interruptedDropdown) {
-          interruptedDropdown._originalDisplay = interruptedDropdown.style.display
-          interruptedDropdown.style.display = 'block'
+        if (interruptedHeader) {
+          const container = interruptedHeader.parentElement
+          if (container) {
+            container._originalDisplay = container.style.display
+            container.style.display = 'block'
+          }
         }
-        if (failedDropdown) {
-          failedDropdown._originalDisplay = failedDropdown.style.display
-          failedDropdown.style.display = 'block'
+        if (failedHeader) {
+          const container = failedHeader.parentElement
+          if (container) {
+            container._originalDisplay = container.style.display
+            container.style.display = 'block'
+          }
         }
       },
       onDeselected: () => {
         // Restore original visibility
-        const interruptedDropdown = document.querySelector('.interrupted-jobs-dropdown')
-        const failedDropdown = document.querySelector('.failed-jobs-dropdown')
+        const interruptedHeader = document.querySelector('.interrupted-jobs-header')
+        const failedHeader = document.querySelector('.failed-jobs-header')
 
-        if (interruptedDropdown && interruptedDropdown._originalDisplay !== undefined) {
-          interruptedDropdown.style.display = interruptedDropdown._originalDisplay
+        if (interruptedHeader) {
+          const container = interruptedHeader.parentElement
+          if (container && container._originalDisplay !== undefined) {
+            container.style.display = container._originalDisplay
+          }
         }
-        if (failedDropdown && failedDropdown._originalDisplay !== undefined) {
-          failedDropdown.style.display = failedDropdown._originalDisplay
+        if (failedHeader) {
+          const container = failedHeader.parentElement
+          if (container && container._originalDisplay !== undefined) {
+            container.style.display = container._originalDisplay
+          }
         }
       },
     },
@@ -474,7 +461,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           const result = await showCancelConfirmation(isLastStep, noTourConfig)
           if (result.confirmed) {
             if (result.dontShowAgain) {
-              disableTourAutoShow()
+              await disableTourAutoShow()
             }
             tourActive = false
             driverObj.destroy()
@@ -484,10 +471,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       }
     },
     onDestroyed: () => {
-      // Clean up any remaining fake menus
-      const fakeMenus = document.querySelectorAll('.tour-fake-context-menu')
-      fakeMenus.forEach(menu => menu.remove())
-
       // Clean up cancel overlay if exists
       const overlay = document.querySelector('.tour-cancel-overlay')
       if (overlay) {
@@ -496,13 +479,13 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
       tourActive = false
     },
-    onCloseClick: () => {
+    onCloseClick: async () => {
       // This handles the Finish button on last step
       const checkbox = document.querySelector('#tour-no-show-again')
       if (checkbox && checkbox.checked && !noTourConfig) {
-        disableTourAutoShow()
+        await disableTourAutoShow()
       }
-      markTourCompleted()
+      await markTourCompleted()
       tourActive = false
       driverObj.destroy()
     },
@@ -526,7 +509,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       const result = await showCancelConfirmation(isLastStep, noTourConfig)
       if (result.confirmed) {
         if (result.dontShowAgain) {
-          disableTourAutoShow()
+          await disableTourAutoShow()
         }
         tourActive = false
         document.removeEventListener('keydown', globalEscHandler, true)
