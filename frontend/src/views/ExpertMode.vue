@@ -149,6 +149,7 @@
         </button>
         <button @click="stopWatching" v-if="isWatching" style="background: #6c757d;">Stop Watching</button>
         <button @click="showJobLog" style="background: #6c757d;">Show Log</button>
+        <button @click="deleteJob" style="background: #dc3545;">Delete Job</button>
         <button @click="resumeJob" style="background: #28a745;">Resume</button>
         <button @click="stopJob" style="background: #dc3545;">Stop Job</button>
         <div v-if="statusOutput" class="output">{{ statusOutput }}</div>
@@ -790,6 +791,31 @@ async function showJobLog() {
     const data = await apiCall(`/api/jobs/${statusJobId.value}/log`)
     const logText = data.log_text || '(no log available)'
     statusOutput.value = `=== Job ${statusJobId.value} Log ===\n\n${logText}`
+  } catch (error) {
+    statusOutput.value = `Error: ${error.message}`
+  }
+}
+
+/**
+ * Delete job
+ */
+async function deleteJob() {
+  if (!statusJobId.value) {
+    statusOutput.value = 'Error: Please enter a job ID'
+    return
+  }
+
+  if (!confirm(`Delete job #${statusJobId.value}?`)) {
+    return
+  }
+
+  // Stop watching if currently watching
+  stopWatching()
+
+  try {
+    await apiCall(`/api/jobs/${statusJobId.value}`, 'DELETE')
+    statusOutput.value = `✓ Job ${statusJobId.value} deleted`
+    statusJobId.value = null
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
   }
