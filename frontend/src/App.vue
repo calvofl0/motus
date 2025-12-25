@@ -119,7 +119,6 @@ async function checkInterruptedJobs() {
 
 function onJobsResumed() {
   // Could refresh job list or show a notification here
-  console.log('Jobs resumed successfully')
 }
 
 // Frontend registration management
@@ -127,7 +126,6 @@ async function registerFrontend() {
   try {
     const data = await apiCall('/api/frontend/register', 'POST')
     frontendId = data.frontend_id
-    console.log(`[Frontend] Registered with ID: ${frontendId}`)
 
     // Start heartbeat interval (every 5 seconds)
     heartbeatInterval = setInterval(sendHeartbeat, 5000)
@@ -184,18 +182,13 @@ async function unregisterFrontend() {
 
 function handleBeforeUnload() {
   // Use sendBeacon for reliable delivery on tab close/refresh
-  console.log('[Frontend] beforeunload event fired, frontendId:', frontendId)
-
   if (frontendId) {
     try {
       const payload = { frontend_id: frontendId }
       const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
 
-      console.log('[Frontend] Sending unregister beacon with payload:', payload)
-
       // sendBeacon returns false if queuing failed
       const success = navigator.sendBeacon(getApiUrl('/api/frontend/unregister'), blob)
-      console.log('[Frontend] sendBeacon result:', success)
 
       if (!success) {
         console.warn('[Frontend] sendBeacon failed to queue the request')
@@ -203,8 +196,6 @@ function handleBeforeUnload() {
     } catch (error) {
       console.error('[Frontend] Error in handleBeforeUnload:', error)
     }
-  } else {
-    console.warn('[Frontend] beforeunload fired but no frontendId available')
   }
 }
 

@@ -326,13 +326,11 @@ export const useAppStore = defineStore('app', () => {
   async function detectAliases(force = false) {
     // If already detected and not forcing, return immediately
     if (aliasesDetected.value && !force) {
-      console.log('[AppStore] Aliases already detected, skipping')
       return
     }
 
     // If detection is already in progress, return the existing promise (mutex)
     if (detectAliasesPromise && !force) {
-      console.log('[AppStore] Detection already in progress, waiting...')
       return detectAliasesPromise
     }
 
@@ -343,14 +341,11 @@ export const useAppStore = defineStore('app', () => {
     }
 
     // Start new detection
-    console.log('[AppStore] Starting alias detection...')
     detectAliasesPromise = (async () => {
       try {
         // Fetch all remotes
         const remotesData = await apiCall('/api/remotes')
         const remotes = remotesData.remotes || []
-
-        console.log('[AppStore] Detecting aliases from', remotes.length, 'remotes')
 
         const detectedAliases = []
 
@@ -427,11 +422,6 @@ export const useAppStore = defineStore('app', () => {
         detectedAliases.sort((a, b) => a.name.localeCompare(b.name))
         allAliases.value = detectedAliases
         aliasesDetected.value = true
-
-        console.log(`[AppStore] Detected ${allAliases.value.length} aliases:`)
-        allAliases.value.forEach(a => {
-          console.log(`  [AppStore] ${a.name}: ${a.basePath} (isLocal: ${a.isLocal}, isRemote: ${a.isRemote})`)
-        })
       } catch (error) {
         console.error('[AppStore] Failed to detect aliases:', error)
         aliasesDetected.value = true // Mark as attempted to avoid retries
