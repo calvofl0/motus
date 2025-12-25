@@ -2,7 +2,6 @@
   <BaseModal
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
-    :canClose="true"
   >
     <template #header>📥 Download File</template>
     <template #body>

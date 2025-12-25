@@ -2,7 +2,7 @@
   <BaseModal
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
-    :canClose="false"
+    :closeOnOverlayClick="false"
   >
     <template #header>📥 Preparing Download</template>
     <template #body>

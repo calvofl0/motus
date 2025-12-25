@@ -36,6 +36,7 @@ _startup_time = None
 _idle_timer_thread = None
 _idle_timer_stop_event = None
 _zero_frontends_grace_start = None  # Time when counter reached zero (for refresh grace period)
+_grace_period_timer = None  # Timer for grace period shutdown (independent of idle timer)
 _shutting_down = False  # Flag to notify frontends that server is shutting down
 
 # Grace period for frontend disconnections and shutdown coordination (seconds)
@@ -314,6 +315,63 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
     logging.info("Signal handlers registered for graceful shutdown")
 
 
+def start_grace_period_shutdown(rclone: RcloneWrapper, db: Database, config: Config):
+    """
+    Start grace period timer for shutdown after frontend counter reaches zero.
+    This runs independently of the idle timer and works even when max_idle_time is 0.
+    """
+    global _grace_period_timer, _zero_frontends_grace_start
+
+    def grace_period_expired():
+        global _zero_frontends_grace_start, _registered_frontends, _frontends_lock
+
+        # Check if running jobs exist - if so, don't shutdown
+        running_jobs = rclone.get_running_jobs()
+        if running_jobs:
+            logging.info(f"Grace period expired but {len(running_jobs)} job(s) still running - canceling shutdown")
+            _zero_frontends_grace_start = None
+            return
+
+        # Double-check that counter is still zero (user might have refreshed)
+        with _frontends_lock:
+            if len(_registered_frontends) == 0:
+                time_since_zero = time.time() - _zero_frontends_grace_start
+                logging.info(f"Frontend counter at zero for {time_since_zero:.1f}s >= {GRACE_PERIOD}s grace period - shutting down")
+                # Shutdown in separate thread
+                def shutdown_delayed():
+                    perform_shutdown(rclone, db, config)
+                    os._exit(0)
+                threading.Thread(target=shutdown_delayed, daemon=True).start()
+            else:
+                logging.info("Grace period expired but frontends reconnected - canceling shutdown")
+                _zero_frontends_grace_start = None
+
+    # Cancel any existing timer
+    if _grace_period_timer:
+        _grace_period_timer.cancel()
+
+    # Start new timer
+    _zero_frontends_grace_start = time.time()
+    _grace_period_timer = threading.Timer(GRACE_PERIOD, grace_period_expired)
+    _grace_period_timer.daemon = True
+    _grace_period_timer.start()
+    logging.info(f"Frontend counter reached zero - starting {GRACE_PERIOD}s grace period")
+
+
+def cancel_grace_period_shutdown():
+    """Cancel the grace period shutdown timer (called when frontend registers during grace period)"""
+    global _grace_period_timer, _zero_frontends_grace_start
+
+    if _grace_period_timer:
+        _grace_period_timer.cancel()
+        _grace_period_timer = None
+
+    if _zero_frontends_grace_start:
+        grace_elapsed = time.time() - _zero_frontends_grace_start
+        logging.info(f"Frontend registered during grace period (after {grace_elapsed:.1f}s) - canceling shutdown timer")
+        _zero_frontends_grace_start = None
+
+
 def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, config: Config):
     """
     Background worker to monitor idle time and shutdown if exceeded
@@ -322,9 +380,10 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
     1. NEVER shutdown if running jobs exist (backend activity)
     2. If no frontends registered AND max_idle_time passed since startup → shutdown
        (allows time for first frontend to register)
-    3. If counter reaches 0 after frontends existed → 10s grace period, then shutdown
-       (allows refresh/F5 to re-register before shutdown)
-    4. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
+    3. If frontends registered BUT no heartbeat for max_idle_time → shutdown (all offline/crashed)
+
+    Note: Grace period shutdown (when counter reaches 0 after frontends existed) is handled
+    independently by start_grace_period_shutdown() and works even when max_idle_time is 0.
     """
     global _idle_timer_stop_event, _registered_frontends, _frontends_lock, _startup_time, _zero_frontends_grace_start
 
@@ -343,25 +402,12 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
 
             # Case 1: No frontends registered
             if frontend_count == 0:
-                time_since_startup = time.time() - _startup_time
-
-                # If we never had any frontends, use max_idle_time (startup grace period)
-                if _zero_frontends_grace_start is None and time_since_startup >= max_idle_time:
-                    logging.info(f"No frontends registered for {time_since_startup:.1f}s >= {max_idle_time}s - shutting down")
-                    # Shutdown in separate thread to avoid blocking
-                    def shutdown_delayed():
-                        perform_shutdown(rclone, db, config)
-                        os._exit(0)
-                    threading.Thread(target=shutdown_delayed, daemon=True).start()
-                    break
-                elif _zero_frontends_grace_start is None:
-                    logging.debug(f"No frontends registered yet - waiting ({time_since_startup:.1f}s / {max_idle_time}s)")
-
-                # If we had frontends but counter reached zero, use grace period
-                elif _zero_frontends_grace_start is not None:
-                    time_since_zero = time.time() - _zero_frontends_grace_start
-                    if time_since_zero >= GRACE_PERIOD:
-                        logging.info(f"Frontend counter at zero for {time_since_zero:.1f}s >= {GRACE_PERIOD}s grace period - shutting down")
+                # Only shutdown if we never had any frontends (startup grace period)
+                # If we had frontends before, grace period shutdown is handled by threading.Timer
+                if _zero_frontends_grace_start is None:
+                    time_since_startup = time.time() - _startup_time
+                    if time_since_startup >= max_idle_time:
+                        logging.info(f"No frontends registered for {time_since_startup:.1f}s >= {max_idle_time}s - shutting down")
                         # Shutdown in separate thread to avoid blocking
                         def shutdown_delayed():
                             perform_shutdown(rclone, db, config)
@@ -369,12 +415,10 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
                         threading.Thread(target=shutdown_delayed, daemon=True).start()
                         break
                     else:
-                        logging.debug(f"Grace period active - counter at zero for {time_since_zero:.1f}s / {GRACE_PERIOD}s")
+                        logging.debug(f"No frontends registered yet - waiting ({time_since_startup:.1f}s / {max_idle_time}s)")
 
             # Case 2: Frontends registered
             else:
-                # Reset grace period timer if counter is non-zero
-                _zero_frontends_grace_start = None
 
                 # Check if all frontends are offline (no recent heartbeats)
                 now = time.time()
@@ -896,10 +940,8 @@ def register_routes(app: Flask, config: Config):
             _registered_frontends[frontend_id] = time.time()
 
             # If counter increased from 0, cancel grace period (refresh scenario)
-            if len(_registered_frontends) == 1 and _zero_frontends_grace_start is not None:
-                grace_elapsed = time.time() - _zero_frontends_grace_start
-                logging.info(f"Frontend registered during grace period (after {grace_elapsed:.1f}s) - canceling shutdown timer")
-                _zero_frontends_grace_start = None
+            if len(_registered_frontends) == 1:
+                cancel_grace_period_shutdown()
 
         logging.info(f"Frontend registered: {frontend_id} (total: {len(_registered_frontends)})")
 
@@ -994,8 +1036,7 @@ def register_routes(app: Flask, config: Config):
 
                 # If counter reached zero, start grace period timer (for refresh scenario)
                 if remaining == 0:
-                    _zero_frontends_grace_start = time.time()
-                    logging.info("Frontend counter reached zero - starting 10s grace period")
+                    start_grace_period_shutdown(app.rclone, app.db, app.motus_config)
             else:
                 logging.debug(f"Attempt to unregister unknown frontend: {frontend_id}")
 
