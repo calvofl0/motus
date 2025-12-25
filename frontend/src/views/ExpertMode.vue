@@ -805,6 +805,10 @@ async function deleteJob() {
     return
   }
 
+  if (!confirm(`Delete job #${statusJobId.value}?`)) {
+    return
+  }
+
   // Stop watching if currently watching
   stopWatching()
 
