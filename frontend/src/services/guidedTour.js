@@ -88,12 +88,12 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 3: Remote Dropdown (Left)
+    // Step 3: Remote Dropdown & Path Field
     {
-      element: '.left-pane .toolbar-row.with-icon',
+      element: '.left-pane .pane-toolbar',
       popover: {
-        title: 'Select Remote',
-        description: 'Switch between different storage locations (called "remotes") using this dropdown. Choose from any configured storage service or file system. Later on we\'ll simply call them "storage locations".',
+        title: 'Storage Selection and Navigation',
+        description: 'The top dropdown switches between different storage locations - cloud services, servers, or local filesystem. Below it, the path field lets you navigate to specific folders by typing a path and pressing Enter. Later we\'ll simply call these "storage locations".',
         side: 'bottom',
       },
     },
@@ -169,12 +169,12 @@ ${contextMenuHtml}`,
       },
     },
 
-    // Step 10: Path Display Mode (with open View menu, highlighted toggle, and path field)
+    // Step 10: Path Display Mode (with open View menu and highlighted toggle)
     {
-      element: '.view-dropdown-container .view-menu-item:nth-child(3), .left-pane .toolbar-row.with-icon',
+      element: '.view-dropdown-container .view-menu-item:nth-child(3)',
       popover: {
         title: 'Understanding Path Display',
-        description: 'This toggle controls how folder paths are shown in the path field. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
+        description: 'This toggle controls how folder paths are shown in the path field. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
         side: 'bottom',
       },
       onHighlightStarted: () => {
@@ -206,39 +206,24 @@ ${contextMenuHtml}`,
       },
     },
 
-    // Step 12: Interrupted/Failed Jobs (make visible and highlight both)
+    // Step 12: Interrupted/Failed Jobs
     {
-      element: '.interrupted-jobs-container, .failed-jobs-container',
+      element: '.job-panel',
       popover: {
         title: 'Resume Failed Operations',
-        description: 'If a job is interrupted (server shutdown) or fails, it will appear in these dropdowns. You can resume or restart them with a single click.',
+        description: `Below the Active Jobs panel, interrupted or failed jobs appear in dropdowns for easy resuming:
+
+<div style="margin-top: 15px;">
+  <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 4px solid #ffc107;">
+    <strong>⚠️ Interrupted Jobs (2) ▼</strong>
+    <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs stopped by server shutdown - click to resume</div>
+  </div>
+  <div style="background: #ffebee; padding: 10px; border-radius: 4px; border-left: 4px solid #dc3545;">
+    <strong>❌ Failed Jobs (1) ▼</strong>
+    <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs that encountered errors - click to view logs or retry</div>
+  </div>
+</div>`,
         side: 'top',
-      },
-      onHighlightStarted: () => {
-        // Make both containers temporarily visible
-        const interruptedContainer = document.querySelector('.interrupted-jobs-container')
-        const failedContainer = document.querySelector('.failed-jobs-container')
-
-        if (interruptedContainer) {
-          interruptedContainer._originalDisplay = getComputedStyle(interruptedContainer).display
-          interruptedContainer.style.display = 'block'
-        }
-        if (failedContainer) {
-          failedContainer._originalDisplay = getComputedStyle(failedContainer).display
-          failedContainer.style.display = 'block'
-        }
-      },
-      onDeselected: () => {
-        // Restore original visibility
-        const interruptedContainer = document.querySelector('.interrupted-jobs-container')
-        const failedContainer = document.querySelector('.failed-jobs-container')
-
-        if (interruptedContainer && interruptedContainer._originalDisplay !== undefined) {
-          interruptedContainer.style.display = interruptedContainer._originalDisplay
-        }
-        if (failedContainer && failedContainer._originalDisplay !== undefined) {
-          failedContainer.style.display = failedContainer._originalDisplay
-        }
       },
     },
 
@@ -270,7 +255,7 @@ ${contextMenuHtml}`,
         side: 'center',
         align: 'center',
         doneBtnText: 'Finish',
-        showButtons: ['previous', 'close'], // Previous and Finish buttons
+        showButtons: ['previous', 'next'], // Previous and Finish (next) buttons
         onPopoverRender: (popover, options) => {
           // Only show checkbox if --no-tour is not set
           if (!noTourConfig) {
@@ -298,12 +283,17 @@ ${contextMenuHtml}`,
  */
 export function showCancelConfirmation(noTourConfig, driverObj = null) {
   return new Promise((resolve) => {
-    // Hide driver popover to allow interaction with confirmation dialog
+    // Disable driver overlay/popover interaction to allow dialog clicks
     if (driverObj) {
       const driverPopover = document.querySelector('.driver-popover')
       const driverOverlay = document.querySelector('.driver-overlay')
-      if (driverPopover) driverPopover.style.display = 'none'
-      if (driverOverlay) driverOverlay.style.display = 'none'
+      if (driverPopover) {
+        driverPopover.style.pointerEvents = 'none'
+        driverPopover.style.opacity = '0.3'
+      }
+      if (driverOverlay) {
+        driverOverlay.style.pointerEvents = 'none'
+      }
     }
 
     // Create modal overlay
@@ -362,12 +352,17 @@ export function showCancelConfirmation(noTourConfig, driverObj = null) {
     continueBtn.className = 'btn btn-primary'
     continueBtn.onclick = () => {
       document.body.removeChild(overlay)
-      // Restore driver popover display
+      // Restore driver popover/overlay interaction
       if (driverObj) {
         const driverPopover = document.querySelector('.driver-popover')
         const driverOverlay = document.querySelector('.driver-overlay')
-        if (driverPopover) driverPopover.style.display = ''
-        if (driverOverlay) driverOverlay.style.display = ''
+        if (driverPopover) {
+          driverPopover.style.pointerEvents = ''
+          driverPopover.style.opacity = ''
+        }
+        if (driverOverlay) {
+          driverOverlay.style.pointerEvents = ''
+        }
       }
       resolve({ confirmed: false })
     }
@@ -400,12 +395,17 @@ export function showCancelConfirmation(noTourConfig, driverObj = null) {
         if (document.body.contains(overlay)) {
           document.body.removeChild(overlay)
         }
-        // Restore driver popover display
+        // Restore driver popover/overlay interaction
         if (driverObj) {
           const driverPopover = document.querySelector('.driver-popover')
           const driverOverlay = document.querySelector('.driver-overlay')
-          if (driverPopover) driverPopover.style.display = ''
-          if (driverOverlay) driverOverlay.style.display = ''
+          if (driverPopover) {
+            driverPopover.style.pointerEvents = ''
+            driverPopover.style.opacity = ''
+          }
+          if (driverOverlay) {
+            driverOverlay.style.pointerEvents = ''
+          }
         }
         resolve({ confirmed: false })
       }
