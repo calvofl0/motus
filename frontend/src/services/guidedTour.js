@@ -214,12 +214,12 @@ ${contextMenuHtml}`,
         description: `Below the Active Jobs panel, interrupted or failed jobs appear in dropdowns for easy resuming:
 
 <div style="margin-top: 15px;">
-  <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 4px solid #ffc107;">
-    <strong>⚠️ Interrupted Jobs (2) ▼</strong>
+  <div style="background: var(--color-warning-lighter); padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--color-warning);">
+    <strong style="color: #000;">⚠️ Interrupted Jobs (2) ▼</strong>
     <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs stopped by server shutdown - click to resume</div>
   </div>
-  <div style="background: #ffebee; padding: 10px; border-radius: 4px; border-left: 4px solid #dc3545;">
-    <strong>❌ Failed Jobs (1) ▼</strong>
+  <div style="background: var(--color-danger-light); padding: 10px; border-radius: 6px; border: 1px solid var(--color-danger);">
+    <strong style="color: white;">❌ Failed Jobs (1) ▼</strong>
     <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs that encountered errors - click to view logs or retry</div>
   </div>
 </div>`,
@@ -278,9 +278,10 @@ ${contextMenuHtml}`,
 /**
  * Show tour exit information dialog
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
+ * @param {boolean} currentShowTourValue - Current value of show_tour preference
  * @returns {Promise<boolean>} True if user wants to disable auto-show
  */
-export function showTourExitDialog(noTourConfig) {
+export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
   return new Promise((resolve) => {
     // Create modal overlay
     const overlay = document.createElement('div')
@@ -316,15 +317,17 @@ export function showTourExitDialog(noTourConfig) {
     title.style.marginTop = '0'
 
     const message = document.createElement('p')
-    message.textContent = 'You can restart the guided tour anytime from the Help menu in the header (between View and Expert Mode).'
+    message.textContent = 'You can restart the guided tour anytime from the Help menu in the header.'
 
     // Checkbox (only if --no-tour is not set)
     let checkbox = null
     if (!noTourConfig) {
       checkbox = document.createElement('label')
       checkbox.style.cssText = 'display: block; margin: 15px 0; font-size: 14px;'
+      // Checkbox is checked if show_tour is currently false (already disabled)
+      const isChecked = !currentShowTourValue
       checkbox.innerHTML = `
-        <input type="checkbox" id="tour-exit-no-show" style="margin-right: 8px;">
+        <input type="checkbox" id="tour-exit-no-show" ${isChecked ? 'checked' : ''} style="margin-right: 8px;">
         Don't show this tour automatically on startup
       `
     }
@@ -380,6 +383,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     let tourActive = true
     let currentStepIndex = 0
     let tourCompleted = false
+    let showingExitDialog = false
 
     const driverObj = driver({
       showProgress: true,
@@ -418,16 +422,28 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         cancelBtn.onclick = async () => {
           // Destroy tour first
           tourActive = false
+
+          // Check if we need to show exit dialog
+          if (!tourCompleted) {
+            showingExitDialog = true
+          }
+
           driverObj.destroy()
 
           // Only show exit dialog if tour wasn't completed
           if (!tourCompleted) {
-            const disableAutoShow = await showTourExitDialog(noTourConfig)
+            // Get current preference value to show in checkbox
+            const prefs = await getTourPreferences()
+            const currentShowTour = prefs.show_tour !== false
+
+            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
             if (disableAutoShow) {
               await disableTour()
             }
+            showingExitDialog = false
           }
 
+          // Resolve only after dialog closes (or if completed, resolve immediately)
           resolveTour()
         }
         popover.wrapper.appendChild(cancelBtn)
@@ -440,7 +456,12 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         }
 
         tourActive = false
-        resolveTour()
+
+        // Only resolve here if we're NOT showing the exit dialog
+        // (if showing exit dialog, resolveTour will be called after dialog closes)
+        if (!showingExitDialog) {
+          resolveTour()
+        }
       },
       onCloseClick: async () => {
         // This handles the Finish button on last step
@@ -468,17 +489,29 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         // Destroy tour first
         tourActive = false
+
+        // Check if we need to show exit dialog
+        if (!tourCompleted) {
+          showingExitDialog = true
+        }
+
         driverObj.destroy()
 
         // Only show exit dialog if tour wasn't completed
         if (!tourCompleted) {
-          const disableAutoShow = await showTourExitDialog(noTourConfig)
+          // Get current preference value to show in checkbox
+          const prefs = await getTourPreferences()
+          const currentShowTour = prefs.show_tour !== false
+
+          const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
           if (disableAutoShow) {
             await disableTour()
           }
+          showingExitDialog = false
         }
 
         document.removeEventListener('keydown', globalEscHandler, true)
+        // Resolve only after dialog closes (or if completed, resolve immediately)
         resolveTour()
       }
     }
