@@ -159,6 +159,7 @@
         <button @click="listRunningJobs" style="background: #28a745;">List Running</button>
         <button @click="listAbortedJobs" style="background: #ffc107; color: #000;">List Aborted</button>
         <button @click="clearStoppedJobs" style="background: #6c757d;">Clear All Stopped Jobs</button>
+        <button @click="clearCompletedJobs" style="background: #17a2b8;">Clear All Completed Jobs</button>
         <div v-if="jobListOutput" class="output">{{ jobListOutput }}</div>
       </div>
     </div>
@@ -907,6 +908,22 @@ async function clearStoppedJobs() {
   try {
     const data = await apiCall('/api/jobs/clear_stopped', 'POST')
     jobListOutput.value = `✓ Cleared ${data.count || 0} stopped job(s)`
+  } catch (error) {
+    jobListOutput.value = `Error: ${error.message}`
+  }
+}
+
+/**
+ * Clear completed jobs
+ */
+async function clearCompletedJobs() {
+  if (!confirm('Clear all completed jobs? (Failed/interrupted jobs will be preserved)')) {
+    return
+  }
+
+  try {
+    const data = await apiCall('/api/jobs/clear_completed', 'POST')
+    jobListOutput.value = `✓ Cleared ${data.count || 0} completed job(s)`
   } catch (error) {
     jobListOutput.value = `Error: ${error.message}`
   }
