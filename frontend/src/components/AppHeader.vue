@@ -241,6 +241,13 @@ function showShutdownConfirmation() {
 // Handle ESC key to quit when no modals or context menu are open
 function handleGlobalKeydown(e) {
   if (e.key === 'Escape') {
+    // Close View/Theme dropdown menu if open
+    if (showViewMenu.value || showThemeMenu.value) {
+      showViewMenu.value = false
+      showThemeMenu.value = false
+      return
+    }
+
     // Check if any modal or context menu is open
     const hasOpenModal = document.querySelector('.modal-overlay')
     const hasOpenContextMenu = document.querySelector('.context-menu')
