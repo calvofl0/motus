@@ -143,9 +143,9 @@ async function checkAndStartTour() {
       return
     }
 
-    // Check localStorage flags
-    const tourCompleted = isTourCompleted()
-    const autoShowDisabled = isTourAutoShowDisabled()
+    // Check backend preferences flags
+    const tourCompleted = await isTourCompleted()
+    const autoShowDisabled = await isTourAutoShowDisabled()
 
     // Only show if tour not completed and auto-show not disabled
     if (!tourCompleted && !autoShowDisabled) {

@@ -73,6 +73,17 @@ export async function resetTourPreferences() {
  * @returns {Array} Array of tour step configurations
  */
 export function getTourSteps(appStore, noTourConfig = false) {
+  // Context menu HTML for Steps 7 & 8
+  const contextMenuHtml = `
+<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">⬇️ Download</div>
+  <div id="tour-alias-item" style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🔗 Create Alias</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 Create Folder</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
+  <div style="padding: 8px 12px;">📊 Sort by</div>
+</div>`
+
   return [
     // Step 1: Welcome
     {
@@ -135,39 +146,31 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 7: Context Menu (with fake menu in popover)
+    // Step 7: Context Menu (with real menu in popover)
     {
       popover: {
         title: 'Context Menu Actions',
-        description: `Right-click on any file or folder in either pane to access actions: Copy, Move, Integrity Check, Rename, Delete, and more. You can also right-click on empty space to create new folders.
+        description: `Right-click on any file or folder in either pane to access these actions. You can download files, create new folders, rename, delete, and sort files.
 
-<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-  <div style="padding: 8px 12px;">📁 New Folder</div>
-</div>`,
+${contextMenuHtml}`,
         side: 'center',
         align: 'center',
       },
     },
 
-    // Step 8: New Alias Feature (with highlighted menu in popover)
+    // Step 8: New Alias Feature (with highlighted "Create Alias")
     {
       popover: {
         title: 'Create Aliases for Quick Access',
-        description: `Here's a powerful feature: right-click on any folder and select "New Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
+        description: `Here's a powerful feature: right-click on any folder and select "Create Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
 
 <div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">⬇️ Download</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter); background: var(--color-bg-primary-light); font-weight: bold;">🔗 Create Alias</div>
+  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 Create Folder</div>
   <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
   <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 New Folder</div>
-  <div style="padding: 8px 12px; background: var(--color-bg-primary-light); font-weight: bold;">🔗 New Alias</div>
+  <div style="padding: 8px 12px;">📊 Sort by</div>
 </div>`,
         side: 'center',
         align: 'center',
@@ -184,12 +187,12 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 10: Path Display Mode (with open View menu and highlighted toggle)
+    // Step 10: Path Display Mode (with open View menu, highlighted toggle, and path field)
     {
-      element: '.view-dropdown-container .view-menu-item:nth-child(3)',
+      element: '.view-dropdown-container .view-menu-item:nth-child(3), .left-pane .path-input',
       popover: {
         title: 'Understanding Path Display',
-        description: 'This toggle controls how folder paths are shown. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
+        description: 'This toggle controls how folder paths are shown in the path field. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
         side: 'bottom',
       },
       onHighlightStarted: () => {
@@ -221,50 +224,38 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 12: Interrupted/Failed Jobs (highlight both headers)
+    // Step 12: Interrupted/Failed Jobs (make visible and highlight both)
     {
-      element: '.interrupted-jobs-header, .failed-jobs-header',
+      element: '.interrupted-jobs-container, .failed-jobs-container',
       popover: {
         title: 'Resume Failed Operations',
         description: 'If a job is interrupted (server shutdown) or fails, it will appear in these dropdowns. You can resume or restart them with a single click.',
         side: 'top',
       },
       onHighlightStarted: () => {
-        // Make dropdowns temporarily visible
-        const interruptedHeader = document.querySelector('.interrupted-jobs-header')
-        const failedHeader = document.querySelector('.failed-jobs-header')
+        // Make both containers temporarily visible
+        const interruptedContainer = document.querySelector('.interrupted-jobs-container')
+        const failedContainer = document.querySelector('.failed-jobs-container')
 
-        if (interruptedHeader) {
-          const container = interruptedHeader.parentElement
-          if (container) {
-            container._originalDisplay = container.style.display
-            container.style.display = 'block'
-          }
+        if (interruptedContainer) {
+          interruptedContainer._originalDisplay = getComputedStyle(interruptedContainer).display
+          interruptedContainer.style.display = 'block'
         }
-        if (failedHeader) {
-          const container = failedHeader.parentElement
-          if (container) {
-            container._originalDisplay = container.style.display
-            container.style.display = 'block'
-          }
+        if (failedContainer) {
+          failedContainer._originalDisplay = getComputedStyle(failedContainer).display
+          failedContainer.style.display = 'block'
         }
       },
       onDeselected: () => {
         // Restore original visibility
-        const interruptedHeader = document.querySelector('.interrupted-jobs-header')
-        const failedHeader = document.querySelector('.failed-jobs-header')
+        const interruptedContainer = document.querySelector('.interrupted-jobs-container')
+        const failedContainer = document.querySelector('.failed-jobs-container')
 
-        if (interruptedHeader) {
-          const container = interruptedHeader.parentElement
-          if (container && container._originalDisplay !== undefined) {
-            container.style.display = container._originalDisplay
-          }
+        if (interruptedContainer && interruptedContainer._originalDisplay !== undefined) {
+          interruptedContainer.style.display = interruptedContainer._originalDisplay
         }
-        if (failedHeader) {
-          const container = failedHeader.parentElement
-          if (container && container._originalDisplay !== undefined) {
-            container.style.display = container._originalDisplay
-          }
+        if (failedContainer && failedContainer._originalDisplay !== undefined) {
+          failedContainer.style.display = failedContainer._originalDisplay
         }
       },
     },
@@ -296,7 +287,8 @@ export function getTourSteps(appStore, noTourConfig = false) {
         description: 'You\'ve completed the tour! If you need help or want to see this tour again, click the Help menu in the header (between View and Expert Mode). Enjoy using Motus!',
         side: 'center',
         align: 'center',
-        showButtons: ['previous', 'close'], // Show Previous and Finish buttons
+        doneBtnText: 'Finish',
+        showButtons: ['previous', 'close'], // Previous and Finish buttons
         onPopoverRender: (popover, options) => {
           // Only show checkbox if --no-tour is not set
           if (!noTourConfig) {
@@ -318,11 +310,10 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
 /**
  * Show cancellation confirmation dialog
- * @param {boolean} isLastStep - Whether user is on the last step
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
  * @returns {Promise<Object>} Result with confirmed and dontShowAgain flags
  */
-export function showCancelConfirmation(isLastStep, noTourConfig) {
+export function showCancelConfirmation(noTourConfig) {
   return new Promise((resolve) => {
     // Create modal overlay
     const overlay = document.createElement('div')
@@ -436,9 +427,10 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     allowClose: false, // Disable default X button, use custom handling
     onPopoverRender: (popover, { config, state }) => {
       const isLastStep = state.activeIndex === steps.length - 1
+      const isFirstStep = state.activeIndex === 0
 
-      if (!isLastStep) {
-        // Add custom cancel button (X) for non-final steps
+      // Add custom cancel button (X) for all steps except first (which has no Previous)
+      if (!isFirstStep) {
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
         cancelBtn.className = 'driver-popover-close-btn'
@@ -458,7 +450,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           z-index: 1;
         `
         cancelBtn.onclick = async () => {
-          const result = await showCancelConfirmation(isLastStep, noTourConfig)
+          const result = await showCancelConfirmation(noTourConfig)
           if (result.confirmed) {
             if (result.dontShowAgain) {
               await disableTourAutoShow()
@@ -499,14 +491,10 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         return
       }
 
-      // Check current step
-      const state = driverObj.getState()
-      const isLastStep = state?.activeIndex === steps.length - 1
-
       e.stopPropagation()
       e.preventDefault()
 
-      const result = await showCancelConfirmation(isLastStep, noTourConfig)
+      const result = await showCancelConfirmation(noTourConfig)
       if (result.confirmed) {
         if (result.dontShowAgain) {
           await disableTourAutoShow()

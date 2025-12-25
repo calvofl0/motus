@@ -80,13 +80,13 @@
         }
 
         .help-toggle-button {
-            background: var(--color-purple);
+            background: #007bff;
             color: white;
             padding: var(--spacing-sm) var(--spacing-xl);
         }
 
         .help-toggle-button:hover {
-            background: var(--color-purple-hover);
+            background: #0056b3;
         }
 
         .view-dropdown-menu,
