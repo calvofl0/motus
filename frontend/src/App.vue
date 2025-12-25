@@ -96,14 +96,15 @@ onMounted(async () => {
   // Mark app as initialized - router view can now render
   appInitialized.value = true
 
+  // Start guided tour if this is first launch (only in Easy Mode)
+  // Do this BEFORE checking interrupted jobs so tour comes first
+  await checkAndStartTour()
+
   // Check for interrupted jobs after initialization
   await checkInterruptedJobs()
 
   // Setup idle timeout if configured
   setupIdleTimeout()
-
-  // Start guided tour if this is first launch (only in Easy Mode)
-  await checkAndStartTour()
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)

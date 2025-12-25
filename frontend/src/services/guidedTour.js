@@ -56,12 +56,13 @@ export function getTourSteps(appStore, noTourConfig = false) {
         description: 'Motus is a user-friendly interface for rclone that makes file operations between different storage locations easy and intuitive. Whether you\'re working with cloud storage like Dropbox or Google Drive, or transferring files between servers, Motus simplifies the process. Let\'s take a quick tour!',
         side: 'center',
         align: 'center',
+        showButtons: ['next'], // Only show Next button
       },
     },
 
     // Step 2: Left File Pane
     {
-      element: '.file-pane.left',
+      element: '.easy-mode-container .file-pane:first-child',
       popover: {
         title: 'Source File Pane',
         description: 'This is your source file browser. Navigate through folders by double-clicking on them. You can browse different storage locations configured in your system.',
@@ -71,7 +72,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 3: Remote Dropdown (Left)
     {
-      element: '.file-pane.left .remote-selector',
+      element: '.easy-mode-container .file-pane:first-child select.remote-selector',
       popover: {
         title: 'Select Remote',
         description: 'Switch between different storage locations (called "remotes") using this dropdown. Choose from any configured storage service or file system. Later on we\'ll simply call them "storage locations".',
@@ -81,7 +82,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 4: Right File Pane
     {
-      element: '.file-pane.right',
+      element: '.easy-mode-container .file-pane:last-child',
       popover: {
         title: 'Destination File Pane',
         description: 'This is your destination file browser. Select where you want to copy or move files. The left and right panes work symmetrically - you can transfer files in either direction.',
@@ -91,7 +92,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 5: Drag & Drop (Left to Right)
     {
-      element: '.file-pane.right .file-list',
+      element: '.easy-mode-container .file-pane:last-child .file-list',
       popover: {
         title: 'Drag & Drop Transfer',
         description: 'Simply drag files or folders from the left pane and drop them here to start a copy operation. You can also drag and drop files directly from your desktop! Select multiple files by holding Ctrl while clicking, or Shift to select a range of consecutive files.',
@@ -101,35 +102,104 @@ export function getTourSteps(appStore, noTourConfig = false) {
 
     // Step 6: Copy Button (Right to Left Arrow)
     {
-      element: '.copy-button-left, .copy-button',
+      element: '.copy-controls',
       popover: {
         title: 'Copy with Buttons',
-        description: 'You can also use the arrow buttons to copy files. Select files in the right pane and click this button to copy them to the left.',
-        side: 'right',
+        description: 'You can also use the arrow buttons to copy files. Select files in one pane and click the corresponding arrow button to copy them to the other side.',
+        side: 'top',
       },
     },
 
-    // Step 7: Context Menu (Description only)
+    // Step 7: Context Menu (with fake menu)
     {
       popover: {
         title: 'Context Menu Actions',
         description: 'Right-click on any file or folder in either pane to access actions: Copy, Move, Integrity Check, Rename, Delete, and more. You can also right-click on empty space to create new folders.',
         side: 'center',
         align: 'center',
+        onPopoverRender: (popover) => {
+          // Create fake context menu
+          const fakeMenu = document.createElement('div')
+          fakeMenu.className = 'tour-fake-context-menu'
+          fakeMenu.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border-darker);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            min-width: 180px;
+            z-index: 9998;
+          `
+          fakeMenu.innerHTML = `
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer;">📁 New Folder</div>
+          `
+          document.body.appendChild(fakeMenu)
+
+          // Remove on step change
+          popover._fakeMenu = fakeMenu
+        },
+      },
+      onDeselected: (element, step, options) => {
+        // Clean up fake menu
+        const fakeMenu = document.querySelector('.tour-fake-context-menu')
+        if (fakeMenu) {
+          fakeMenu.remove()
+        }
       },
     },
 
-    // Step 8: New Alias Feature (Description only)
+    // Step 8: New Alias Feature (with fake menu highlighting)
     {
       popover: {
         title: 'Create Aliases for Quick Access',
         description: 'Here\'s a powerful feature: right-click on any folder and select "New Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.',
         side: 'center',
         align: 'center',
+        onPopoverRender: (popover) => {
+          // Create fake context menu with New Alias highlighted
+          const fakeMenu = document.createElement('div')
+          fakeMenu.className = 'tour-fake-context-menu'
+          fakeMenu.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border-darker);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            min-width: 180px;
+            z-index: 9998;
+          `
+          fakeMenu.innerHTML = `
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📋 Copy</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✂️ Move</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✓ Integrity Check</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-lighter);">📁 New Folder</div>
+            <div style="padding: var(--spacing-sm) 12px; cursor: pointer; background: var(--color-bg-primary-light); font-weight: bold;">🔗 New Alias</div>
+          `
+          document.body.appendChild(fakeMenu)
+        },
+      },
+      onDeselected: () => {
+        const fakeMenu = document.querySelector('.tour-fake-context-menu')
+        if (fakeMenu) {
+          fakeMenu.remove()
+        }
       },
     },
 
-    // Step 9: View Menu (highlighted but not opened)
+    // Step 9: View Menu (highlighted)
     {
       element: '.view-dropdown-container',
       popover: {
@@ -139,13 +209,30 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 10: Path Display Mode (Description only)
+    // Step 10: Path Display Mode (with open View menu)
     {
+      element: '.view-dropdown-container',
       popover: {
         title: 'Understanding Path Display',
-        description: 'The path display toggle controls how folder paths are shown. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
-        side: 'center',
-        align: 'center',
+        description: 'The path display toggle (third option in the View menu) controls how folder paths are shown. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
+        side: 'bottom',
+      },
+      onHighlightStarted: () => {
+        // Programmatically open View menu
+        const viewButton = document.querySelector('.view-toggle-button')
+        if (viewButton) {
+          viewButton.click()
+        }
+      },
+      onDeselected: () => {
+        // Close View menu
+        const viewMenu = document.querySelector('.view-dropdown-menu')
+        if (viewMenu && !viewMenu.classList.contains('hidden')) {
+          const viewButton = document.querySelector('.view-toggle-button')
+          if (viewButton) {
+            viewButton.click()
+          }
+        }
       },
     },
 
@@ -159,23 +246,49 @@ export function getTourSteps(appStore, noTourConfig = false) {
       },
     },
 
-    // Step 12: Interrupted/Failed Jobs
+    // Step 12: Interrupted/Failed Jobs (make visible and highlight both)
     {
-      element: '.interrupted-jobs-dropdown, .failed-jobs-dropdown',
+      element: '.job-panel',
       popover: {
         title: 'Resume Failed Operations',
-        description: 'If a job is interrupted (server shutdown) or fails, it will appear in these dropdowns. You can resume or restart them with a single click.',
+        description: 'If a job is interrupted (server shutdown) or fails, it will appear in dropdowns at the top of this panel. You can resume or restart them with a single click.',
         side: 'top',
+      },
+      onHighlightStarted: () => {
+        // Make dropdowns temporarily visible
+        const interruptedDropdown = document.querySelector('.interrupted-jobs-dropdown')
+        const failedDropdown = document.querySelector('.failed-jobs-dropdown')
+
+        if (interruptedDropdown) {
+          interruptedDropdown._originalDisplay = interruptedDropdown.style.display
+          interruptedDropdown.style.display = 'block'
+        }
+        if (failedDropdown) {
+          failedDropdown._originalDisplay = failedDropdown.style.display
+          failedDropdown.style.display = 'block'
+        }
+      },
+      onDeselected: () => {
+        // Restore original visibility
+        const interruptedDropdown = document.querySelector('.interrupted-jobs-dropdown')
+        const failedDropdown = document.querySelector('.failed-jobs-dropdown')
+
+        if (interruptedDropdown && interruptedDropdown._originalDisplay !== undefined) {
+          interruptedDropdown.style.display = interruptedDropdown._originalDisplay
+        }
+        if (failedDropdown && failedDropdown._originalDisplay !== undefined) {
+          failedDropdown.style.display = failedDropdown._originalDisplay
+        }
       },
     },
 
-    // Step 13: Manage Remotes (Description only)
+    // Step 13: Manage Remotes (highlight button)
     {
+      element: '.manage-remotes-button',
       popover: {
         title: 'Managing Storage Locations',
         description: 'Click "Manage Remotes" in the header to add, edit, or remove storage providers. Motus supports all rclone-compatible services including Dropbox, Google Drive, Amazon S3, and many more.',
-        side: 'center',
-        align: 'center',
+        side: 'bottom',
       },
     },
 
@@ -183,9 +296,9 @@ export function getTourSteps(appStore, noTourConfig = false) {
     {
       element: '.completed-jobs-button',
       popover: {
-        title: 'Job History',
-        description: 'View your completed file operations, including statistics, timing, and any errors that occurred. Great for auditing and troubleshooting.',
-        side: 'bottom-left',
+        title: 'Successfully Completed Jobs History',
+        description: 'View your successfully completed file operations, including statistics, timing, and any errors that occurred. Great for auditing and troubleshooting.',
+        side: 'bottom',
       },
     },
 
@@ -196,8 +309,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
         description: 'You\'ve completed the tour! If you need help or want to see this tour again, click the Help menu in the header (between View and Expert Mode). Enjoy using Motus!',
         side: 'center',
         align: 'center',
-        // Show checkbox conditionally based on noTourConfig
-        showButtons: ['close'],
+        showButtons: ['previous', 'close'], // Show Previous and Finish buttons
         onPopoverRender: (popover, options) => {
           // Only show checkbox if --no-tour is not set
           if (!noTourConfig) {
@@ -227,7 +339,7 @@ export function showCancelConfirmation(isLastStep, noTourConfig) {
   return new Promise((resolve) => {
     // Create modal overlay
     const overlay = document.createElement('div')
-    overlay.className = 'modal-overlay'
+    overlay.className = 'modal-overlay tour-cancel-overlay'
     overlay.style.cssText = `
       position: fixed;
       top: 0;
@@ -238,7 +350,7 @@ export function showCancelConfirmation(isLastStep, noTourConfig) {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 10001;
     `
 
     // Create modal
@@ -305,7 +417,7 @@ export function showCancelConfirmation(isLastStep, noTourConfig) {
     overlay.appendChild(modal)
     document.body.appendChild(overlay)
 
-    // Allow ESC to close
+    // Allow ESC to close (continue tour)
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         document.removeEventListener('keydown', escHandler)
@@ -326,6 +438,7 @@ export function showCancelConfirmation(isLastStep, noTourConfig) {
  */
 export function startGuidedTour(appStore, noTourConfig = false) {
   const steps = getTourSteps(appStore, noTourConfig)
+  let tourActive = true
 
   const driverObj = driver({
     showProgress: true,
@@ -333,12 +446,12 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     nextBtnText: 'Next',
     prevBtnText: 'Previous',
     doneBtnText: 'Finish',
-    allowClose: false, // Disable X button, use custom cancel handling
+    allowClose: false, // Disable default X button, use custom handling
     onPopoverRender: (popover, { config, state }) => {
-      // Add custom cancel button for non-final steps
       const isLastStep = state.activeIndex === steps.length - 1
 
       if (!isLastStep) {
+        // Add custom cancel button (X) for non-final steps
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
         cancelBtn.className = 'driver-popover-close-btn'
@@ -355,6 +468,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           width: 24px;
           height: 24px;
           line-height: 20px;
+          z-index: 1;
         `
         cancelBtn.onclick = async () => {
           const result = await showCancelConfirmation(isLastStep, noTourConfig)
@@ -362,6 +476,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
             if (result.dontShowAgain) {
               disableTourAutoShow()
             }
+            tourActive = false
             driverObj.destroy()
           }
         }
@@ -369,18 +484,67 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       }
     },
     onDestroyed: () => {
-      // Tour destroyed/completed
+      // Clean up any remaining fake menus
+      const fakeMenus = document.querySelectorAll('.tour-fake-context-menu')
+      fakeMenus.forEach(menu => menu.remove())
+
+      // Clean up cancel overlay if exists
+      const overlay = document.querySelector('.tour-cancel-overlay')
+      if (overlay) {
+        overlay.remove()
+      }
+
+      tourActive = false
     },
     onCloseClick: () => {
-      // This handles the done button on last step
+      // This handles the Finish button on last step
       const checkbox = document.querySelector('#tour-no-show-again')
       if (checkbox && checkbox.checked && !noTourConfig) {
         disableTourAutoShow()
       }
       markTourCompleted()
+      tourActive = false
       driverObj.destroy()
     },
   })
+
+  // Add global ESC handler for tour
+  const globalEscHandler = async (e) => {
+    if (e.key === 'Escape' && tourActive) {
+      // Check if cancel dialog is already open
+      if (document.querySelector('.tour-cancel-overlay')) {
+        return
+      }
+
+      // Check current step
+      const state = driverObj.getState()
+      const isLastStep = state?.activeIndex === steps.length - 1
+
+      e.stopPropagation()
+      e.preventDefault()
+
+      const result = await showCancelConfirmation(isLastStep, noTourConfig)
+      if (result.confirmed) {
+        if (result.dontShowAgain) {
+          disableTourAutoShow()
+        }
+        tourActive = false
+        document.removeEventListener('keydown', globalEscHandler, true)
+        driverObj.destroy()
+      }
+    }
+  }
+
+  // Use capture phase to intercept ESC before other handlers
+  document.addEventListener('keydown', globalEscHandler, true)
+
+  // Clean up listener when tour ends
+  const originalDestroy = driverObj.destroy.bind(driverObj)
+  driverObj.destroy = () => {
+    tourActive = false
+    document.removeEventListener('keydown', globalEscHandler, true)
+    originalDestroy()
+  }
 
   driverObj.drive()
 }
