@@ -97,10 +97,10 @@ onMounted(async () => {
   appInitialized.value = true
 
   // Start guided tour if this is first launch (only in Easy Mode)
-  // Do this BEFORE checking interrupted jobs so tour comes first
+  // Wait for tour to complete before checking interrupted jobs
   await checkAndStartTour()
 
-  // Check for interrupted jobs after initialization
+  // Check for interrupted jobs after tour completes
   await checkInterruptedJobs()
 
   // Setup idle timeout if configured
@@ -150,10 +150,9 @@ async function checkAndStartTour() {
     if (!tourDisabled) {
       // Wait for DOM to be ready
       await nextTick()
-      // Small delay to ensure all components are rendered
-      setTimeout(() => {
-        startGuidedTour(appStore, noTourConfig)
-      }, 500)
+      // Small delay to ensure all components are rendered, then wait for tour to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await startGuidedTour(appStore, noTourConfig)
     }
   } catch (error) {
     console.error('[Tour] Failed to check/start guided tour:', error)
