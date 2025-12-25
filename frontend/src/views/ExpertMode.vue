@@ -805,16 +805,11 @@ async function deleteJob() {
     return
   }
 
-  if (!confirm(`Delete job #${statusJobId.value}?`)) {
-    return
-  }
-
   // Stop watching if currently watching
   stopWatching()
 
   try {
     await apiCall(`/api/jobs/${statusJobId.value}`, 'DELETE')
-    statusOutput.value = `✓ Job ${statusJobId.value} deleted`
     statusJobId.value = null
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
