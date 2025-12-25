@@ -151,7 +151,7 @@ async function sendHeartbeat() {
   try {
     const response = await apiCall('/api/frontend/heartbeat', 'POST', { frontend_id: frontendId })
 
-    // Check if server is shutting down
+    // Check if server is shutting down (for tabs that didn't initiate shutdown)
     if (response.shutting_down) {
       console.log('[Frontend] Server shutting down - showing shutdown page')
       showShutdownPage()
