@@ -9,7 +9,9 @@
     <div v-if="connectionLost" class="connection-overlay"></div>
 
     <AppHeader />
-    <router-view v-slot="{ Component }">
+
+    <!-- Only render router view after initialization completes -->
+    <router-view v-if="appInitialized" v-slot="{ Component }">
       <keep-alive>
         <component :is="Component" />
       </keep-alive>
@@ -46,6 +48,10 @@ watch(() => route.meta.mode, (newMode) => {
     appStore.currentMode = newMode
   }
 }, { immediate: true })
+
+// App initialization flag - prevents router view from rendering before config is loaded
+const appInitialized = ref(false)
+
 const showInterruptedJobsModal = ref(false)
 const interruptedJobs = ref([])
 
@@ -85,6 +91,9 @@ onMounted(async () => {
 
   // Initialize app (loads config and preferences)
   await appStore.initialize()
+
+  // Mark app as initialized - router view can now render
+  appInitialized.value = true
 
   // Check for interrupted jobs after initialization
   await checkInterruptedJobs()
