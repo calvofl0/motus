@@ -809,7 +809,9 @@ async function deleteJob() {
   stopWatching()
 
   try {
-    await apiCall(`/api/jobs/${statusJobId.value}`, 'DELETE')
+    const jobId = statusJobId.value
+    await apiCall(`/api/jobs/${jobId}`, 'DELETE')
+    statusOutput.value = `Job ${jobId} deleted`
     statusJobId.value = null
   } catch (error) {
     statusOutput.value = `Error: ${error.message}`
