@@ -215,12 +215,12 @@ ${contextMenuHtml}`,
 
 <div style="margin-top: 15px;">
   <div style="background: var(--color-warning-lighter); padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--color-warning);">
-    <strong style="color: #000;">⚠️ Interrupted Jobs (2) ▼</strong>
-    <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs stopped by server shutdown - click to resume</div>
+    <strong style="color: var(--color-text-primary);">⚠️ Interrupted Jobs (2) ▼</strong>
+    <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs stopped by server shutdown - click to resume</div>
   </div>
   <div style="background: var(--color-danger-light); padding: 10px; border-radius: 6px; border: 1px solid var(--color-danger);">
-    <strong style="color: white;">❌ Failed Jobs (1) ▼</strong>
-    <div style="font-size: 12px; margin-top: 5px; color: #666;">Jobs that encountered errors - click to view logs or retry</div>
+    <strong style="color: var(--color-text-primary);">❌ Failed Jobs (1) ▼</strong>
+    <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs that encountered errors - click to view logs or retry</div>
   </div>
 </div>`,
         side: 'top',
@@ -356,10 +356,13 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
     overlay.appendChild(modal)
     document.body.appendChild(overlay)
 
-    // Allow ESC to close
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        document.removeEventListener('keydown', escHandler)
+    // Focus the OK button for keyboard interaction
+    setTimeout(() => okBtn.focus(), 0)
+
+    // Allow ESC and ENTER to close
+    const keyHandler = (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        document.removeEventListener('keydown', keyHandler)
         if (document.body.contains(overlay)) {
           const dontShowAgain = checkbox ? checkbox.querySelector('input').checked : false
           document.body.removeChild(overlay)
@@ -367,7 +370,7 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
         }
       }
     }
-    document.addEventListener('keydown', escHandler)
+    document.addEventListener('keydown', keyHandler)
   })
 }
 
@@ -420,31 +423,37 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           z-index: 1;
         `
         cancelBtn.onclick = async () => {
-          // Destroy tour first
-          tourActive = false
+          try {
+            // Destroy tour first
+            tourActive = false
 
-          // Check if we need to show exit dialog
-          if (!tourCompleted) {
-            showingExitDialog = true
-          }
-
-          driverObj.destroy()
-
-          // Only show exit dialog if tour wasn't completed
-          if (!tourCompleted) {
-            // Get current preference value to show in checkbox
-            const prefs = await getTourPreferences()
-            const currentShowTour = prefs.show_tour !== false
-
-            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
-            if (disableAutoShow) {
-              await disableTour()
+            // Check if we need to show exit dialog
+            if (!tourCompleted) {
+              showingExitDialog = true
             }
-            showingExitDialog = false
-          }
 
-          // Resolve only after dialog closes (or if completed, resolve immediately)
-          resolveTour()
+            driverObj.destroy()
+
+            // Only show exit dialog if tour wasn't completed
+            if (!tourCompleted) {
+              // Get current preference value to show in checkbox
+              const prefs = await getTourPreferences()
+              const currentShowTour = prefs.show_tour !== false
+
+              const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
+              if (disableAutoShow) {
+                await disableTour()
+              }
+              showingExitDialog = false
+            }
+
+            // Resolve only after dialog closes (or if completed, resolve immediately)
+            resolveTour()
+          } catch (error) {
+            console.error('[Tour] Error in X button handler:', error)
+            showingExitDialog = false
+            resolveTour()
+          }
         }
         popover.wrapper.appendChild(cancelBtn)
       },
@@ -487,32 +496,39 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         e.stopPropagation()
         e.preventDefault()
 
-        // Destroy tour first
-        tourActive = false
+        try {
+          // Destroy tour first
+          tourActive = false
 
-        // Check if we need to show exit dialog
-        if (!tourCompleted) {
-          showingExitDialog = true
-        }
-
-        driverObj.destroy()
-
-        // Only show exit dialog if tour wasn't completed
-        if (!tourCompleted) {
-          // Get current preference value to show in checkbox
-          const prefs = await getTourPreferences()
-          const currentShowTour = prefs.show_tour !== false
-
-          const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
-          if (disableAutoShow) {
-            await disableTour()
+          // Check if we need to show exit dialog
+          if (!tourCompleted) {
+            showingExitDialog = true
           }
-          showingExitDialog = false
-        }
 
-        document.removeEventListener('keydown', globalEscHandler, true)
-        // Resolve only after dialog closes (or if completed, resolve immediately)
-        resolveTour()
+          driverObj.destroy()
+
+          // Only show exit dialog if tour wasn't completed
+          if (!tourCompleted) {
+            // Get current preference value to show in checkbox
+            const prefs = await getTourPreferences()
+            const currentShowTour = prefs.show_tour !== false
+
+            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
+            if (disableAutoShow) {
+              await disableTour()
+            }
+            showingExitDialog = false
+          }
+
+          document.removeEventListener('keydown', globalEscHandler, true)
+          // Resolve only after dialog closes (or if completed, resolve immediately)
+          resolveTour()
+        } catch (error) {
+          console.error('[Tour] Error in ESC handler:', error)
+          document.removeEventListener('keydown', globalEscHandler, true)
+          showingExitDialog = false
+          resolveTour()
+        }
       }
     }
 
