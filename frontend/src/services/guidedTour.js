@@ -276,16 +276,15 @@ ${contextMenuHtml}`,
 }
 
 /**
- * Show cancellation confirmation dialog
- * Note: Tour should be destroyed before calling this to avoid overlay conflicts
+ * Show tour exit information dialog
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
- * @returns {Promise<Object>} Result with confirmed and dontShowAgain flags
+ * @returns {Promise<boolean>} True if user wants to disable auto-show
  */
-export function showCancelConfirmation(noTourConfig) {
+export function showTourExitDialog(noTourConfig) {
   return new Promise((resolve) => {
-    // Create modal overlay (driver.js tour should already be destroyed)
+    // Create modal overlay
     const overlay = document.createElement('div')
-    overlay.className = 'modal-overlay tour-cancel-overlay'
+    overlay.className = 'modal-overlay tour-exit-overlay'
     overlay.style.cssText = `
       position: fixed;
       top: 0;
@@ -301,7 +300,7 @@ export function showCancelConfirmation(noTourConfig) {
 
     // Create modal
     const modal = document.createElement('div')
-    modal.className = 'tour-cancel-modal'
+    modal.className = 'tour-exit-modal'
     modal.style.cssText = `
       background: var(--modal-bg, white);
       color: var(--text-color, black);
@@ -313,11 +312,11 @@ export function showCancelConfirmation(noTourConfig) {
 
     // Build modal content
     const title = document.createElement('h3')
-    title.textContent = 'Exit Guided Tour?'
+    title.textContent = 'Guided Tour'
     title.style.marginTop = '0'
 
     const message = document.createElement('p')
-    message.textContent = 'Are you sure you want to exit the guided tour? You can restart it anytime from the Help menu.'
+    message.textContent = 'You can restart the guided tour anytime from the Help menu in the header (between View and Expert Mode).'
 
     // Checkbox (only if --no-tour is not set)
     let checkbox = null
@@ -325,34 +324,25 @@ export function showCancelConfirmation(noTourConfig) {
       checkbox = document.createElement('label')
       checkbox.style.cssText = 'display: block; margin: 15px 0; font-size: 14px;'
       checkbox.innerHTML = `
-        <input type="checkbox" id="tour-cancel-no-show" style="margin-right: 8px;">
+        <input type="checkbox" id="tour-exit-no-show" style="margin-right: 8px;">
         Don't show this tour automatically on startup
       `
     }
 
-    // Buttons
+    // OK Button
     const buttonContainer = document.createElement('div')
     buttonContainer.style.cssText = 'display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;'
 
-    const continueBtn = document.createElement('button')
-    continueBtn.textContent = 'Continue Tour'
-    continueBtn.className = 'btn btn-primary'
-    continueBtn.onclick = () => {
-      document.body.removeChild(overlay)
-      resolve({ confirmed: false })
-    }
-
-    const exitBtn = document.createElement('button')
-    exitBtn.textContent = 'Exit Tour'
-    exitBtn.className = 'btn btn-secondary'
-    exitBtn.onclick = () => {
+    const okBtn = document.createElement('button')
+    okBtn.textContent = 'OK'
+    okBtn.className = 'btn btn-primary'
+    okBtn.onclick = () => {
       const dontShowAgain = checkbox ? checkbox.querySelector('input').checked : false
       document.body.removeChild(overlay)
-      resolve({ confirmed: true, dontShowAgain })
+      resolve(dontShowAgain)
     }
 
-    buttonContainer.appendChild(continueBtn)
-    buttonContainer.appendChild(exitBtn)
+    buttonContainer.appendChild(okBtn)
 
     modal.appendChild(title)
     modal.appendChild(message)
@@ -363,14 +353,15 @@ export function showCancelConfirmation(noTourConfig) {
     overlay.appendChild(modal)
     document.body.appendChild(overlay)
 
-    // Allow ESC to close (continue tour)
+    // Allow ESC to close
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         document.removeEventListener('keydown', escHandler)
         if (document.body.contains(overlay)) {
+          const dontShowAgain = checkbox ? checkbox.querySelector('input').checked : false
           document.body.removeChild(overlay)
+          resolve(dontShowAgain)
         }
-        resolve({ confirmed: false })
       }
     }
     document.addEventListener('keydown', escHandler)
@@ -378,17 +369,17 @@ export function showCancelConfirmation(noTourConfig) {
 }
 
 /**
- * Start the guided tour from a specific step
+ * Start the guided tour
  * @param {Object} appStore - Pinia app store
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
- * @param {number} startStep - Step index to start from (default 0)
  * @returns {Promise<void>} Resolves when tour is completed or cancelled
  */
-function startGuidedTourFromStep(appStore, noTourConfig = false, startStep = 0) {
+export function startGuidedTour(appStore, noTourConfig = false) {
   return new Promise((resolveTour) => {
     const steps = getTourSteps(appStore, noTourConfig)
     let tourActive = true
     let currentStepIndex = 0
+    let tourCompleted = false
 
     const driverObj = driver({
       showProgress: true,
@@ -399,6 +390,11 @@ function startGuidedTourFromStep(appStore, noTourConfig = false, startStep = 0) 
       allowClose: false, // Disable default X button, use custom handling
       onPopoverRender: (popover, { config, state }) => {
         currentStepIndex = state.activeIndex || 0
+
+        // Check if we reached the last step (tour completed)
+        if (currentStepIndex === steps.length - 1) {
+          tourCompleted = true
+        }
 
         // Add custom cancel button (X) for all steps
         const cancelBtn = document.createElement('button')
@@ -420,44 +416,35 @@ function startGuidedTourFromStep(appStore, noTourConfig = false, startStep = 0) 
           z-index: 1;
         `
         cancelBtn.onclick = async () => {
-          const savedStepIndex = currentStepIndex
-
-          // Destroy tour first to remove overlay, then show confirmation
+          // Destroy tour first
           tourActive = false
           driverObj.destroy()
 
-          // Now show confirmation dialog without driver.js blocking it
-          const result = await showCancelConfirmation(noTourConfig)
-          if (result.confirmed) {
-            if (result.dontShowAgain) {
+          // Only show exit dialog if tour wasn't completed
+          if (!tourCompleted) {
+            const disableAutoShow = await showTourExitDialog(noTourConfig)
+            if (disableAutoShow) {
               await disableTour()
             }
-            // Tour cancelled, resolve the promise
-            resolveTour()
-          } else {
-            // Continue tour - we need to start a new tour instance and return its promise
-            // This resolves the current promise when the new tour completes
-            const newTourPromise = startGuidedTourFromStep(appStore, noTourConfig, savedStepIndex)
-            newTourPromise.then(() => resolveTour())
           }
+
+          resolveTour()
         }
         popover.wrapper.appendChild(cancelBtn)
       },
       onDestroyed: () => {
-        // Clean up cancel overlay if exists
-        const overlay = document.querySelector('.tour-cancel-overlay')
+        // Clean up exit overlay if exists
+        const overlay = document.querySelector('.tour-exit-overlay')
         if (overlay) {
           overlay.remove()
         }
 
         tourActive = false
-        // Only resolve if tour was completed (not cancelled via X button)
-        if (!tourActive) {
-          resolveTour()
-        }
+        resolveTour()
       },
       onCloseClick: async () => {
         // This handles the Finish button on last step
+        tourCompleted = true
         const checkbox = document.querySelector('#tour-no-show-again')
         if (checkbox && checkbox.checked && !noTourConfig) {
           await disableTour()
@@ -471,33 +458,28 @@ function startGuidedTourFromStep(appStore, noTourConfig = false, startStep = 0) 
     // Add global ESC handler for tour
     const globalEscHandler = async (e) => {
       if (e.key === 'Escape' && tourActive) {
-        // Check if cancel dialog is already open
-        if (document.querySelector('.tour-cancel-overlay')) {
+        // Check if exit dialog is already open
+        if (document.querySelector('.tour-exit-overlay')) {
           return
         }
 
         e.stopPropagation()
         e.preventDefault()
 
-        const savedStepIndex = currentStepIndex
-
-        // Destroy tour first, then show confirmation
+        // Destroy tour first
         tourActive = false
         driverObj.destroy()
 
-        const result = await showCancelConfirmation(noTourConfig)
-        if (result.confirmed) {
-          if (result.dontShowAgain) {
+        // Only show exit dialog if tour wasn't completed
+        if (!tourCompleted) {
+          const disableAutoShow = await showTourExitDialog(noTourConfig)
+          if (disableAutoShow) {
             await disableTour()
           }
-          document.removeEventListener('keydown', globalEscHandler, true)
-          resolveTour()
-        } else {
-          // Continue tour - start new tour instance from same step
-          document.removeEventListener('keydown', globalEscHandler, true)
-          const newTourPromise = startGuidedTourFromStep(appStore, noTourConfig, savedStepIndex)
-          newTourPromise.then(() => resolveTour())
         }
+
+        document.removeEventListener('keydown', globalEscHandler, true)
+        resolveTour()
       }
     }
 
@@ -512,16 +494,6 @@ function startGuidedTourFromStep(appStore, noTourConfig = false, startStep = 0) 
       originalDestroy()
     }
 
-    driverObj.drive(startStep)
+    driverObj.drive()
   })
-}
-
-/**
- * Start the guided tour from the beginning
- * @param {Object} appStore - Pinia app store
- * @param {boolean} noTourConfig - Whether --no-tour flag is set
- * @returns {Promise<void>} Resolves when tour is completed or cancelled
- */
-export function startGuidedTour(appStore, noTourConfig = false) {
-  return startGuidedTourFromStep(appStore, noTourConfig, 0)
 }
