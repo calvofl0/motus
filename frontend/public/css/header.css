@@ -80,13 +80,13 @@
         }
 
         .help-toggle-button {
-            background: #007bff;
+            background: rgb(23, 162, 184);
             color: white;
             padding: var(--spacing-sm) var(--spacing-xl);
         }
 
         .help-toggle-button:hover {
-            background: #0056b3;
+            background: rgb(18, 130, 148);
         }
 
         .view-dropdown-menu,

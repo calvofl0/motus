@@ -37,7 +37,7 @@ import CompletedJobsModal from './components/modals/CompletedJobsModal.vue'
 import InterruptedJobsModal from './components/modals/InterruptedJobsModal.vue'
 import { useAppStore } from './stores/app'
 import { apiCall, getApiUrl } from './services/api'
-import { startGuidedTour, isTourCompleted, isTourAutoShowDisabled } from './services/guidedTour'
+import { startGuidedTour, isTourDisabled } from './services/guidedTour'
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -143,12 +143,11 @@ async function checkAndStartTour() {
       return
     }
 
-    // Check backend preferences flags
-    const tourCompleted = await isTourCompleted()
-    const autoShowDisabled = await isTourAutoShowDisabled()
+    // Check if tour is disabled in preferences
+    const tourDisabled = await isTourDisabled()
 
-    // Only show if tour not completed and auto-show not disabled
-    if (!tourCompleted && !autoShowDisabled) {
+    // Only show if tour is not disabled
+    if (!tourDisabled) {
       // Wait for DOM to be ready
       await nextTick()
       // Small delay to ensure all components are rendered

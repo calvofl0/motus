@@ -22,36 +22,19 @@ async function getTourPreferences() {
 }
 
 /**
- * Check if tour has been completed
+ * Check if tour is disabled (should not auto-show on startup)
  */
-export async function isTourCompleted() {
+export async function isTourDisabled() {
   const prefs = await getTourPreferences()
-  return prefs.tour_completed === true
+  return prefs.show_tour === false
 }
 
 /**
- * Mark tour as completed
+ * Disable tour auto-show on startup
  */
-export async function markTourCompleted() {
+export async function disableTour() {
   const prefs = await getTourPreferences()
-  prefs.tour_completed = true
-  await savePreferences(apiCall, prefs)
-}
-
-/**
- * Check if tour auto-show is disabled
- */
-export async function isTourAutoShowDisabled() {
-  const prefs = await getTourPreferences()
-  return prefs.tour_auto_show === false
-}
-
-/**
- * Disable tour auto-show
- */
-export async function disableTourAutoShow() {
-  const prefs = await getTourPreferences()
-  prefs.tour_auto_show = false
+  prefs.show_tour = false
   await savePreferences(apiCall, prefs)
 }
 
@@ -60,8 +43,7 @@ export async function disableTourAutoShow() {
  */
 export async function resetTourPreferences() {
   const prefs = await getTourPreferences()
-  prefs.tour_completed = false
-  prefs.tour_auto_show = true
+  prefs.show_tour = true
   await savePreferences(apiCall, prefs)
   _preferencesCache = null
 }
@@ -189,7 +171,7 @@ ${contextMenuHtml}`,
 
     // Step 10: Path Display Mode (with open View menu, highlighted toggle, and path field)
     {
-      element: '.view-dropdown-container .view-menu-item:nth-child(3), .left-pane .path-input',
+      element: '.view-dropdown-container .view-menu-item:nth-child(3), .left-pane .toolbar-row.with-icon',
       popover: {
         title: 'Understanding Path Display',
         description: 'This toggle controls how folder paths are shown in the path field. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - this is especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
@@ -311,10 +293,19 @@ ${contextMenuHtml}`,
 /**
  * Show cancellation confirmation dialog
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
+ * @param {Object} driverObj - Driver instance to hide/show during dialog
  * @returns {Promise<Object>} Result with confirmed and dontShowAgain flags
  */
-export function showCancelConfirmation(noTourConfig) {
+export function showCancelConfirmation(noTourConfig, driverObj = null) {
   return new Promise((resolve) => {
+    // Hide driver popover to allow interaction with confirmation dialog
+    if (driverObj) {
+      const driverPopover = document.querySelector('.driver-popover')
+      const driverOverlay = document.querySelector('.driver-overlay')
+      if (driverPopover) driverPopover.style.display = 'none'
+      if (driverOverlay) driverOverlay.style.display = 'none'
+    }
+
     // Create modal overlay
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay tour-cancel-overlay'
@@ -324,11 +315,11 @@ export function showCancelConfirmation(noTourConfig) {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10001;
+      z-index: 100000;
     `
 
     // Create modal
@@ -371,6 +362,13 @@ export function showCancelConfirmation(noTourConfig) {
     continueBtn.className = 'btn btn-primary'
     continueBtn.onclick = () => {
       document.body.removeChild(overlay)
+      // Restore driver popover display
+      if (driverObj) {
+        const driverPopover = document.querySelector('.driver-popover')
+        const driverOverlay = document.querySelector('.driver-overlay')
+        if (driverPopover) driverPopover.style.display = ''
+        if (driverOverlay) driverOverlay.style.display = ''
+      }
       resolve({ confirmed: false })
     }
 
@@ -402,6 +400,13 @@ export function showCancelConfirmation(noTourConfig) {
         if (document.body.contains(overlay)) {
           document.body.removeChild(overlay)
         }
+        // Restore driver popover display
+        if (driverObj) {
+          const driverPopover = document.querySelector('.driver-popover')
+          const driverOverlay = document.querySelector('.driver-overlay')
+          if (driverPopover) driverPopover.style.display = ''
+          if (driverOverlay) driverOverlay.style.display = ''
+        }
         resolve({ confirmed: false })
       }
     }
@@ -427,40 +432,37 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     allowClose: false, // Disable default X button, use custom handling
     onPopoverRender: (popover, { config, state }) => {
       const isLastStep = state.activeIndex === steps.length - 1
-      const isFirstStep = state.activeIndex === 0
 
-      // Add custom cancel button (X) for all steps except first (which has no Previous)
-      if (!isFirstStep) {
-        const cancelBtn = document.createElement('button')
-        cancelBtn.textContent = '×'
-        cancelBtn.className = 'driver-popover-close-btn'
-        cancelBtn.style.cssText = `
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          background: transparent;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: var(--text-color, #666);
-          padding: 0;
-          width: 24px;
-          height: 24px;
-          line-height: 20px;
-          z-index: 1;
-        `
-        cancelBtn.onclick = async () => {
-          const result = await showCancelConfirmation(noTourConfig)
-          if (result.confirmed) {
-            if (result.dontShowAgain) {
-              await disableTourAutoShow()
-            }
-            tourActive = false
-            driverObj.destroy()
+      // Add custom cancel button (X) for all steps
+      const cancelBtn = document.createElement('button')
+      cancelBtn.textContent = '×'
+      cancelBtn.className = 'driver-popover-close-btn'
+      cancelBtn.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--text-color, #666);
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        line-height: 20px;
+        z-index: 1;
+      `
+      cancelBtn.onclick = async () => {
+        const result = await showCancelConfirmation(noTourConfig, driverObj)
+        if (result.confirmed) {
+          if (result.dontShowAgain) {
+            await disableTour()
           }
+          tourActive = false
+          driverObj.destroy()
         }
-        popover.wrapper.appendChild(cancelBtn)
       }
+      popover.wrapper.appendChild(cancelBtn)
     },
     onDestroyed: () => {
       // Clean up cancel overlay if exists
@@ -475,9 +477,8 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       // This handles the Finish button on last step
       const checkbox = document.querySelector('#tour-no-show-again')
       if (checkbox && checkbox.checked && !noTourConfig) {
-        await disableTourAutoShow()
+        await disableTour()
       }
-      await markTourCompleted()
       tourActive = false
       driverObj.destroy()
     },
@@ -494,10 +495,10 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       e.stopPropagation()
       e.preventDefault()
 
-      const result = await showCancelConfirmation(noTourConfig)
+      const result = await showCancelConfirmation(noTourConfig, driverObj)
       if (result.confirmed) {
         if (result.dontShowAgain) {
-          await disableTourAutoShow()
+          await disableTour()
         }
         tourActive = false
         document.removeEventListener('keydown', globalEscHandler, true)

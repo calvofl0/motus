@@ -12,8 +12,7 @@
  * @param {boolean} preferences.show_hidden_files - Show hidden files flag
  * @param {string} preferences.theme - Theme ('auto', 'light', or 'dark')
  * @param {boolean} preferences.absolute_paths - Absolute paths mode (optional)
- * @param {boolean} preferences.tour_completed - Tour completion flag (optional)
- * @param {boolean} preferences.tour_auto_show - Tour auto-show flag (optional)
+ * @param {boolean} preferences.show_tour - Show tour on startup flag (optional)
  * @returns {Promise<void>}
  */
 export async function savePreferences(apiCall, preferences) {
@@ -36,8 +35,7 @@ export async function loadPreferences(apiCall, defaults = {}) {
         show_hidden_files: defaults.show_hidden_files !== undefined ? defaults.show_hidden_files : false,
         theme: defaults.theme || 'auto',
         absolute_paths: defaults.absolute_paths,  // undefined means use config default
-        tour_completed: defaults.tour_completed !== undefined ? defaults.tour_completed : false,
-        tour_auto_show: defaults.tour_auto_show !== undefined ? defaults.tour_auto_show : true
+        show_tour: defaults.show_tour !== undefined ? defaults.show_tour : true
     };
 
     try {
@@ -47,8 +45,7 @@ export async function loadPreferences(apiCall, defaults = {}) {
             show_hidden_files: prefs.show_hidden_files !== undefined ? prefs.show_hidden_files : defaultPrefs.show_hidden_files,
             theme: prefs.theme || defaultPrefs.theme,
             absolute_paths: prefs.absolute_paths !== undefined ? prefs.absolute_paths : defaultPrefs.absolute_paths,
-            tour_completed: prefs.tour_completed !== undefined ? prefs.tour_completed : defaultPrefs.tour_completed,
-            tour_auto_show: prefs.tour_auto_show !== undefined ? prefs.tour_auto_show : defaultPrefs.tour_auto_show
+            show_tour: prefs.show_tour !== undefined ? prefs.show_tour : defaultPrefs.show_tour
         };
     } catch (error) {
         console.error('Failed to load preferences:', error);
