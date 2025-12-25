@@ -30,6 +30,16 @@
           </div>
         </div>
       </div>
+      <div class="help-dropdown-container" v-if="appStore.isEasyMode">
+        <button class="help-toggle-button" @click="toggleHelpMenu">
+          Help ▾
+        </button>
+        <div class="help-dropdown-menu" :class="{ hidden: !showHelpMenu }">
+          <div class="help-menu-item" @click="showGuidedTour">
+            <span>📖 Show Guided Tour</span>
+          </div>
+        </div>
+      </div>
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
@@ -60,13 +70,16 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
 import { savePreferences } from '../services/preferences'
+import { startGuidedTour } from '../services/guidedTour'
 
 const appStore = useAppStore()
 const router = useRouter()
 
 const showViewMenu = ref(false)
+const showHelpMenu = ref(false)
 const showThemeMenu = ref(false)
 const allowExpertMode = ref(false)
+const noTourConfig = ref(false)
 
 const viewModeIcon = computed(() =>
   appStore.viewMode === 'grid' ? '☰' : '⊞'
@@ -123,8 +136,9 @@ function openCompletedJobs() {
 function toggleViewMenu(e) {
   e.stopPropagation()
   showViewMenu.value = !showViewMenu.value
-  // Close theme menu if it's open
+  // Close other menus if they're open
   if (showViewMenu.value) {
+    showHelpMenu.value = false
     showThemeMenu.value = false
   }
 }
@@ -144,12 +158,28 @@ function toggleAbsolutePaths() {
   showViewMenu.value = false
 }
 
+function toggleHelpMenu(e) {
+  e.stopPropagation()
+  showHelpMenu.value = !showHelpMenu.value
+  // Close other menus if they're open
+  if (showHelpMenu.value) {
+    showViewMenu.value = false
+    showThemeMenu.value = false
+  }
+}
+
+function showGuidedTour() {
+  showHelpMenu.value = false
+  startGuidedTour(appStore, noTourConfig.value)
+}
+
 function toggleThemeMenu(e) {
   e.stopPropagation()
   showThemeMenu.value = !showThemeMenu.value
-  // Close view menu if it's open
+  // Close other menus if they're open
   if (showThemeMenu.value) {
     showViewMenu.value = false
+    showHelpMenu.value = false
   }
 }
 
@@ -241,9 +271,10 @@ function showShutdownConfirmation() {
 // Handle ESC key to quit when no modals or context menu are open
 function handleGlobalKeydown(e) {
   if (e.key === 'Escape') {
-    // Close View/Theme dropdown menu if open
-    if (showViewMenu.value || showThemeMenu.value) {
+    // Close View/Help/Theme dropdown menu if open
+    if (showViewMenu.value || showHelpMenu.value || showThemeMenu.value) {
       showViewMenu.value = false
+      showHelpMenu.value = false
       showThemeMenu.value = false
       return
     }
@@ -260,20 +291,23 @@ function handleGlobalKeydown(e) {
 // Close menus when clicking elsewhere
 document.addEventListener('click', () => {
   showViewMenu.value = false
+  showHelpMenu.value = false
   showThemeMenu.value = false
 })
 
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
 
-  // Fetch config to check if expert mode is allowed
+  // Fetch config to check if expert mode is allowed and if tour is disabled
   try {
     const config = await apiCall('/api/config')
     allowExpertMode.value = config.allow_expert_mode || false
+    noTourConfig.value = config.no_tour || false
   } catch (error) {
     console.error('Failed to fetch config:', error)
     // Default to false if config fetch fails
     allowExpertMode.value = false
+    noTourConfig.value = false
   }
 })
 

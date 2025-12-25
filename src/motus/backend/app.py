@@ -872,6 +872,7 @@ def register_routes(app: Flask, config: Config):
             'max_upload_size_formatted': format_size(config.max_upload_size),
             'max_idle_time': config.max_idle_time,
             'allow_expert_mode': config.allow_expert_mode,
+            'no_tour': config.no_tour,
             'startup_remote': config.startup_remote,
             'local_fs': config.local_fs,
             'hide_local_fs': config.hide_local_fs,

@@ -426,6 +426,14 @@ class Config:
             default='false'
         ).lower() == 'true'
 
+        # Disable guided tour
+        # If true, the tour will never show automatically (can still be accessed via Help menu)
+        self.no_tour = self._get_config(
+            'no_tour',
+            env_var='MOTUS_NO_TOUR',
+            default='false'
+        ).lower() == 'true'
+
         # Max upload size (total size of all files in one upload)
         # Supports formats: 50M, 1G, 1024 (bytes), 0 or "unlimited" = no limit
         # Default: 0 (unlimited)

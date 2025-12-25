@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 import ManageRemotesModal from './components/modals/ManageRemotesModal.vue'
@@ -37,6 +37,7 @@ import CompletedJobsModal from './components/modals/CompletedJobsModal.vue'
 import InterruptedJobsModal from './components/modals/InterruptedJobsModal.vue'
 import { useAppStore } from './stores/app'
 import { apiCall, getApiUrl } from './services/api'
+import { startGuidedTour, isTourCompleted, isTourAutoShowDisabled } from './services/guidedTour'
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -101,6 +102,9 @@ onMounted(async () => {
   // Setup idle timeout if configured
   setupIdleTimeout()
 
+  // Start guided tour if this is first launch (only in Easy Mode)
+  await checkAndStartTour()
+
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
 })
@@ -119,6 +123,41 @@ async function checkInterruptedJobs() {
 
 function onJobsResumed() {
   // Could refresh job list or show a notification here
+}
+
+// Guided tour auto-start logic
+async function checkAndStartTour() {
+  try {
+    // Only show tour in Easy Mode
+    if (!appStore.isEasyMode) {
+      return
+    }
+
+    // Fetch config to check if --no-tour is set
+    const config = await apiCall('/api/config')
+    const noTourConfig = config.no_tour || false
+
+    // Don't auto-start if --no-tour is set
+    if (noTourConfig) {
+      return
+    }
+
+    // Check localStorage flags
+    const tourCompleted = isTourCompleted()
+    const autoShowDisabled = isTourAutoShowDisabled()
+
+    // Only show if tour not completed and auto-show not disabled
+    if (!tourCompleted && !autoShowDisabled) {
+      // Wait for DOM to be ready
+      await nextTick()
+      // Small delay to ensure all components are rendered
+      setTimeout(() => {
+        startGuidedTour(appStore, noTourConfig)
+      }, 500)
+    }
+  } catch (error) {
+    console.error('[Tour] Failed to check/start guided tour:', error)
+  }
 }
 
 // Frontend registration management

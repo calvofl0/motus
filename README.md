@@ -17,6 +17,7 @@
   - [Quick Start](#quick-start)
   - [Development Mode](#development-mode)
   - [User Interface Modes](#user-interface-modes)
+    - [Guided Tour](#guided-tour)
   - [Using rclone Remotes](#using-rclone-remotes)
   - [Managing Remotes via UI](#managing-remotes-via-ui)
 - [Configuration Options](#configuration-options)
@@ -230,6 +231,21 @@ Motus provides two interface modes:
 - Minimal GUI overhead
 
 Toggle between modes using the button in the header (if enabled with `--allow-expert-mode`).
+
+#### Guided Tour
+
+Motus includes an interactive guided tour that introduces new users to the main features. The tour runs automatically on first launch in Easy Mode.
+
+**Accessing the tour:**
+- Automatically on first launch (if not disabled)
+- Via Help → "Show Guided Tour" menu option (always available in Easy Mode)
+
+**Disable the tour:**
+- Command line: `motus --no-tour`
+- Environment variable: `export MOTUS_NO_TOUR=true`
+- Configuration file: `no_tour: true`
+
+When `--no-tour` is set, the tour will never show automatically, but remains accessible via the Help menu.
 
 ### Using rclone Remotes
 
@@ -520,6 +536,7 @@ motus -vv                                         # Very verbose mode (DEBUG lev
 motus --no-browser                                # Don't open browser
 motus --expert-mode                               # Start in Expert mode (auto-enables --allow-expert-mode)
 motus -e                                          # Show mode toggle in UI (--allow-expert-mode)
+motus --no-tour                                   # Disable guided tour auto-start
 motus --remote-templates templates.conf           # Remote templates file
 motus -r /path/to/rclone.conf                     # Merge remotes from another config file (--add-remotes)
 motus -s my_remote                                # Set startup remote (--startup-remote)
@@ -547,6 +564,7 @@ export MOTUS_LOG_FILE=/path/to/logfile.log               # Override log file loc
 export MOTUS_HOST=0.0.0.0                                # Bind to all interfaces
 export MOTUS_DEFAULT_MODE=expert                         # Start in Expert mode
 export MOTUS_ALLOW_EXPERT_MODE=true                      # Show mode toggle
+export MOTUS_NO_TOUR=true                                # Disable guided tour auto-start
 export MOTUS_REMOTE_TEMPLATES=/path/to/templates.conf    # Or relative: templates.conf (resolves to config_dir/templates.conf)
 export MOTUS_EXTRA_REMOTES=/path/to/rclone.conf          # Or relative: remotes.conf (resolves to config_dir/remotes.conf)
 export MOTUS_STARTUP_REMOTE=my_remote                    # Default remote at startup
@@ -582,6 +600,7 @@ log_file: /path/to/logfile.log                 # Custom log file location (defau
 # UI configuration
 default_mode: expert
 allow_expert_mode: true
+no_tour: false                                  # Disable guided tour auto-start (default: false)
 
 # Remote configuration (relative paths resolved against config_dir)
 remote_templates_file: templates.conf           # Absolute or relative to config_dir

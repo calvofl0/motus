@@ -600,6 +600,11 @@ def main():
         action='store_true',
         help='Show Expert/Easy Mode toggle in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
     )
+    parser.add_argument(
+        '--no-tour',
+        action='store_true',
+        help='Disable guided tour auto-start (tour still accessible via Help menu, or MOTUS_NO_TOUR env var)'
+    )
 
     args = parser.parse_args()
 
@@ -707,6 +712,8 @@ def main():
             sys.exit(1)
     if args.allow_expert_mode:
         config.allow_expert_mode = True
+    if args.no_tour:
+        config.no_tour = True
 
     # Configure logging EARLY, before any logging calls
     # This must happen before check_existing_instance() and create_lock_socket()
