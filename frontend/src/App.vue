@@ -233,6 +233,8 @@ async function setupIdleTimeout() {
     maxIdleTime = config.max_idle_time || 0
 
     if (maxIdleTime > 0) {
+      console.log(`[Idle Timeout] Enabled: ${maxIdleTime} seconds`)
+
       // Track user activity
       const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
       activityEvents.forEach(event => {
