@@ -57,13 +57,13 @@ export async function resetTourPreferences() {
 export function getTourSteps(appStore, noTourConfig = false) {
   // Context menu HTML for Steps 7 & 8
   const contextMenuHtml = `
-<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">⬇️ Download</div>
-  <div id="tour-alias-item" style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🔗 Create Alias</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 Create Folder</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-  <div style="padding: 8px 12px;">📊 Sort by</div>
+<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 14px;">
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">⬇️ Download</div>
+  <div id="tour-alias-item" style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">🔗 Create Alias</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">📁 Create Folder</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">✏️ Rename</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">🗑️ Delete</div>
+  <div style="padding: 10px 16px; color: var(--color-text-primary);">📊 Sort by</div>
 </div>`
 
   return [
@@ -146,13 +146,13 @@ ${contextMenuHtml}`,
         title: 'Create Aliases for Quick Access',
         description: `Here's a powerful feature: right-click on any folder and select "Create Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
 
-<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 13px;">
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">⬇️ Download</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter); background: var(--color-bg-primary-light); font-weight: bold;">🔗 Create Alias</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">📁 Create Folder</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">✏️ Rename</div>
-  <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-lighter);">🗑️ Delete</div>
-  <div style="padding: 8px 12px;">📊 Sort by</div>
+<div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 14px;">
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">⬇️ Download</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); background: var(--color-bg-primary-light); font-weight: bold; color: var(--color-text-primary);">🔗 Create Alias</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">📁 Create Folder</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">✏️ Rename</div>
+  <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">🗑️ Delete</div>
+  <div style="padding: 10px 16px; color: var(--color-text-primary);">📊 Sort by</div>
 </div>`,
         side: 'center',
         align: 'center',
@@ -219,7 +219,7 @@ ${contextMenuHtml}`,
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs stopped by server shutdown - click to resume</div>
   </div>
   <div style="background: var(--color-danger-light); padding: 10px; border-radius: 6px; border: 1px solid var(--color-danger);">
-    <strong style="color: var(--color-text-primary);">❌ Failed Jobs (1) ▼</strong>
+    <strong style="color: var(--color-text-primary);">✗ Failed Jobs (1) ▼</strong>
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs that encountered errors - click to view logs or retry</div>
   </div>
 </div>`,
@@ -381,12 +381,11 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
  * @returns {Promise<void>} Resolves when tour is completed or cancelled
  */
 export function startGuidedTour(appStore, noTourConfig = false) {
-  return new Promise((resolveTour) => {
+  return new Promise(async (resolveTour) => {
     const steps = getTourSteps(appStore, noTourConfig)
     let tourActive = true
     let currentStepIndex = 0
     let tourCompleted = false
-    let showingExitDialog = false
 
     const driverObj = driver({
       showProgress: true,
@@ -402,6 +401,14 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         if (currentStepIndex === steps.length - 1) {
           tourCompleted = true
         }
+
+        // Focus the Next button for better keyboard navigation
+        setTimeout(() => {
+          const nextBtn = popover.nextButton
+          if (nextBtn && !nextBtn.disabled) {
+            nextBtn.focus()
+          }
+        }, 0)
 
         // Add custom cancel button (X) for all steps
         const cancelBtn = document.createElement('button')
@@ -422,42 +429,14 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           line-height: 20px;
           z-index: 1;
         `
-        cancelBtn.onclick = async () => {
-          try {
-            // Destroy tour first
-            tourActive = false
-
-            // Check if we need to show exit dialog
-            if (!tourCompleted) {
-              showingExitDialog = true
-            }
-
-            driverObj.destroy()
-
-            // Only show exit dialog if tour wasn't completed
-            if (!tourCompleted) {
-              // Get current preference value to show in checkbox
-              const prefs = await getTourPreferences()
-              const currentShowTour = prefs.show_tour !== false
-
-              const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
-              if (disableAutoShow) {
-                await disableTour()
-              }
-              showingExitDialog = false
-            }
-
-            // Resolve only after dialog closes (or if completed, resolve immediately)
-            resolveTour()
-          } catch (error) {
-            console.error('[Tour] Error in X button handler:', error)
-            showingExitDialog = false
-            resolveTour()
-          }
+        cancelBtn.onclick = () => {
+          // Just destroy the tour - onDestroyed will handle the dialog
+          tourActive = false
+          driverObj.destroy()
         }
         popover.wrapper.appendChild(cancelBtn)
       },
-      onDestroyed: () => {
+      onDestroyed: async () => {
         // Clean up exit overlay if exists
         const overlay = document.querySelector('.tour-exit-overlay')
         if (overlay) {
@@ -466,11 +445,24 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         tourActive = false
 
-        // Only resolve here if we're NOT showing the exit dialog
-        // (if showing exit dialog, resolveTour will be called after dialog closes)
-        if (!showingExitDialog) {
-          resolveTour()
+        // Show exit dialog if tour wasn't completed (user cancelled early)
+        if (!tourCompleted) {
+          try {
+            // Get current preference value to show in checkbox
+            const prefs = await getTourPreferences()
+            const currentShowTour = prefs.show_tour !== false
+
+            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
+            if (disableAutoShow) {
+              await disableTour()
+            }
+          } catch (error) {
+            console.error('[Tour] Error showing exit dialog:', error)
+          }
         }
+
+        // Resolve the Promise now (after dialog if shown)
+        resolveTour()
       },
       onCloseClick: async () => {
         // This handles the Finish button on last step
@@ -481,12 +473,11 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         }
         tourActive = false
         driverObj.destroy()
-        resolveTour()
       },
     })
 
     // Add global ESC handler for tour
-    const globalEscHandler = async (e) => {
+    const globalEscHandler = (e) => {
       if (e.key === 'Escape' && tourActive) {
         // Check if exit dialog is already open
         if (document.querySelector('.tour-exit-overlay')) {
@@ -496,39 +487,9 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         e.stopPropagation()
         e.preventDefault()
 
-        try {
-          // Destroy tour first
-          tourActive = false
-
-          // Check if we need to show exit dialog
-          if (!tourCompleted) {
-            showingExitDialog = true
-          }
-
-          driverObj.destroy()
-
-          // Only show exit dialog if tour wasn't completed
-          if (!tourCompleted) {
-            // Get current preference value to show in checkbox
-            const prefs = await getTourPreferences()
-            const currentShowTour = prefs.show_tour !== false
-
-            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
-            if (disableAutoShow) {
-              await disableTour()
-            }
-            showingExitDialog = false
-          }
-
-          document.removeEventListener('keydown', globalEscHandler, true)
-          // Resolve only after dialog closes (or if completed, resolve immediately)
-          resolveTour()
-        } catch (error) {
-          console.error('[Tour] Error in ESC handler:', error)
-          document.removeEventListener('keydown', globalEscHandler, true)
-          showingExitDialog = false
-          resolveTour()
-        }
+        // Just destroy the tour - onDestroyed will handle the dialog
+        tourActive = false
+        driverObj.destroy()
       }
     }
 
