@@ -563,7 +563,7 @@ def check_integrity():
 @token_required
 def resume_job(job_id):
     """
-    Resume a job (non-destructive copy)
+    Resume a job - preserves the original operation type (copy/move/check)
 
     Response:
     {
@@ -577,21 +577,40 @@ def resume_job(job_id):
         if not job:
             return jsonify({'error': 'Job not found'}), 404
 
-        logging.info(f"Resuming job {job_id}")
+        operation = job['operation']
+        logging.info(f"Resuming job {job_id} with operation '{operation}'")
 
-        # Start new copy job with same parameters
-        new_job_id = rclone.copy(
-            src_path=job['src_path'],
-            dst_path=job['dst_path'],
-            src_config=job.get('src_config'),
-            dst_config=job.get('dst_config'),
-            copy_links=False,
-        )
+        # Start new job with same operation type and parameters
+        if operation == 'copy':
+            new_job_id = rclone.copy(
+                src_path=job['src_path'],
+                dst_path=job['dst_path'],
+                src_config=job.get('src_config'),
+                dst_config=job.get('dst_config'),
+                copy_links=False,
+            )
+        elif operation == 'move':
+            new_job_id = rclone.move(
+                src_path=job['src_path'],
+                dst_path=job['dst_path'],
+                src_config=job.get('src_config'),
+                dst_config=job.get('dst_config'),
+                copy_links=False,
+            )
+        elif operation == 'check':
+            new_job_id = rclone.check(
+                src_path=job['src_path'],
+                dst_path=job['dst_path'],
+                src_config=job.get('src_config'),
+                dst_config=job.get('dst_config'),
+            )
+        else:
+            return jsonify({'error': f'Unknown operation type: {operation}'}), 400
 
-        # Record in database
+        # Record in database with original operation type
         db.create_job(
             job_id=new_job_id,
-            operation='copy',
+            operation=operation,
             src_path=job['src_path'],
             dst_path=job['dst_path'],
             src_config=job.get('src_config'),

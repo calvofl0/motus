@@ -40,7 +40,7 @@
       <div v-if="!interruptedJobsCollapsed" class="interrupted-jobs-list">
         <div v-for="job in interruptedJobs" :key="job.job_id" class="interrupted-job-item">
           <div class="interrupted-job-info">
-            Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
+            Job #{{ job.job_id }} ({{ job.operation }}): {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="interrupted-job-actions">
             <button class="job-icon-btn resume" @click="resumeJob(job.job_id)" title="Resume this job">↻</button>
@@ -70,7 +70,7 @@
           title="Click to view log"
         >
           <div class="failed-job-info">
-            Job #{{ job.job_id }}: {{ job.src_path }} → {{ job.dst_path }}
+            Job #{{ job.job_id }} ({{ job.operation }}): {{ job.src_path }} → {{ job.dst_path }}
           </div>
           <div class="failed-job-actions">
             <button class="job-icon-btn resume" @click.stop="resumeFailedJob(job.job_id)" title="Resume this job">↻</button>
