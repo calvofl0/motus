@@ -1607,19 +1607,34 @@ function handleKeyDown(event) {
     return
   }
 
-  // When nothing is selected in list view
-  if (selectedIndexes.length === 0 && sortedFiles.value.length > 0 && viewMode.value === 'list') {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      // Select first item
-      appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
-      return
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      // Select last item
-      const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-      appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
-      return
+  // When nothing is selected
+  if (selectedIndexes.length === 0 && sortedFiles.value.length > 0) {
+    if (viewMode.value === 'list') {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        // Select first item
+        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        return
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        // Select last item
+        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        return
+      }
+    } else if (viewMode.value === 'grid') {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault()
+        // Select first item
+        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        return
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault()
+        // Select last item
+        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        return
+      }
     }
   }
 
@@ -1780,13 +1795,26 @@ function handleKeyDown(event) {
       }
     }
 
-    // When nothing is selected: Shift+Left/Right sets the active pane
-    if (selectedIndexes.length === 0 && event.shiftKey) {
-      if (event.key === 'ArrowLeft') {
+    // When nothing is selected: Set the active pane
+    if (selectedIndexes.length === 0) {
+      // List mode: Shift+Left/Right or bare Left/Right
+      // Grid mode: Shift+Left/Right or Ctrl+Left/Right
+      const shouldHandleLeft = event.key === 'ArrowLeft' && (
+        event.shiftKey ||
+        (viewMode.value === 'list' && !event.ctrlKey) ||
+        (viewMode.value === 'grid' && event.ctrlKey && !event.shiftKey)
+      )
+      const shouldHandleRight = event.key === 'ArrowRight' && (
+        event.shiftKey ||
+        (viewMode.value === 'list' && !event.ctrlKey) ||
+        (viewMode.value === 'grid' && event.ctrlKey && !event.shiftKey)
+      )
+
+      if (shouldHandleLeft) {
         event.preventDefault()
         appStore.setLastFocusedPane('left')
         return
-      } else if (event.key === 'ArrowRight') {
+      } else if (shouldHandleRight) {
         event.preventDefault()
         appStore.setLastFocusedPane('right')
         return

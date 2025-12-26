@@ -436,6 +436,9 @@ document.addEventListener('click', () => {
 
 // Event handlers for keyboard shortcuts
 function handleOpenViewMenu() {
+  // Only handle in easy mode
+  if (!appStore.isEasyMode) return
+
   // Close other menus and toggle View menu
   showHelpMenu.value = false
   showThemeMenu.value = false
@@ -447,6 +450,9 @@ function handleOpenViewMenu() {
 }
 
 function handleOpenHelpMenu() {
+  // Only handle in easy mode
+  if (!appStore.isEasyMode) return
+
   // Close other menus and toggle Help menu
   showViewMenu.value = false
   showThemeMenu.value = false
