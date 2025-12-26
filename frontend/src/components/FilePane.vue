@@ -1587,8 +1587,10 @@ function handlePaneSwitch(direction) {
   // Always switch focus
   appStore.setLastFocusedPane(oppositePane)
 
-  // If nothing selected, just switch focus
+  // If nothing selected, clear both panes and switch focus
   if (selectedIndexes.length === 0) {
+    appStore.setPaneSelection(props.pane, [])
+    appStore.setPaneSelection(oppositePane, [])
     return true
   }
 
@@ -1597,8 +1599,11 @@ function handlePaneSwitch(direction) {
     const currentIndex = selectedIndexes[0]
     const currentVisualPos = visualOrder.value[currentIndex]
 
-    // Clear current selection
+    // Clear current pane selection
     appStore.setPaneSelection(props.pane, [])
+
+    // Clear opposite pane selection before selecting new item
+    appStore.setPaneSelection(oppositePane, [])
 
     // Try to select item in opposite pane if it has files
     if (oppositePaneState.files.length > 0) {
