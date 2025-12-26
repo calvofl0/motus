@@ -219,7 +219,7 @@ ${contextMenuHtml}`,
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs stopped by server shutdown - click to resume</div>
   </div>
   <div style="background: var(--color-danger-light); padding: 10px; border-radius: 6px; border: 1px solid var(--color-danger);">
-    <strong style="color: var(--color-text-primary);"><span style="filter: brightness(0.5);">❌</span> Failed Jobs (1) ▼</strong>
+    <strong style="color: var(--color-text-primary);"><span class="tour-failed-icon">❌</span> Failed Jobs (1) ▼</strong>
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs that encountered errors - click to view logs or retry</div>
   </div>
 </div>`,

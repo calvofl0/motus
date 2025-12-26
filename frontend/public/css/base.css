@@ -44,3 +44,8 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Guided tour - darken emoji icons for better visibility */
+.tour-failed-icon {
+    filter: brightness(0.5);
+}
