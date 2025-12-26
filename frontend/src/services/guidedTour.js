@@ -90,6 +90,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
         side: 'center',
         align: 'center',
         showButtons: ['next'], // Only show Next button
+        popoverClass: 'tour-center-popover',
       },
     },
 
@@ -108,7 +109,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
       element: '.left-pane .pane-toolbar',
       popover: {
         title: 'Storage Selection and Navigation',
-        description: 'The top dropdown switches between different storage locations - cloud services, servers, or local filesystem. Below it, the path field lets you navigate to specific folders by typing a path and pressing Enter. Later we\'ll simply call these "storage locations".',
+        description: 'The top dropdown (called the "remotes dropdown") switches between different storage locations - cloud services, servers, or local filesystem. Below it, the path field lets you navigate to specific folders by typing a path and pressing Enter.',
         side: 'bottom',
       },
     },
@@ -152,6 +153,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
 ${contextMenuHtml}`,
         side: 'center',
         align: 'center',
+        popoverClass: 'tour-center-popover',
       },
     },
 
@@ -159,7 +161,7 @@ ${contextMenuHtml}`,
     {
       popover: {
         title: 'Create Aliases for Quick Access',
-        description: `Here's a powerful feature: right-click on any folder and select "Create Alias" to create a shortcut to that specific folder. Once created, the alias appears in your storage location dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
+        description: `Here's a powerful feature: right-click on any folder and select "Create Alias" to create a shortcut to that specific folder. Once created, the alias appears in your remotes dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
 
 <div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 14px;">
   <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">⬇️ Download</div>
@@ -171,6 +173,7 @@ ${contextMenuHtml}`,
 </div>`,
         side: 'center',
         align: 'center',
+        popoverClass: 'tour-center-popover',
       },
     },
 
@@ -188,7 +191,7 @@ ${contextMenuHtml}`,
     {
       element: '.view-dropdown-container .view-menu-item:nth-child(3)',
       popover: {
-        title: 'Understanding Path Display',
+        title: 'Path Display Toggle',
         description: 'This toggle controls how folder paths are shown in the path field. In relative mode, you see paths relative to your current location. In absolute mode, you see the complete path from the root - especially useful when working with aliases, as it reveals the full path within the original storage location that the alias points to.',
         side: 'bottom',
       },
@@ -246,7 +249,7 @@ ${contextMenuHtml}`,
     {
       element: '.manage-remotes-button',
       popover: {
-        title: 'Managing Storage Locations',
+        title: 'Managing Remotes',
         description: 'Click "Manage Remotes" in the header to add, edit, or remove storage providers. Motus supports all rclone-compatible services including Dropbox, Google Drive, Amazon S3, and many more.',
         side: 'bottom',
       },
@@ -271,6 +274,7 @@ ${contextMenuHtml}`,
         align: 'center',
         doneBtnText: 'Finish',
         showButtons: ['previous', 'next'], // Previous and Finish (next) buttons
+        popoverClass: 'tour-center-popover',
         // Checkbox is now added by global onPopoverRender
         // onNextClick and onCloseClick will be set in startGuidedTour() where driverObj is available
       },

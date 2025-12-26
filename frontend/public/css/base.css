@@ -50,6 +50,22 @@
     filter: brightness(0.5);
 }
 
+/* Center-aligned tour popovers - more airy spacing */
+.tour-center-popover .driver-popover {
+    padding: 24px !important;
+    max-width: 400px !important;
+}
+
+.tour-center-popover .driver-popover-title {
+    margin-bottom: 16px !important;
+    line-height: 1.6 !important;
+}
+
+.tour-center-popover .driver-popover-description {
+    line-height: 1.8 !important;
+    margin-bottom: 20px !important;
+}
+
 /* Driver.js theme overrides for light and dark themes */
 .driver-popover {
     background-color: var(--color-bg-white) !important;
