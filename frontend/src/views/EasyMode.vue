@@ -635,10 +635,10 @@ function handleKeyDown(event) {
     return
   }
 
-  // J or Shift+J - Open Jobs panel
+  // J or Shift+J - Show Completed Jobs
   if (event.key === 'j' || event.key === 'J') {
     event.preventDefault()
-    window.dispatchEvent(new CustomEvent('toggle-jobs-panel'))
+    appStore.openCompletedJobs()
     return
   }
 
@@ -670,11 +670,25 @@ function handleKeyDown(event) {
     return
   }
 
-  // Q - Quit (same as ESC)
+  // Q - Quit
   if (event.key === 'q' || event.key === 'Q') {
     event.preventDefault()
     window.dispatchEvent(new CustomEvent('quit-server'))
     return
+  }
+
+  // ESC - Quit (but only when nothing is selected - unselect is handled in FilePane)
+  if (event.key === 'Escape') {
+    // Check if any files are selected
+    const hasSelection = appStore.leftPane.selectedIndexes.length > 0 ||
+                        appStore.rightPane.selectedIndexes.length > 0
+
+    if (!hasSelection) {
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('quit-server'))
+      return
+    }
+    // If files are selected, FilePane will handle ESC to unselect
   }
 
   // F2 - Rename selected file

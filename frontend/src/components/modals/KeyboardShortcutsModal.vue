@@ -2,6 +2,7 @@
   <BaseModal
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
+    @confirm="$emit('update:modelValue', false)"
     title="Keyboard Shortcuts"
     size="large"
   >
@@ -11,16 +12,20 @@
         <h4>File Navigation</h4>
         <div class="shortcut-list">
           <div class="shortcut-item">
-            <kbd>↑</kbd><kbd>↓</kbd>
-            <span>Navigate files (list view)</span>
-          </div>
-          <div class="shortcut-item">
             <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>
-            <span>Navigate files (grid view)</span>
+            <span>Navigate files and switch between panes</span>
           </div>
           <div class="shortcut-item">
             <kbd>Enter</kbd>
             <span>Open folder or download file</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Backspace</kbd>
+            <span>Navigate to parent directory</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Esc</kbd>
+            <span>Unselect all files</span>
           </div>
         </div>
       </div>
@@ -54,7 +59,7 @@
         <div class="shortcut-list">
           <div class="shortcut-item">
             <kbd>J</kbd>
-            <span>Toggle Jobs panel</span>
+            <span>Show Completed Jobs</span>
           </div>
           <div class="shortcut-item">
             <kbd>R</kbd>
@@ -73,7 +78,7 @@
             <span>Toggle Expert/Easy mode</span>
           </div>
           <div class="shortcut-item">
-            <kbd>Q</kbd> or <kbd>Esc</kbd>
+            <kbd>Q</kbd>
             <span>Quit server (when no modal is open)</span>
           </div>
         </div>

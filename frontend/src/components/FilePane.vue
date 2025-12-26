@@ -1584,7 +1584,44 @@ function handleKeyDown(event) {
     return
   }
 
+  // Don't handle if a menu is open
+  if (document.querySelector('.view-dropdown-menu:not(.hidden)') ||
+      document.querySelector('.help-dropdown-menu:not(.hidden)') ||
+      document.querySelector('.theme-dropdown-menu:not(.hidden)')) {
+    return
+  }
+
   const selectedIndexes = paneState.value.selectedIndexes
+
+  // ESC - Unselect all
+  if (event.key === 'Escape' && selectedIndexes.length > 0) {
+    event.preventDefault()
+    appStore.setPaneSelection(props.pane, [])
+    return
+  }
+
+  // Backspace - Navigate to parent directory
+  if (event.key === 'Backspace' && !isAtRoot.value) {
+    event.preventDefault()
+    navigateUp()
+    return
+  }
+
+  // When nothing is selected in list view
+  if (selectedIndexes.length === 0 && sortedFiles.value.length > 0 && viewMode.value === 'list') {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      // Select first item
+      appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+      return
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      // Select last item
+      const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+      appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+      return
+    }
+  }
 
   // Arrow key navigation - only when exactly one file is selected
   if (selectedIndexes.length === 1 && sortedFiles.value.length > 0) {
@@ -1659,6 +1696,50 @@ function handleKeyDown(event) {
             element.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
           }
         })
+      }
+      return
+    }
+
+    // Switch panes: Right arrow on left pane, Left arrow on right pane
+    const oppositePane = props.pane === 'left' ? 'right' : 'left'
+    const oppositePaneState = appStore[`${oppositePane}Pane`]
+
+    if (viewMode.value === 'list') {
+      if (event.key === 'ArrowRight' && props.pane === 'left' && oppositePaneState.files.length > 0) {
+        event.preventDefault()
+        // Switch to right pane and select first item
+        appStore.setLastFocusedPane('right')
+        appStore.setPaneSelection(props.pane, []) // Clear left selection
+
+        // Get the first item in visual order on the right pane
+        const rightPaneRef = props.pane === 'left' ?
+          document.querySelector('.pane.right-pane') : null
+
+        if (rightPaneRef) {
+          // Select first file in the opposite pane
+          const firstFile = oppositePaneState.files.length > 0 ? 0 : null
+          if (firstFile !== null) {
+            appStore.setPaneSelection(oppositePane, [firstFile])
+          }
+        }
+        return
+      } else if (event.key === 'ArrowLeft' && props.pane === 'right' && oppositePaneState.files.length > 0) {
+        event.preventDefault()
+        // Switch to left pane and select first item
+        appStore.setLastFocusedPane('left')
+        appStore.setPaneSelection(props.pane, []) // Clear right selection
+
+        const leftPaneRef = props.pane === 'right' ?
+          document.querySelector('.pane.left-pane') : null
+
+        if (leftPaneRef) {
+          // Select first file in the opposite pane
+          const firstFile = oppositePaneState.files.length > 0 ? 0 : null
+          if (firstFile !== null) {
+            appStore.setPaneSelection(oppositePane, [firstFile])
+          }
+        }
+        return
       }
     }
   }

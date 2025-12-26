@@ -109,7 +109,7 @@ export function getTourSteps(appStore, noTourConfig = false) {
       element: '.left-pane .pane-toolbar',
       popover: {
         title: 'Storage Selection and Navigation',
-        description: 'The top dropdown (called the "remotes dropdown") switches between different storage locations - cloud services, servers, or local filesystem. Below it, the path field lets you navigate to specific folders by typing a path and pressing Enter.',
+        description: 'The top dropdown (called the <em><strong>remotes dropdown</strong></em>) switches between different storage locations - cloud services, servers, or local filesystem. Below it, the path field lets you navigate to specific folders by typing a path and pressing Enter.',
         side: 'bottom',
       },
     },
@@ -161,7 +161,7 @@ ${contextMenuHtml}`,
     {
       popover: {
         title: 'Create Aliases for Quick Access',
-        description: `Here's a powerful feature: right-click on any folder and select "Create Alias" to create a shortcut to that specific folder. Once created, the alias appears in your remotes dropdown as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
+        description: `Here's a powerful feature: right-click on any folder and select <em>Create Alias</em> to create a shortcut to that specific folder. Once created, the alias appears in your <em>remotes dropdown</em> as if it were a separate location, giving you instant access to frequently used folders without navigating through the entire directory tree.
 
 <div style="margin-top: 15px; background: var(--color-bg-white); border: 1px solid var(--color-border-darker); border-radius: 6px; overflow: hidden; font-size: 14px;">
   <div style="padding: 10px 16px; border-bottom: 1px solid var(--color-border-lighter); color: var(--color-text-primary);">⬇️ Download</div>
@@ -182,7 +182,7 @@ ${contextMenuHtml}`,
       element: '.view-dropdown-container',
       popover: {
         title: 'View Options',
-        description: 'Click "View" to customize what you see in the file panes: toggle between list and grid layouts, show or hide hidden files, and switch between relative and absolute path display.',
+        description: 'Click <em>View</em> to customize what you see in the file panes: toggle between list and grid layouts, show or hide hidden files, and switch between relative and absolute path display.',
         side: 'bottom',
       },
     },
@@ -250,7 +250,7 @@ ${contextMenuHtml}`,
       element: '.manage-remotes-button',
       popover: {
         title: 'Managing Remotes',
-        description: 'Click "Manage Remotes" in the header to add, edit, or remove storage providers. Motus supports all rclone-compatible services including Dropbox, Google Drive, Amazon S3, and many more.',
+        description: 'Click <em>Manage Remotes</em> in the header to add, edit, or remove storage providers. Motus supports all rclone-compatible services including Dropbox, Google Drive, Amazon S3, and many more.',
         side: 'bottom',
       },
     },
@@ -269,7 +269,7 @@ ${contextMenuHtml}`,
     {
       popover: {
         title: 'You\'re All Set!',
-        description: 'You\'ve completed the tour! If you need help or want to see this tour again, click the Help menu in the header (between View and Expert Mode). Enjoy using Motus!',
+        description: 'You\'ve completed the tour! If you need help or want to see this tour again, click the <em>Help</em> menu in the header. Enjoy using Motus!',
         side: 'center',
         align: 'center',
         doneBtnText: 'Finish',

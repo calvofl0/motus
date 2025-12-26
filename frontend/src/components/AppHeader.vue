@@ -346,6 +346,8 @@ function handleGlobalKeydown(e) {
   if (e.key === 'Escape') {
     // Close View/Help/Theme dropdown menu if open
     if (showViewMenu.value || showHelpMenu.value || showThemeMenu.value) {
+      e.preventDefault()
+      e.stopPropagation()
       showViewMenu.value = false
       showHelpMenu.value = false
       showThemeMenu.value = false
