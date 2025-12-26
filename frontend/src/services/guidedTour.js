@@ -272,37 +272,7 @@ ${contextMenuHtml}`,
         doneBtnText: 'Finish',
         showButtons: ['previous', 'next'], // Previous and Finish (next) buttons
         // Checkbox is now added by global onPopoverRender
-        onNextClick: async () => {
-          // This is called when the Finish button is clicked (Next button on last step)
-          console.log('[Tour] onNextClick called on Step 15')
-          if (!noTourConfig) {
-            const checkboxInput = document.querySelector('#tour-no-show-again')
-            console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
-            if (checkboxInput) {
-              if (checkboxInput.checked) {
-                console.log('[Tour] Calling disableTour()')
-                await disableTour()
-              } else {
-                console.log('[Tour] Calling enableTour()')
-                await enableTour()
-              }
-            }
-          }
-        },
-      },
-      onDeselected: async () => {
-        // This is called when leaving Step 15 (including X button, ESC, etc.)
-        console.log('[Tour] onDeselected called on Step 15')
-        if (!noTourConfig) {
-          const checkboxInput = document.querySelector('#tour-no-show-again')
-          if (checkboxInput) {
-            if (checkboxInput.checked) {
-              await disableTour()
-            } else {
-              await enableTour()
-            }
-          }
-        }
+        // onNextClick and onCloseClick will be set in startGuidedTour() where driverObj is available
       },
     },
   ]
@@ -399,7 +369,38 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     let currentStepIndex = 0
     let tourCompleted = false
 
-    const driverObj = driver({
+    // Helper function to save preference based on checkbox
+    const savePreferenceFromCheckbox = async () => {
+      if (!noTourConfig) {
+        const checkboxInput = document.querySelector('#tour-no-show-again')
+        console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
+        if (checkboxInput) {
+          if (checkboxInput.checked) {
+            console.log('[Tour] Calling disableTour()')
+            await disableTour()
+          } else {
+            console.log('[Tour] Calling enableTour()')
+            await enableTour()
+          }
+        }
+      }
+    }
+
+    // Create driver object (we'll need reference for hooks)
+    let driverObj = null
+
+    // Add onNextClick hook to Step 15's popover (for Finish button)
+    const step15 = steps[steps.length - 1]
+    step15.popover.onNextClick = async () => {
+      console.log('[Tour] onNextClick called on Step 15 (Finish button)')
+      await savePreferenceFromCheckbox()
+      // Now close the tour
+      tourCompleted = true
+      driverObj.destroy()
+    }
+    // Note: X button is handled in onPopoverRender's custom button onclick
+
+    driverObj = driver({
       showProgress: true,
       steps: steps,
       nextBtnText: 'Next',
@@ -421,7 +422,12 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
         cancelBtn.className = 'tour-custom-close-btn'
-        cancelBtn.onclick = () => {
+        cancelBtn.onclick = async () => {
+          // On last step, save preference before destroying
+          if (currentStepIndex === steps.length - 1) {
+            console.log('[Tour] X button clicked on Step 15')
+            await savePreferenceFromCheckbox()
+          }
           tourActive = false
           driverObj.destroy()
         }
