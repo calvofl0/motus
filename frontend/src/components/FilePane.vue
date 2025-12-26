@@ -73,6 +73,8 @@
         <div
           v-if="!isAtRoot && showHiddenFiles"
           class="file-item"
+          :class="{ selected: isParentSelected }"
+          @click="handleParentClick($event)"
           @dblclick="navigateUp"
           @contextmenu.prevent="handleParentContextMenu"
         >
@@ -132,6 +134,8 @@
           <tr
             v-if="!isAtRoot && showHiddenFiles"
             class="file-row"
+            :class="{ selected: isParentSelected }"
+            @click="handleParentClick($event)"
             @dblclick="navigateUp"
             @contextmenu.prevent="handleParentContextMenu"
           >
@@ -361,6 +365,20 @@ const isAtRoot = computed(() => {
 // Helper functions
 function isSelected(index) {
   return paneState.value.selectedIndexes.includes(index)
+}
+
+// Special index for parent folder: -1
+const isParentSelected = computed(() => {
+  return paneState.value.selectedIndexes.includes(-1)
+})
+
+function handleParentClick(event) {
+  // Set this pane as active
+  if (props.pane === 'left') {
+    selectLeftPane(-1)
+  } else {
+    selectRightPane(-1)
+  }
 }
 
 function sortFiles(filesList, field, ascending) {
@@ -1670,7 +1688,7 @@ function getSelectedVisibleIndex(pane) {
 
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
 function handlePaneSwitch(direction) {
-  console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane)
+  console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane, 'viewMode:', viewMode.value)
   // Only switch to opposite pane if direction matches
   const shouldSwitch = (direction === 'left' && props.pane === 'right') ||
                        (direction === 'right' && props.pane === 'left')
@@ -1692,58 +1710,111 @@ function handlePaneSwitch(direction) {
   let indexToSelect = null
   console.log('[DEBUG] currentSelection.length:', currentSelection.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
 
-  if (currentSelection.length === 1 && oppositePaneState.files.length > 0) {
-    console.log('[DEBUG] Calculating index to select based on visible position...')
+  if (viewMode.value === 'grid') {
+    // GRID MODE: Always select first item if exists
+    console.log('[DEBUG] Grid mode: selecting first item')
 
-    // Get the visible viewport index of the selected item in current pane
-    const selectedVisibleIndex = getSelectedVisibleIndex(props.pane)
-    console.log('[DEBUG] selectedVisibleIndex in current pane:', selectedVisibleIndex)
+    // Get sorted files for opposite pane
+    const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
+      ...file,
+      _originalIndex: idx
+    }))
 
-    if (selectedVisibleIndex >= 0) {
-      // Get visible items in opposite pane
-      const oppositeContainer = document.querySelector(`#${oppositePane}-files`)
-      if (oppositeContainer) {
-        const oppositeContainerRect = oppositeContainer.getBoundingClientRect()
-        const oppositeItems = Array.from(oppositeContainer.querySelectorAll(
-          viewMode.value === 'grid' ? '.file-item:not(.empty-state)' : '.file-row'
-        ))
+    // Filter hidden files if needed
+    let oppositeSortedFiles = oppositeFilesWithIndex
+    if (!showHiddenFiles.value) {
+      oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
+    }
 
-        const oppositeVisibleItems = oppositeItems.filter(item => {
-          const rect = item.getBoundingClientRect()
-          return rect.bottom > oppositeContainerRect.top && rect.top < oppositeContainerRect.bottom
-        })
+    // Sort using same logic as current pane
+    oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
 
-        console.log('[DEBUG] oppositeVisibleItems.length:', oppositeVisibleItems.length)
+    if (oppositeSortedFiles.length > 0) {
+      const firstFile = oppositeSortedFiles[0]
+      indexToSelect = firstFile._originalIndex
+      console.log('[DEBUG] Grid: Selecting first item with original index:', indexToSelect)
+    }
+  } else {
+    // LIST MODE: Use pixel-based matching (distance from top to item middle point)
+    if (currentSelection.length === 1 && currentSelection[0] !== -1 && oppositePaneState.files.length > 0) {
+      console.log('[DEBUG] List mode: calculating pixel-based match...')
 
-        if (oppositeVisibleItems.length > 0) {
-          // Select item at same visible position, or closest (last visible) if doesn't exist
-          const targetVisibleIndex = Math.min(selectedVisibleIndex, oppositeVisibleItems.length - 1)
-          const targetElement = oppositeVisibleItems[targetVisibleIndex]
+      // Get current item's middle point distance from container top
+      const currentContainer = document.querySelector(`#${props.pane}-files`)
+      const currentIndex = currentSelection[0]
+      const currentVisualPos = visualOrder.value[currentIndex]
 
-          // Find the visual position of this element in the full list
-          const targetVisualPos = oppositeItems.indexOf(targetElement)
+      if (currentContainer && currentVisualPos !== undefined) {
+        const currentContainerRect = currentContainer.getBoundingClientRect()
+        const currentItems = Array.from(currentContainer.querySelectorAll('.file-row'))
 
-          if (targetVisualPos >= 0) {
+        // Skip parent row if present (first row might be parent)
+        let itemOffset = 0
+        const firstRow = currentItems[0]
+        if (firstRow && !firstRow.classList.contains('selected') && firstRow.querySelector('.file-name-col span:last-child')?.textContent === '..') {
+          itemOffset = 1
+        }
+
+        const currentItemElement = currentItems[currentVisualPos + itemOffset]
+
+        if (currentItemElement) {
+          const currentItemRect = currentItemElement.getBoundingClientRect()
+          const currentItemMiddle = currentItemRect.top + currentItemRect.height / 2
+          const distanceFromTop = currentItemMiddle - currentContainerRect.top
+
+          console.log('[DEBUG] Current item middle distance from container top:', distanceFromTop)
+
+          // Find item in opposite pane with closest middle point distance
+          const oppositeContainer = document.querySelector(`#${oppositePane}-files`)
+          if (oppositeContainer) {
+            const oppositeContainerRect = oppositeContainer.getBoundingClientRect()
+            const oppositeItems = Array.from(oppositeContainer.querySelectorAll('.file-row'))
+
+            // Skip parent row if present
+            let oppositeItemOffset = 0
+            const oppositeFirstRow = oppositeItems[0]
+            if (oppositeFirstRow && oppositeFirstRow.querySelector('.file-name-col span:last-child')?.textContent === '..') {
+              oppositeItemOffset = 1
+            }
+
             // Get sorted files for opposite pane
             const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
               ...file,
               _originalIndex: idx
             }))
 
-            // Filter hidden files if needed
             let oppositeSortedFiles = oppositeFilesWithIndex
             if (!showHiddenFiles.value) {
               oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
             }
 
-            // Sort using same logic as current pane
             oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
 
-            // Get the file at this visual position
-            const targetFile = oppositeSortedFiles[targetVisualPos]
-            if (targetFile) {
-              indexToSelect = targetFile._originalIndex
-              console.log('[DEBUG] Found target file at visual pos', targetVisualPos, 'original index:', indexToSelect)
+            if (oppositeSortedFiles.length > 0) {
+              let closestDistance = Infinity
+              let closestVisualPos = 0
+
+              // Check each item's middle point
+              for (let i = 0; i < oppositeSortedFiles.length; i++) {
+                const itemElement = oppositeItems[i + oppositeItemOffset]
+                if (itemElement) {
+                  const itemRect = itemElement.getBoundingClientRect()
+                  const itemMiddle = itemRect.top + itemRect.height / 2
+                  const itemDistanceFromTop = itemMiddle - oppositeContainerRect.top
+                  const diff = Math.abs(itemDistanceFromTop - distanceFromTop)
+
+                  if (diff < closestDistance) {
+                    closestDistance = diff
+                    closestVisualPos = i
+                  }
+                }
+              }
+
+              const targetFile = oppositeSortedFiles[closestVisualPos]
+              if (targetFile) {
+                indexToSelect = targetFile._originalIndex
+                console.log('[DEBUG] List: Found closest item at visual pos', closestVisualPos, 'original index:', indexToSelect, 'distance diff:', closestDistance)
+              }
             }
           }
         }
@@ -1829,8 +1900,25 @@ function handleKeyDown(event) {
     }
   }
 
+  // Arrow key navigation when parent (..) is selected
+  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1 && sortedFiles.value.length > 0) {
+    // From parent, navigate to first or last file
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      event.preventDefault()
+      // Select first item
+      appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+      return
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      event.preventDefault()
+      // Select last item
+      const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+      appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+      return
+    }
+  }
+
   // Arrow key navigation - only when exactly one file is selected
-  if (selectedIndexes.length === 1 && sortedFiles.value.length > 0) {
+  if (selectedIndexes.length === 1 && selectedIndexes[0] !== -1 && sortedFiles.value.length > 0) {
     const currentIndex = selectedIndexes[0]
     const currentVisualPos = visualOrder.value[currentIndex]
 
@@ -1940,12 +2028,17 @@ function handleKeyDown(event) {
     }
   }
 
-  // ENTER key - open folder or download file
+  // ENTER key - open folder or download file (or navigate up if parent selected)
   if (event.key === 'Enter' && selectedIndexes.length === 1) {
     event.preventDefault()
-    const file = files.value[selectedIndexes[0]]
-    if (file) {
-      handleFileDblClick(file)
+    if (selectedIndexes[0] === -1) {
+      // Parent (..) selected - navigate up
+      navigateUp()
+    } else {
+      const file = files.value[selectedIndexes[0]]
+      if (file) {
+        handleFileDblClick(file)
+      }
     }
   }
 }
