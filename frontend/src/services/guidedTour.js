@@ -219,7 +219,7 @@ ${contextMenuHtml}`,
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs stopped by server shutdown - click to resume</div>
   </div>
   <div style="background: var(--color-danger-light); padding: 10px; border-radius: 6px; border: 1px solid var(--color-danger);">
-    <strong style="color: var(--color-text-primary);"><span class="tour-failed-icon">❌</span> Failed Jobs (1) ▼</strong>
+    <strong style="color: var(--color-text-primary);">❌ Failed Jobs (1) ▼</strong>
     <div style="font-size: 12px; margin-top: 5px; color: var(--color-text-secondary);">Jobs that encountered errors - click to view logs or retry</div>
   </div>
 </div>`,
@@ -397,11 +397,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       onPopoverRender: (popover, { config, state }) => {
         currentStepIndex = state.activeIndex || 0
 
-        // Check if we reached the last step (tour completed)
-        if (currentStepIndex === steps.length - 1) {
-          tourCompleted = true
-        }
-
         // Focus the Next button for better keyboard navigation
         setTimeout(() => {
           const nextBtn = popover.nextButton
@@ -431,12 +426,15 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         `
         cancelBtn.onclick = () => {
           // Just destroy the tour - onDestroyed will handle the dialog
+          console.log('[Tour] X button clicked, tourCompleted:', tourCompleted, 'currentStepIndex:', currentStepIndex)
           tourActive = false
           driverObj.destroy()
         }
         popover.wrapper.appendChild(cancelBtn)
       },
       onDestroyed: async () => {
+        console.log('[Tour] onDestroyed called, tourCompleted:', tourCompleted)
+
         // Clean up exit overlay if exists
         const overlay = document.querySelector('.tour-exit-overlay')
         if (overlay) {
@@ -447,6 +445,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         // Show exit dialog if tour wasn't completed (user cancelled early)
         if (!tourCompleted) {
+          console.log('[Tour] Tour was not completed, showing exit dialog')
           try {
             // Get current preference value to show in checkbox
             const prefs = await getTourPreferences()
@@ -459,6 +458,8 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           } catch (error) {
             console.error('[Tour] Error showing exit dialog:', error)
           }
+        } else {
+          console.log('[Tour] Tour was completed, not showing exit dialog')
         }
 
         // Resolve the Promise now (after dialog if shown)
@@ -488,6 +489,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         e.preventDefault()
 
         // Just destroy the tour - onDestroyed will handle the dialog
+        console.log('[Tour] ESC pressed, tourCompleted:', tourCompleted, 'currentStepIndex:', currentStepIndex)
         tourActive = false
         driverObj.destroy()
       }

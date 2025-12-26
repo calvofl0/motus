@@ -58,7 +58,7 @@
       tabindex="-1"
     >
       <div class="failed-jobs-header" @click="toggleFailedJobs">
-        <span>❌ Failed Jobs ({{ failedJobs.length }})</span>
+        <span><span class="tour-failed-icon">❌</span> Failed Jobs ({{ failedJobs.length }})</span>
         <span class="collapse-icon">{{ failedJobsCollapsed ? '▼' : '▲' }}</span>
       </div>
       <div v-if="!failedJobsCollapsed" class="failed-jobs-list">
