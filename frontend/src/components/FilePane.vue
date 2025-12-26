@@ -1720,10 +1720,15 @@ function handleKeyDown(event) {
     const oppositePane = props.pane === 'left' ? 'right' : 'left'
     const oppositePaneState = appStore[`${oppositePane}Pane`]
 
-    // List layout: Left/Right and Shift+Left/Right work the same (switch panes, keep visual position)
+    // List layout: Left/Right or Ctrl+Left/Right switch panes (keep visual position)
     if (viewMode.value === 'list') {
-      if ((event.key === 'ArrowRight' && props.pane === 'left') ||
-          (event.key === 'ArrowLeft' && props.pane === 'right')) {
+      const isListPaneSwitch = (
+        ((event.key === 'ArrowRight' && props.pane === 'left') ||
+         (event.key === 'ArrowLeft' && props.pane === 'right')) &&
+        !event.shiftKey // Shift+Left/Right is for transfers (with Ctrl)
+      )
+
+      if (isListPaneSwitch) {
         if (oppositePaneState.files.length === 0) return
 
         event.preventDefault()
@@ -1758,8 +1763,8 @@ function handleKeyDown(event) {
       }
     }
 
-    // Grid layout: Shift+Left/Right switches panes and selects first item (only when one item is selected)
-    if (viewMode.value === 'grid' && event.shiftKey && selectedIndexes.length === 1) {
+    // Grid layout: Ctrl+Left/Right switches panes and selects first item (only when one item is selected)
+    if (viewMode.value === 'grid' && event.ctrlKey && !event.shiftKey && selectedIndexes.length === 1) {
       if ((event.key === 'ArrowLeft' && props.pane === 'right') ||
           (event.key === 'ArrowRight' && props.pane === 'left')) {
         event.preventDefault()
@@ -1796,18 +1801,16 @@ function handleKeyDown(event) {
     }
 
     // When nothing is selected: Set the active pane
+    // General rule: Ctrl+Left/Right for pane navigation
+    // List mode exception: bare Left/Right also works
     if (selectedIndexes.length === 0) {
-      // List mode: Shift+Left/Right or bare Left/Right
-      // Grid mode: Shift+Left/Right or Ctrl+Left/Right
       const shouldHandleLeft = event.key === 'ArrowLeft' && (
-        event.shiftKey ||
-        (viewMode.value === 'list' && !event.ctrlKey) ||
-        (viewMode.value === 'grid' && event.ctrlKey && !event.shiftKey)
+        (event.ctrlKey && !event.shiftKey) || // Ctrl+Left in both modes
+        (viewMode.value === 'list' && !event.ctrlKey && !event.shiftKey) // Bare Left in list mode
       )
       const shouldHandleRight = event.key === 'ArrowRight' && (
-        event.shiftKey ||
-        (viewMode.value === 'list' && !event.ctrlKey) ||
-        (viewMode.value === 'grid' && event.ctrlKey && !event.shiftKey)
+        (event.ctrlKey && !event.shiftKey) || // Ctrl+Right in both modes
+        (viewMode.value === 'list' && !event.ctrlKey && !event.shiftKey) // Bare Right in list mode
       )
 
       if (shouldHandleLeft) {

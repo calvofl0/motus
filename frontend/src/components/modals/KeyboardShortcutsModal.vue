@@ -43,12 +43,12 @@
             <span>Transfer to right pane</span>
           </div>
           <div class="shortcut-item">
-            <kbd>Shift</kbd> + <kbd>←</kbd>
-            <span>Switch to left pane</span>
+            <kbd>Ctrl</kbd> + <kbd>←</kbd>
+            <span>Switch to left pane (or <kbd>←</kbd> in list mode)</span>
           </div>
           <div class="shortcut-item">
-            <kbd>Shift</kbd> + <kbd>→</kbd>
-            <span>Switch to right pane</span>
+            <kbd>Ctrl</kbd> + <kbd>→</kbd>
+            <span>Switch to right pane (or <kbd>→</kbd> in list mode)</span>
           </div>
           <div class="shortcut-item">
             <kbd>F2</kbd>
