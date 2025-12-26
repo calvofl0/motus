@@ -106,74 +106,76 @@
       </template>
 
       <!-- List View -->
-      <table v-else>
-        <thead>
-          <tr>
-            <th class="col-name" @click="setSortBy('name')">
-              Name
-              <span v-if="sortBy === 'name'" class="sort-indicator">
-                {{ sortAsc ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th class="col-size" @click="setSortBy('size')">
-              Size
-              <span v-if="sortBy === 'size'" class="sort-indicator">
-                {{ sortAsc ? '▲' : '▼' }}
-              </span>
-            </th>
-            <th class="col-date" @click="setSortBy('date')">
-              Date
-              <span v-if="sortBy === 'date'" class="sort-indicator">
-                {{ sortAsc ? '▲' : '▼' }}
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Parent Directory -->
-          <tr
-            v-if="!isAtRoot && showHiddenFiles"
-            class="file-row"
-            :class="{ selected: isParentSelected }"
-            @click="handleParentClick($event)"
-            @dblclick="navigateUp"
-            @contextmenu.prevent="handleParentContextMenu"
-          >
-            <td class="file-name-col">
-              <span class="file-icon-small">📁</span>
-              <span>..</span>
-            </td>
-            <td class="file-size-col"></td>
-            <td class="file-date-col"></td>
-          </tr>
+      <template v-else>
+        <!-- Empty State for List -->
+        <div v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)" class="empty-state">
+          No files
+        </div>
 
-          <!-- Files -->
-          <tr
-            v-for="(file, visualIndex) in sortedFiles"
-            :key="file._originalIndex"
-            class="file-row"
-            :class="{ selected: isSelected(file._originalIndex) }"
-            draggable="true"
-            @click="handleFileClick(file._originalIndex, $event)"
-            @dblclick="handleFileDblClick(file)"
-            @contextmenu.prevent="handleFileContextMenu(file._originalIndex, $event)"
-            @mousedown="handleMouseDown(file._originalIndex, $event)"
-            @dragstart="handleDragStart(file._originalIndex, $event)"
-          >
-            <td class="file-name-col">
-              <span class="file-icon-small">{{ file.IsDir ? '📁' : '📄' }}</span>
-              <span>{{ file.Name }}</span>
-            </td>
-            <td class="file-size-col">{{ file.IsDir ? '' : formatSize(file.Size) }}</td>
-            <td class="file-date-col">{{ formatDate(file.ModTime) }}</td>
-          </tr>
+        <table v-else>
+          <thead>
+            <tr>
+              <th class="col-name" @click="setSortBy('name')">
+                Name
+                <span v-if="sortBy === 'name'" class="sort-indicator">
+                  {{ sortAsc ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th class="col-size" @click="setSortBy('size')">
+                Size
+                <span v-if="sortBy === 'size'" class="sort-indicator">
+                  {{ sortAsc ? '▲' : '▼' }}
+                </span>
+              </th>
+              <th class="col-date" @click="setSortBy('date')">
+                Date
+                <span v-if="sortBy === 'date'" class="sort-indicator">
+                  {{ sortAsc ? '▲' : '▼' }}
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Parent Directory -->
+            <tr
+              v-if="!isAtRoot && showHiddenFiles"
+              class="file-row"
+              :class="{ selected: isParentSelected }"
+              @click="handleParentClick($event)"
+              @dblclick="navigateUp"
+              @contextmenu.prevent="handleParentContextMenu"
+            >
+              <td class="file-name-col">
+                <span class="file-icon-small">📁</span>
+                <span>..</span>
+              </td>
+              <td class="file-size-col"></td>
+              <td class="file-date-col"></td>
+            </tr>
 
-          <!-- Empty State for List -->
-          <tr v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)">
-            <td colspan="3" class="empty-state">No files</td>
-          </tr>
-        </tbody>
-      </table>
+            <!-- Files -->
+            <tr
+              v-for="(file, visualIndex) in sortedFiles"
+              :key="file._originalIndex"
+              class="file-row"
+              :class="{ selected: isSelected(file._originalIndex) }"
+              draggable="true"
+              @click="handleFileClick(file._originalIndex, $event)"
+              @dblclick="handleFileDblClick(file)"
+              @contextmenu.prevent="handleFileContextMenu(file._originalIndex, $event)"
+              @mousedown="handleMouseDown(file._originalIndex, $event)"
+              @dragstart="handleDragStart(file._originalIndex, $event)"
+            >
+              <td class="file-name-col">
+                <span class="file-icon-small">{{ file.IsDir ? '📁' : '📄' }}</span>
+                <span>{{ file.Name }}</span>
+              </td>
+              <td class="file-size-col">{{ file.IsDir ? '' : formatSize(file.Size) }}</td>
+              <td class="file-date-col">{{ formatDate(file.ModTime) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
     </div>
   </div>
 
@@ -1898,27 +1900,38 @@ function handleKeyDown(event) {
 
   // When nothing is selected
   if (selectedIndexes.length === 0) {
+    console.log('[DEBUG] Nothing selected, handling initial selection. isAtRoot:', isAtRoot.value, 'showHiddenFiles:', showHiddenFiles.value, 'sortedFiles.length:', sortedFiles.value.length)
     // Check if ".." is visible
     const parentVisible = !isAtRoot.value && showHiddenFiles.value
 
     if (viewMode.value === 'list') {
       if (event.key === 'ArrowDown') {
         event.preventDefault()
+        console.log('[DEBUG] ArrowDown with nothing selected. parentVisible:', parentVisible)
         // If ".." is visible, select it first; otherwise select first file
         if (parentVisible) {
+          console.log('[DEBUG] Selecting ".." (index -1)')
           appStore.setPaneSelection(props.pane, [-1])
         } else if (sortedFiles.value.length > 0) {
+          console.log('[DEBUG] Selecting first file, index:', sortedFiles.value[0]._originalIndex)
           appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        } else {
+          console.log('[DEBUG] No items to select')
         }
         return
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
+        console.log('[DEBUG] ArrowUp with nothing selected. parentVisible:', parentVisible)
         // Select last file if available; otherwise select ".." if visible
         if (sortedFiles.value.length > 0) {
+          console.log('[DEBUG] Selecting last file, index:', sortedFiles.value[sortedFiles.value.length - 1]._originalIndex)
           const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
           appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
         } else if (parentVisible) {
+          console.log('[DEBUG] Selecting ".." (index -1)')
           appStore.setPaneSelection(props.pane, [-1])
+        } else {
+          console.log('[DEBUG] No items to select')
         }
         return
       }
@@ -1947,16 +1960,20 @@ function handleKeyDown(event) {
   }
 
   // Arrow key navigation when parent (..) is selected
-  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1) {
+  // Only handle when NO modifier keys (no Shift, no Ctrl) to allow pane switching
+  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1 && !event.shiftKey && !event.ctrlKey) {
+    console.log('[DEBUG] ".." selected, handling arrow navigation')
     if (sortedFiles.value.length > 0) {
       // From parent, navigate to first or last file
       if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
         event.preventDefault()
+        console.log('[DEBUG] ".." -> selecting first file')
         // Select first item
         appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
         return
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
         event.preventDefault()
+        console.log('[DEBUG] ".." -> selecting last file')
         // Select last item
         const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
         appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
@@ -1967,6 +1984,7 @@ function handleKeyDown(event) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp' ||
           event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault()
+        console.log('[DEBUG] ".." selected, no files, staying at ".."')
         // Stay at ".." (already selected)
         return
       }
