@@ -1687,18 +1687,9 @@ function getSelectedVisibleIndex(pane) {
 }
 
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
+// NOTE: Only called after checking that THIS pane should switch for this direction
 function handlePaneSwitch(direction) {
   console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane, 'viewMode:', viewMode.value)
-
-  // Only switch to opposite pane if direction matches
-  const shouldSwitch = (direction === 'left' && props.pane === 'right') ||
-                       (direction === 'right' && props.pane === 'left')
-  console.log('[DEBUG] shouldSwitch:', shouldSwitch)
-
-  if (!shouldSwitch) {
-    console.log('[DEBUG] Not switching - wrong pane for this direction')
-    return false
-  }
 
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
@@ -1820,6 +1811,19 @@ function handlePaneSwitch(direction) {
           }
         }
       }
+    }
+  }
+
+  // If no file selected but ".." is visible in opposite pane, select it
+  if (indexToSelect === null) {
+    const oppositePath = oppositePaneState.currentPath
+    // Check if opposite pane is at root
+    const oppositeIsAtRoot = oppositePath === '/' || oppositePath === '~/' || oppositePath === '~'
+
+    // If not at root and showing hidden files, ".." will be visible
+    if (!oppositeIsAtRoot && showHiddenFiles.value) {
+      indexToSelect = -1  // Select parent folder
+      console.log('[DEBUG] No files in opposite pane, but ".." is visible - selecting it')
     }
   }
 
@@ -2022,7 +2026,13 @@ function handleKeyDown(event) {
 
     if (isShiftPaneSwitch || isListPaneSwitch) {
       const direction = event.key === 'ArrowLeft' ? 'left' : 'right'
-      if (handlePaneSwitch(direction)) {
+
+      // Only process if THIS pane is the one that should switch for this direction
+      const shouldProcess = (direction === 'left' && props.pane === 'right') ||
+                           (direction === 'right' && props.pane === 'left')
+
+      if (shouldProcess) {
+        handlePaneSwitch(direction)
         event.preventDefault()
         return
       }
