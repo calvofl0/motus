@@ -1629,6 +1629,45 @@ function togglePane() {
   }
 }
 
+// Get visible items in the current pane's viewport
+function getVisibleItemsInfo(pane) {
+  const container = document.querySelector(`#${pane}-files`)
+  if (!container) return { visibleItems: [], selectedVisibleIndex: -1 }
+
+  const containerRect = container.getBoundingClientRect()
+  const items = Array.from(container.querySelectorAll(
+    viewMode.value === 'grid' ? '.file-item:not(.empty-state)' : '.file-row'
+  ))
+
+  // Get visible items (those that intersect with viewport)
+  const visibleItems = items.filter(item => {
+    const rect = item.getBoundingClientRect()
+    return rect.bottom > containerRect.top && rect.top < containerRect.bottom
+  })
+
+  return { visibleItems, items }
+}
+
+// Get the visible viewport index of the currently selected item
+function getSelectedVisibleIndex(pane) {
+  const { visibleItems, items } = getVisibleItemsInfo(pane)
+  if (visibleItems.length === 0) return -1
+
+  const currentPaneState = appStore[`${pane}Pane`]
+  const currentSelection = currentPaneState.selectedIndexes
+  if (currentSelection.length !== 1) return -1
+
+  const currentIndex = currentSelection[0]
+  const currentVisualPos = visualOrder.value[currentIndex]
+
+  // Find which visible item this is
+  const selectedItemElement = items[currentVisualPos]
+  if (!selectedItemElement) return -1
+
+  const visibleIndex = visibleItems.indexOf(selectedItemElement)
+  return visibleIndex
+}
+
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
 function handlePaneSwitch(direction) {
   console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane)
@@ -1654,38 +1693,60 @@ function handlePaneSwitch(direction) {
   console.log('[DEBUG] currentSelection.length:', currentSelection.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
 
   if (currentSelection.length === 1 && oppositePaneState.files.length > 0) {
-    console.log('[DEBUG] Calculating index to select...')
-    const currentIndex = currentSelection[0]
-    const currentVisualPos = visualOrder.value[currentIndex]
+    console.log('[DEBUG] Calculating index to select based on visible position...')
 
-    // Get sorted files for opposite pane
-    const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
-      ...file,
-      _originalIndex: idx
-    }))
+    // Get the visible viewport index of the selected item in current pane
+    const selectedVisibleIndex = getSelectedVisibleIndex(props.pane)
+    console.log('[DEBUG] selectedVisibleIndex in current pane:', selectedVisibleIndex)
 
-    // Filter hidden files if needed
-    let oppositeSortedFiles = oppositeFilesWithIndex
-    if (!showHiddenFiles.value) {
-      oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
-    }
+    if (selectedVisibleIndex >= 0) {
+      // Get visible items in opposite pane
+      const oppositeContainer = document.querySelector(`#${oppositePane}-files`)
+      if (oppositeContainer) {
+        const oppositeContainerRect = oppositeContainer.getBoundingClientRect()
+        const oppositeItems = Array.from(oppositeContainer.querySelectorAll(
+          viewMode.value === 'grid' ? '.file-item:not(.empty-state)' : '.file-row'
+        ))
 
-    // Sort using same logic as current pane
-    oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
+        const oppositeVisibleItems = oppositeItems.filter(item => {
+          const rect = item.getBoundingClientRect()
+          return rect.bottom > oppositeContainerRect.top && rect.top < oppositeContainerRect.bottom
+        })
 
-    if (oppositeSortedFiles.length > 0) {
-      let targetFile
-      if (viewMode.value === 'list') {
-        // List mode: select item at same visual position, or last if position doesn't exist
-        const targetVisualPos = Math.min(currentVisualPos, oppositeSortedFiles.length - 1)
-        targetFile = oppositeSortedFiles[targetVisualPos]
-      } else {
-        // Grid mode: select first item
-        targetFile = oppositeSortedFiles[0]
-      }
+        console.log('[DEBUG] oppositeVisibleItems.length:', oppositeVisibleItems.length)
 
-      if (targetFile) {
-        indexToSelect = targetFile._originalIndex
+        if (oppositeVisibleItems.length > 0) {
+          // Select item at same visible position, or closest (last visible) if doesn't exist
+          const targetVisibleIndex = Math.min(selectedVisibleIndex, oppositeVisibleItems.length - 1)
+          const targetElement = oppositeVisibleItems[targetVisibleIndex]
+
+          // Find the visual position of this element in the full list
+          const targetVisualPos = oppositeItems.indexOf(targetElement)
+
+          if (targetVisualPos >= 0) {
+            // Get sorted files for opposite pane
+            const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
+              ...file,
+              _originalIndex: idx
+            }))
+
+            // Filter hidden files if needed
+            let oppositeSortedFiles = oppositeFilesWithIndex
+            if (!showHiddenFiles.value) {
+              oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
+            }
+
+            // Sort using same logic as current pane
+            oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
+
+            // Get the file at this visual position
+            const targetFile = oppositeSortedFiles[targetVisualPos]
+            if (targetFile) {
+              indexToSelect = targetFile._originalIndex
+              console.log('[DEBUG] Found target file at visual pos', targetVisualPos, 'original index:', indexToSelect)
+            }
+          }
+        }
       }
     }
   }
@@ -1792,6 +1853,7 @@ function handleKeyDown(event) {
       if (event.key === 'ArrowUp') {
         event.preventDefault()
         newVisualPos = Math.max(0, currentVisualPos - cols)
+        // Always update to ensure we stay at position 0 if already there
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         newVisualPos = Math.min(sortedFiles.value.length - 1, currentVisualPos + cols)
@@ -1799,11 +1861,17 @@ function handleKeyDown(event) {
         event.preventDefault()
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
+        } else {
+          // Already at leftmost, stay there
+          return
         }
       } else if (event.key === 'ArrowRight' && !event.shiftKey) {
         event.preventDefault()
         if (currentVisualPos < sortedFiles.value.length - 1) {
           newVisualPos = currentVisualPos + 1
+        } else {
+          // Already at rightmost, stay there
+          return
         }
       }
     } else {
@@ -1812,11 +1880,17 @@ function handleKeyDown(event) {
         event.preventDefault()
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
+        } else {
+          // Already at top, stay there
+          return
         }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         if (currentVisualPos < sortedFiles.value.length - 1) {
           newVisualPos = currentVisualPos + 1
+        } else {
+          // Already at bottom, stay there
+          return
         }
       }
     }
@@ -1842,6 +1916,9 @@ function handleKeyDown(event) {
           }
         })
       }
+      return
+    } else if (newVisualPos !== null) {
+      // Position calculated but same as current - still handled, so return
       return
     }
   }
