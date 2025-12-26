@@ -37,6 +37,7 @@ export async function disableTour() {
   console.log('[Tour] disableTour() - Before:', prefs.show_tour)
   prefs.show_tour = false
   await savePreferences(apiCall, prefs)
+  _preferencesCache = null  // Invalidate cache
   console.log('[Tour] disableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
@@ -48,6 +49,7 @@ export async function enableTour() {
   console.log('[Tour] enableTour() - Before:', prefs.show_tour)
   prefs.show_tour = true
   await savePreferences(apiCall, prefs)
+  _preferencesCache = null  // Invalidate cache
   console.log('[Tour] enableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
@@ -388,7 +390,19 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
         cancelBtn.className = 'tour-custom-close-btn'
-        cancelBtn.onclick = () => {
+        cancelBtn.onclick = async () => {
+          // On last step, save preference before destroying
+          if (currentStepIndex === steps.length - 1 && !noTourConfig) {
+            console.log('[Tour] X clicked on last step, saving preference')
+            const checkboxInput = document.querySelector('#tour-no-show-again')
+            if (checkboxInput) {
+              if (checkboxInput.checked) {
+                await disableTour()
+              } else {
+                await enableTour()
+              }
+            }
+          }
           tourActive = false
           driverObj.destroy()
         }
@@ -404,12 +418,13 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           `
           popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)
 
-          // Add click listener to the Finish button to save preference
+          // Add mousedown listener to the Finish button to save preference
+          // Use mousedown instead of click because it fires before driver.js handles the click
           const finishBtn = popover.nextButton
           if (finishBtn) {
-            console.log('[Tour] Adding click listener to Finish button')
-            finishBtn.addEventListener('click', async () => {
-              console.log('[Tour] Finish button clicked!')
+            console.log('[Tour] Adding mousedown listener to Finish button')
+            finishBtn.addEventListener('mousedown', async (e) => {
+              console.log('[Tour] Finish button mousedown!')
               const checkboxInput = document.querySelector('#tour-no-show-again')
               console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
               if (checkboxInput) {
@@ -422,7 +437,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
                 }
               }
               tourCompleted = true
-            })
+            }, true)  // Use capture phase
           } else {
             console.log('[Tour] Finish button not found!')
           }
