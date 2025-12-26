@@ -1599,24 +1599,29 @@ async function handleLocalFsDisabling() {
 // Keyboard navigation
 // Pane selection functions - ensure only active pane has selections
 function selectLeftPane(indexToSelect = null) {
+  console.log('[DEBUG] selectLeftPane called with indexToSelect:', indexToSelect)
   appStore.setLastFocusedPane('left')
   appStore.setPaneSelection('right', []) // Clear non-active pane
 
   if (indexToSelect !== null) {
     appStore.setPaneSelection('left', [indexToSelect])
   }
+  console.log('[DEBUG] selectLeftPane done. lastFocusedPane:', appStore.lastFocusedPane)
 }
 
 function selectRightPane(indexToSelect = null) {
+  console.log('[DEBUG] selectRightPane called with indexToSelect:', indexToSelect)
   appStore.setLastFocusedPane('right')
   appStore.setPaneSelection('left', []) // Clear non-active pane
 
   if (indexToSelect !== null) {
     appStore.setPaneSelection('right', [indexToSelect])
   }
+  console.log('[DEBUG] selectRightPane done. lastFocusedPane:', appStore.lastFocusedPane)
 }
 
 function togglePane() {
+  console.log('[DEBUG] togglePane called. currentPane:', appStore.lastFocusedPane)
   if (appStore.lastFocusedPane === 'left') {
     selectRightPane()
   } else {
@@ -1626,19 +1631,26 @@ function togglePane() {
 
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
 function handlePaneSwitch(direction) {
+  console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane)
   // Only switch to opposite pane if direction matches
   const shouldSwitch = (direction === 'left' && props.pane === 'right') ||
                        (direction === 'right' && props.pane === 'left')
+  console.log('[DEBUG] shouldSwitch:', shouldSwitch)
 
-  if (!shouldSwitch) return false
+  if (!shouldSwitch) {
+    console.log('[DEBUG] Not switching - wrong pane for this direction')
+    return false
+  }
 
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
 
   // Calculate which index to select in the opposite pane (if any)
   let indexToSelect = null
+  console.log('[DEBUG] selectedIndexes.length:', selectedIndexes.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
 
   if (selectedIndexes.length === 1 && oppositePaneState.files.length > 0) {
+    console.log('[DEBUG] Calculating index to select...')
     const currentIndex = selectedIndexes[0]
     const currentVisualPos = visualOrder.value[currentIndex]
 
