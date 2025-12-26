@@ -395,8 +395,9 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       console.log('[Tour] onNextClick called on Step 15 (Finish button)')
       await savePreferenceFromCheckbox()
       tourCompleted = true
-      // Must explicitly destroy - providing onNextClick REPLACES default behavior
-      driverObj.destroy()
+      // Call moveNext() to follow driver.js's proper flow
+      // On last step, moveNext() will destroy the tour
+      driverObj.moveNext()
     }
     // Note: X button is handled in onPopoverRender's custom button onclick
 
