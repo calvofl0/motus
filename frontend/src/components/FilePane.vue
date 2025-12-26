@@ -1925,19 +1925,29 @@ function handleKeyDown(event) {
   }
 
   // Arrow key navigation when parent (..) is selected
-  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1 && sortedFiles.value.length > 0) {
-    // From parent, navigate to first or last file
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-      event.preventDefault()
-      // Select first item
-      appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
-      return
-    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-      event.preventDefault()
-      // Select last item
-      const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-      appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
-      return
+  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1) {
+    if (sortedFiles.value.length > 0) {
+      // From parent, navigate to first or last file
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault()
+        // Select first item
+        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        return
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault()
+        // Select last item
+        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        return
+      }
+    } else {
+      // ".." is selected but no files - stay at ".."
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' ||
+          event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault()
+        // Stay at ".." (already selected)
+        return
+      }
     }
   }
 
@@ -1964,8 +1974,20 @@ function handleKeyDown(event) {
 
       if (event.key === 'ArrowUp') {
         event.preventDefault()
-        newVisualPos = Math.max(0, currentVisualPos - cols)
-        // Always update to ensure we stay at position 0 if already there
+        const targetPos = currentVisualPos - cols
+        if (targetPos >= 0) {
+          newVisualPos = targetPos
+        } else {
+          // Would move above first row - check if ".." is visible
+          const parentVisible = !isAtRoot.value && showHiddenFiles.value
+          if (parentVisible) {
+            appStore.setPaneSelection(props.pane, [-1])
+            return
+          } else {
+            // No ".." to navigate to, stay at current position
+            return
+          }
+        }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         newVisualPos = Math.min(sortedFiles.value.length - 1, currentVisualPos + cols)
@@ -1974,8 +1996,15 @@ function handleKeyDown(event) {
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
         } else {
-          // Already at leftmost, stay there
-          return
+          // At leftmost (first item) - check if ".." is visible
+          const parentVisible = !isAtRoot.value && showHiddenFiles.value
+          if (parentVisible) {
+            appStore.setPaneSelection(props.pane, [-1])
+            return
+          } else {
+            // No ".." to navigate to, stay at current position
+            return
+          }
         }
       } else if (event.key === 'ArrowRight' && !event.shiftKey) {
         event.preventDefault()
@@ -1993,8 +2022,15 @@ function handleKeyDown(event) {
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
         } else {
-          // Already at top, stay there
-          return
+          // At top file - check if ".." is visible to navigate to it
+          const parentVisible = !isAtRoot.value && showHiddenFiles.value
+          if (parentVisible) {
+            appStore.setPaneSelection(props.pane, [-1])
+            return
+          } else {
+            // No ".." to navigate to, stay at current position
+            return
+          }
         }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
