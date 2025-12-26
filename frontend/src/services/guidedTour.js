@@ -279,7 +279,7 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--modal-overlay-bg);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -290,12 +290,12 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
     const modal = document.createElement('div')
     modal.className = 'tour-exit-modal'
     modal.style.cssText = `
-      background: var(--modal-bg, white);
-      color: var(--text-color, black);
+      background: var(--color-bg-white);
+      color: var(--color-text-primary);
       padding: 24px;
       border-radius: 8px;
       max-width: 500px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--shadow-md);
     `
 
     // Build modal content
@@ -373,7 +373,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     let tourActive = true
     let currentStepIndex = 0
     let tourCompleted = false
-    console.log('[Tour] Starting tour, tourCompleted initialized to:', tourCompleted)
 
     const driverObj = driver({
       showProgress: true,
@@ -384,7 +383,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       allowClose: false, // Disable default X button, use custom handling
       onPopoverRender: (popover, { config, state }) => {
         currentStepIndex = state.activeIndex || 0
-        console.log('[Tour] onPopoverRender called for step:', currentStepIndex, 'tourCompleted:', tourCompleted)
 
         // Focus the Next button for better keyboard navigation
         setTimeout(() => {
@@ -406,7 +404,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           border: none;
           font-size: 24px;
           cursor: pointer;
-          color: var(--text-color, #666);
+          color: var(--color-text-muted);
           padding: 0;
           width: 24px;
           height: 24px;
@@ -414,8 +412,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           z-index: 1;
         `
         cancelBtn.onclick = () => {
-          // Just destroy the tour - onDestroyed will handle the dialog
-          console.log('[Tour] X button clicked, tourCompleted:', tourCompleted, 'currentStepIndex:', currentStepIndex)
           tourActive = false
           driverObj.destroy()
         }
@@ -435,8 +431,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         }
       },
       onDestroyed: async () => {
-        console.log('[Tour] onDestroyed called, tourCompleted:', tourCompleted)
-
         // Clean up exit overlay if exists
         const overlay = document.querySelector('.tour-exit-overlay')
         if (overlay) {
@@ -445,9 +439,9 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         tourActive = false
 
-        // Show exit dialog if tour wasn't completed (user cancelled early)
-        if (!tourCompleted) {
-          console.log('[Tour] Tour was not completed, showing exit dialog')
+        // Show exit dialog only if tour wasn't completed AND user didn't reach last step
+        const reachedLastStep = currentStepIndex === steps.length - 1
+        if (!tourCompleted && !reachedLastStep) {
           try {
             // Get current preference value to show in checkbox
             const prefs = await getTourPreferences()
@@ -460,8 +454,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           } catch (error) {
             console.error('[Tour] Error showing exit dialog:', error)
           }
-        } else {
-          console.log('[Tour] Tour was completed, not showing exit dialog')
         }
 
         // Resolve the Promise now (after dialog if shown)
@@ -490,8 +482,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         e.stopPropagation()
         e.preventDefault()
 
-        // Just destroy the tour - onDestroyed will handle the dialog
-        console.log('[Tour] ESC pressed, tourCompleted:', tourCompleted, 'currentStepIndex:', currentStepIndex)
         tourActive = false
         driverObj.destroy()
       }

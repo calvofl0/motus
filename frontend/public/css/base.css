@@ -49,3 +49,62 @@
 .tour-failed-icon {
     filter: brightness(0.5);
 }
+
+/* Driver.js theme overrides for light and dark themes */
+.driver-popover {
+    background-color: var(--color-bg-white) !important;
+    color: var(--color-text-primary) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+.driver-popover-title {
+    color: var(--color-text-primary) !important;
+}
+
+.driver-popover-description {
+    color: var(--color-text-primary) !important;
+}
+
+.driver-popover-close-btn {
+    color: var(--color-text-muted) !important;
+}
+
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+    color: var(--color-text-primary) !important;
+}
+
+.driver-popover-progress-text {
+    color: var(--color-text-secondary) !important;
+}
+
+.driver-popover-footer button {
+    background-color: var(--color-bg-white) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--color-border) !important;
+}
+
+.driver-popover-footer button:hover,
+.driver-popover-footer button:focus {
+    background-color: var(--color-bg-hover) !important;
+}
+
+.driver-popover-arrow {
+    border-color: var(--color-bg-white) !important;
+}
+
+.driver-popover-arrow-side-left {
+    border-left-color: var(--color-bg-white) !important;
+}
+
+.driver-popover-arrow-side-right {
+    border-right-color: var(--color-bg-white) !important;
+}
+
+.driver-popover-arrow-side-top {
+    border-top-color: var(--color-bg-white) !important;
+}
+
+.driver-popover-arrow-side-bottom {
+    border-bottom-color: var(--color-bg-white) !important;
+}
