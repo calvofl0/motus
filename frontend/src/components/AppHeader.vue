@@ -466,6 +466,20 @@ function handleOpenHelpMenu() {
   }
 }
 
+function handleOpenThemeMenu() {
+  // Only handle in easy mode
+  if (!appStore.isEasyMode) return
+
+  // Close other menus and toggle Theme menu
+  showViewMenu.value = false
+  showHelpMenu.value = false
+  showThemeMenu.value = !showThemeMenu.value
+  // Reset selection when opening
+  if (showThemeMenu.value) {
+    themeMenuSelectedIndex.value = -1
+  }
+}
+
 function handleToggleMode() {
   toggleMode()
 }
@@ -480,6 +494,7 @@ onMounted(async () => {
   // Listen for keyboard shortcut events
   window.addEventListener('open-view-menu', handleOpenViewMenu)
   window.addEventListener('open-help-menu', handleOpenHelpMenu)
+  window.addEventListener('open-theme-menu', handleOpenThemeMenu)
   window.addEventListener('toggle-mode', handleToggleMode)
   window.addEventListener('quit-server', handleQuitServer)
 
@@ -500,6 +515,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('open-view-menu', handleOpenViewMenu)
   window.removeEventListener('open-help-menu', handleOpenHelpMenu)
+  window.removeEventListener('open-theme-menu', handleOpenThemeMenu)
   window.removeEventListener('toggle-mode', handleToggleMode)
   window.removeEventListener('quit-server', handleQuitServer)
 })

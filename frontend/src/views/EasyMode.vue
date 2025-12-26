@@ -666,6 +666,13 @@ function handleKeyDown(event) {
     return
   }
 
+  // T - Open Theme menu
+  if (event.key === 't' || event.key === 'T') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('open-theme-menu'))
+    return
+  }
+
   // E - Toggle Expert/Easy mode
   if (event.key === 'e' || event.key === 'E') {
     event.preventDefault()

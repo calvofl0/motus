@@ -1728,7 +1728,29 @@ function handlePaneSwitch(direction) {
     }
   } else {
     // LIST MODE: Use pixel-based matching (distance from top to item middle point)
-    if (currentSelection.length === 1 && currentSelection[0] !== -1 && oppositePaneState.files.length > 0) {
+    // When ".." is selected, select first file in opposite pane (can't do pixel matching for parent)
+    if (currentSelection.length === 1 && currentSelection[0] === -1 && oppositePaneState.files.length > 0) {
+      console.log('[DEBUG] List mode: ".." selected, selecting first file in opposite pane')
+
+      // Get sorted files for opposite pane
+      const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
+        ...file,
+        _originalIndex: idx
+      }))
+
+      let oppositeSortedFiles = oppositeFilesWithIndex
+      if (!showHiddenFiles.value) {
+        oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
+      }
+
+      oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
+
+      if (oppositeSortedFiles.length > 0) {
+        const firstFile = oppositeSortedFiles[0]
+        indexToSelect = firstFile._originalIndex
+        console.log('[DEBUG] List: Selected first file with original index:', indexToSelect)
+      }
+    } else if (currentSelection.length === 1 && currentSelection[0] !== -1 && oppositePaneState.files.length > 0) {
       console.log('[DEBUG] List mode: calculating pixel-based match...')
 
       // Get current item's middle point distance from container top
