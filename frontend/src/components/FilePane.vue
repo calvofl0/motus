@@ -841,12 +841,12 @@ async function navigateInto(dirname) {
 
 // File selection
 function handleFileClick(index, event) {
-  // Update last focused pane
-  appStore.setLastFocusedPane(props.pane)
-
-  // Clear opposite pane selection
-  const oppositePane = props.pane === 'left' ? 'right' : 'left'
-  appStore.setPaneSelection(oppositePane, [])
+  // Set this pane as active (clears opposite pane)
+  if (props.pane === 'left') {
+    selectLeftPane()
+  } else {
+    selectRightPane()
+  }
 
   let newSelection = [...paneState.value.selectedIndexes]
 
@@ -1048,10 +1048,16 @@ function handleFileContextMenu(index, event) {
   event.preventDefault()
   event.stopPropagation()
 
+  // Set this pane as active (clears opposite pane)
+  if (props.pane === 'left') {
+    selectLeftPane()
+  } else {
+    selectRightPane()
+  }
+
   if (!isSelected(index)) {
     appStore.setPaneSelection(props.pane, [index])
   }
-  appStore.setLastFocusedPane(props.pane)
 
   if (contextMenuHandler) {
     contextMenuHandler.show(props.pane, event)
@@ -1062,8 +1068,14 @@ function handleParentContextMenu(event) {
   event.preventDefault()
   event.stopPropagation()
 
+  // Set this pane as active (clears opposite pane)
+  if (props.pane === 'left') {
+    selectLeftPane()
+  } else {
+    selectRightPane()
+  }
+
   appStore.setPaneSelection(props.pane, [])
-  appStore.setLastFocusedPane(props.pane)
 
   if (contextMenuHandler) {
     contextMenuHandler.show(props.pane, event)
@@ -1075,8 +1087,13 @@ function handleContainerClick(event) {
   if (event.target.classList.contains('file-grid') ||
       event.target.classList.contains('file-list') ||
       event.target.tagName === 'TABLE') {
+    // Set this pane as active (clears opposite pane)
+    if (props.pane === 'left') {
+      selectLeftPane()
+    } else {
+      selectRightPane()
+    }
     appStore.setPaneSelection(props.pane, [])
-    appStore.setLastFocusedPane(props.pane)
   }
 }
 
@@ -1085,8 +1102,15 @@ function handleContainerContextMenu(event) {
       event.target.classList.contains('file-list') ||
       event.target.tagName === 'TABLE') {
     event.preventDefault()
+
+    // Set this pane as active (clears opposite pane)
+    if (props.pane === 'left') {
+      selectLeftPane()
+    } else {
+      selectRightPane()
+    }
+
     appStore.setPaneSelection(props.pane, [])
-    appStore.setLastFocusedPane(props.pane)
 
     if (contextMenuHandler) {
       contextMenuHandler.show(props.pane, event)
@@ -1573,6 +1597,25 @@ async function handleLocalFsDisabling() {
 }
 
 // Keyboard navigation
+// Pane selection functions - ensure only active pane has selections
+function selectLeftPane() {
+  appStore.setLastFocusedPane('left')
+  appStore.setPaneSelection('right', []) // Clear non-active pane
+}
+
+function selectRightPane() {
+  appStore.setLastFocusedPane('right')
+  appStore.setPaneSelection('left', []) // Clear non-active pane
+}
+
+function togglePane() {
+  if (appStore.lastFocusedPane === 'left') {
+    selectRightPane()
+  } else {
+    selectLeftPane()
+  }
+}
+
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
 function handlePaneSwitch(direction) {
   // Only switch to opposite pane if direction matches
@@ -1584,17 +1627,17 @@ function handlePaneSwitch(direction) {
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
 
-  // Always switch focus
-  appStore.setLastFocusedPane(oppositePane)
-
-  // If nothing selected, clear both panes and switch focus
+  // If nothing selected, just switch panes (this will clear the now non-active pane)
   if (selectedIndexes.length === 0) {
-    appStore.setPaneSelection(props.pane, [])
-    appStore.setPaneSelection(oppositePane, [])
+    if (direction === 'left') {
+      selectLeftPane()
+    } else {
+      selectRightPane()
+    }
     return true
   }
 
-  // If one item selected, handle the switch with selection
+  // If one item selected, switch and potentially select item in new active pane
   if (selectedIndexes.length === 1) {
     const currentIndex = selectedIndexes[0]
     const currentVisualPos = visualOrder.value[currentIndex]
@@ -1602,10 +1645,14 @@ function handlePaneSwitch(direction) {
     // Clear current pane selection
     appStore.setPaneSelection(props.pane, [])
 
-    // Clear opposite pane selection before selecting new item
-    appStore.setPaneSelection(oppositePane, [])
+    // Switch to opposite pane (this clears the now non-active pane)
+    if (direction === 'left') {
+      selectLeftPane()
+    } else {
+      selectRightPane()
+    }
 
-    // Try to select item in opposite pane if it has files
+    // Try to select item in new active pane if it has files
     if (oppositePaneState.files.length > 0) {
       // Get sorted files for opposite pane
       const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
