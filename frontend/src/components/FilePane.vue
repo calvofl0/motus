@@ -1875,31 +1875,50 @@ function handleKeyDown(event) {
   }
 
   // When nothing is selected
-  if (selectedIndexes.length === 0 && sortedFiles.value.length > 0) {
+  if (selectedIndexes.length === 0) {
+    // Check if ".." is visible
+    const parentVisible = !isAtRoot.value && showHiddenFiles.value
+
     if (viewMode.value === 'list') {
       if (event.key === 'ArrowDown') {
         event.preventDefault()
-        // Select first item
-        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        // If ".." is visible, select it first; otherwise select first file
+        if (parentVisible) {
+          appStore.setPaneSelection(props.pane, [-1])
+        } else if (sortedFiles.value.length > 0) {
+          appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        }
         return
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
-        // Select last item
-        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        // Select last file if available; otherwise select ".." if visible
+        if (sortedFiles.value.length > 0) {
+          const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+          appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        } else if (parentVisible) {
+          appStore.setPaneSelection(props.pane, [-1])
+        }
         return
       }
     } else if (viewMode.value === 'grid') {
       if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
         event.preventDefault()
-        // Select first item
-        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        // If ".." is visible, select it first; otherwise select first file
+        if (parentVisible) {
+          appStore.setPaneSelection(props.pane, [-1])
+        } else if (sortedFiles.value.length > 0) {
+          appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        }
         return
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
         event.preventDefault()
-        // Select last item
-        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        // Select last file if available; otherwise select ".." if visible
+        if (sortedFiles.value.length > 0) {
+          const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+          appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
+        } else if (parentVisible) {
+          appStore.setPaneSelection(props.pane, [-1])
+        }
         return
       }
     }

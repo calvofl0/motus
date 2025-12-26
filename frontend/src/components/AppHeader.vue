@@ -320,6 +320,7 @@ function handleGlobalKeydown(e) {
       }
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       // Only activate if something is selected
       if (viewMenuSelectedIndex.value === 0) {
         switchViewMode()
@@ -355,6 +356,7 @@ function handleGlobalKeydown(e) {
       }
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       // Only activate if something is selected
       if (helpMenuSelectedIndex.value === 0) {
         showKeyboardShortcuts()
@@ -388,6 +390,7 @@ function handleGlobalKeydown(e) {
       }
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       // Only activate if something is selected
       if (themeMenuSelectedIndex.value >= 0) {
         const themes = ['auto', 'light', 'dark']
