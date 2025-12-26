@@ -71,7 +71,7 @@
       <template v-else-if="viewMode === 'grid'">
         <!-- Parent Directory -->
         <div
-          v-if="!isAtRoot"
+          v-if="!isAtRoot && showHiddenFiles"
           class="file-item"
           @dblclick="navigateUp"
           @contextmenu.prevent="handleParentContextMenu"
@@ -98,7 +98,7 @@
         </div>
 
         <!-- Empty State for Grid -->
-        <div v-if="sortedFiles.length === 0" class="empty-state">
+        <div v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)" class="empty-state">
           No files
         </div>
       </template>
@@ -130,7 +130,7 @@
         <tbody>
           <!-- Parent Directory -->
           <tr
-            v-if="!isAtRoot"
+            v-if="!isAtRoot && showHiddenFiles"
             class="file-row"
             @dblclick="navigateUp"
             @contextmenu.prevent="handleParentContextMenu"
@@ -165,7 +165,7 @@
           </tr>
 
           <!-- Empty State for List -->
-          <tr v-if="sortedFiles.length === 0">
+          <tr v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)">
             <td colspan="3" class="empty-state">No files</td>
           </tr>
         </tbody>
