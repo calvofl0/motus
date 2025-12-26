@@ -52,8 +52,8 @@
 
 /* Center-aligned tour popovers - more airy spacing */
 .tour-center-popover .driver-popover {
-    padding: 24px !important;
-    max-width: 400px !important;
+    padding: 32px !important;
+    max-width: 480px !important;
 }
 
 .tour-center-popover .driver-popover-title {
