@@ -154,11 +154,13 @@ const showKeyboardShortcutsModal = ref(false)
 
 // Computed
 const canCopyRight = computed(() =>
-  appStore.leftPane.selectedIndexes.length > 0
+  appStore.leftPane.selectedIndexes.length > 0 &&
+  !appStore.leftPane.selectedIndexes.includes(-1)  // Prevent transfer of parent folder
 )
 
 const canCopyLeft = computed(() =>
-  appStore.rightPane.selectedIndexes.length > 0
+  appStore.rightPane.selectedIndexes.length > 0 &&
+  !appStore.rightPane.selectedIndexes.includes(-1)  // Prevent transfer of parent folder
 )
 
 // Copy functions
@@ -621,6 +623,10 @@ function handleKeyDown(event) {
   // Ctrl+Shift+Left - Transfer to left pane
   if (event.ctrlKey && event.shiftKey && event.key === 'ArrowLeft') {
     event.preventDefault()
+    // Prevent transfer if parent folder is selected
+    if (paneState.selectedIndexes.includes(-1)) {
+      return
+    }
     if (canCopyLeft.value) {
       copyToLeft()
     }
@@ -630,6 +636,10 @@ function handleKeyDown(event) {
   // Ctrl+Shift+Right - Transfer to right pane
   if (event.ctrlKey && event.shiftKey && event.key === 'ArrowRight') {
     event.preventDefault()
+    // Prevent transfer if parent folder is selected
+    if (paneState.selectedIndexes.includes(-1)) {
+      return
+    }
     if (canCopyRight.value) {
       copyToRight()
     }
@@ -716,6 +726,10 @@ function handleKeyDown(event) {
   // F2 - Rename selected file
   if (event.key === 'F2' && paneState.selectedIndexes.length === 1) {
     event.preventDefault()
+    // Prevent rename if parent folder is selected
+    if (paneState.selectedIndexes[0] === -1) {
+      return
+    }
     const file = paneState.files[paneState.selectedIndexes[0]]
     fileOps.openRenameModal(lastPane, file)
   }
@@ -723,6 +737,10 @@ function handleKeyDown(event) {
   // Delete - Delete selected files
   if (event.key === 'Delete' && paneState.selectedIndexes.length > 0) {
     event.preventDefault()
+    // Prevent delete if parent folder is selected
+    if (paneState.selectedIndexes.includes(-1)) {
+      return
+    }
     fileOps.openDeleteModal(lastPane)
   }
 }

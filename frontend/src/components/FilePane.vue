@@ -69,20 +69,7 @@
 
       <!-- Grid View -->
       <template v-else-if="viewMode === 'grid'">
-        <!-- Parent Directory -->
-        <div
-          v-if="!isAtRoot && showHiddenFiles"
-          class="file-item"
-          :class="{ selected: isParentSelected }"
-          @click="handleParentClick($event)"
-          @dblclick="navigateUp"
-          @contextmenu.prevent="handleParentContextMenu"
-        >
-          <div class="file-icon">📁</div>
-          <div class="file-name">..</div>
-        </div>
-
-        <!-- Files -->
+        <!-- Files (including ".." parent folder) -->
         <div
           v-for="(file, visualIndex) in sortedFiles"
           :key="file._originalIndex"
@@ -90,8 +77,8 @@
           :class="{ selected: isSelected(file._originalIndex) }"
           draggable="true"
           @click="handleFileClick(file._originalIndex, $event)"
-          @dblclick="handleFileDblClick(file)"
-          @contextmenu.prevent="handleFileContextMenu(file._originalIndex, $event)"
+          @dblclick="file._isParent ? navigateUp() : handleFileDblClick(file)"
+          @contextmenu.prevent="file._isParent ? handleParentContextMenu($event) : handleFileContextMenu(file._originalIndex, $event)"
           @mousedown="handleMouseDown(file._originalIndex, $event)"
           @dragstart="handleDragStart(file._originalIndex, $event)"
         >
@@ -100,7 +87,7 @@
         </div>
 
         <!-- Empty State for Grid -->
-        <div v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)" class="empty-state">
+        <div v-if="sortedFiles.length === 0" class="empty-state">
           No files
         </div>
       </template>
@@ -108,7 +95,7 @@
       <!-- List View -->
       <template v-else>
         <!-- Empty State for List -->
-        <div v-if="sortedFiles.length === 0 && (isAtRoot || !showHiddenFiles)" class="empty-state">
+        <div v-if="sortedFiles.length === 0" class="empty-state">
           No files
         </div>
 
@@ -136,24 +123,7 @@
             </tr>
           </thead>
           <tbody>
-            <!-- Parent Directory -->
-            <tr
-              v-if="!isAtRoot && showHiddenFiles"
-              class="file-row"
-              :class="{ selected: isParentSelected }"
-              @click="handleParentClick($event)"
-              @dblclick="navigateUp"
-              @contextmenu.prevent="handleParentContextMenu"
-            >
-              <td class="file-name-col">
-                <span class="file-icon-small">📁</span>
-                <span>..</span>
-              </td>
-              <td class="file-size-col"></td>
-              <td class="file-date-col"></td>
-            </tr>
-
-            <!-- Files -->
+            <!-- Files (including ".." parent folder) -->
             <tr
               v-for="(file, visualIndex) in sortedFiles"
               :key="file._originalIndex"
@@ -161,8 +131,8 @@
               :class="{ selected: isSelected(file._originalIndex) }"
               draggable="true"
               @click="handleFileClick(file._originalIndex, $event)"
-              @dblclick="handleFileDblClick(file)"
-              @contextmenu.prevent="handleFileContextMenu(file._originalIndex, $event)"
+              @dblclick="file._isParent ? navigateUp() : handleFileDblClick(file)"
+              @contextmenu.prevent="file._isParent ? handleParentContextMenu($event) : handleFileContextMenu(file._originalIndex, $event)"
               @mousedown="handleMouseDown(file._originalIndex, $event)"
               @dragstart="handleDragStart(file._originalIndex, $event)"
             >
@@ -170,8 +140,8 @@
                 <span class="file-icon-small">{{ file.IsDir ? '📁' : '📄' }}</span>
                 <span>{{ file.Name }}</span>
               </td>
-              <td class="file-size-col">{{ file.IsDir ? '' : formatSize(file.Size) }}</td>
-              <td class="file-date-col">{{ formatDate(file.ModTime) }}</td>
+              <td class="file-size-col">{{ file._isParent ? '' : (file.IsDir ? '' : formatSize(file.Size)) }}</td>
+              <td class="file-date-col">{{ file._isParent ? '' : formatDate(file.ModTime) }}</td>
             </tr>
           </tbody>
         </table>
@@ -306,23 +276,45 @@ function syncInputPath() {
 // Visual order mapping for range selection
 const visualOrder = ref({})
 
+// Add parent folder to files list when not at root
+const filesWithParent = computed(() => {
+  const filesList = files.value
+
+  if (!isAtRoot.value) {
+    // Add ".." as a synthetic parent folder
+    return [
+      {
+        Name: '..',
+        IsDir: true,
+        Size: 0,
+        ModTime: '',
+        _isParent: true,
+        _originalIndex: -1  // Special index to identify parent in selection
+      },
+      ...filesList.map((file, idx) => ({
+        ...file,
+        _originalIndex: idx
+      }))
+    ]
+  }
+
+  return filesList.map((file, idx) => ({
+    ...file,
+    _originalIndex: idx
+  }))
+})
+
 // Sorted and filtered files
 const sortedFiles = computed(() => {
-  let filesToShow = files.value
+  let filesToShow = filesWithParent.value
 
-  // Filter hidden files if needed
+  // Filter hidden files if needed (including "..")
   if (!showHiddenFiles.value) {
     filesToShow = filesToShow.filter(f => !f.Name.startsWith('.'))
   }
 
-  // Add original index
-  const filesWithIndex = filesToShow.map((file, idx) => ({
-    ...file,
-    _originalIndex: files.value.indexOf(file)
-  }))
-
   // Sort
-  const sorted = sortFiles(filesWithIndex, sortBy.value, sortAsc.value)
+  const sorted = sortFiles(filesToShow, sortBy.value, sortAsc.value)
 
   // Build visual order mapping: originalIndex -> visualPosition
   const orderMap = {}
@@ -367,20 +359,6 @@ const isAtRoot = computed(() => {
 // Helper functions
 function isSelected(index) {
   return paneState.value.selectedIndexes.includes(index)
-}
-
-// Special index for parent folder: -1
-const isParentSelected = computed(() => {
-  return paneState.value.selectedIndexes.includes(-1)
-})
-
-function handleParentClick(event) {
-  // Set this pane as active
-  if (props.pane === 'left') {
-    selectLeftPane(-1)
-  } else {
-    selectRightPane(-1)
-  }
 }
 
 function sortFiles(filesList, field, ascending) {
@@ -1140,6 +1118,17 @@ function handleContainerContextMenu(event) {
 
 // Drag and drop
 function handleDragStart(index, event) {
+  // Prevent dragging parent folder
+  const selectedFiles = paneState.value.selectedIndexes.map(idx => {
+    // Find file in sortedFiles by _originalIndex
+    return sortedFiles.value.find(f => f._originalIndex === idx)
+  })
+
+  if (selectedFiles.some(f => f?._isParent)) {
+    event.preventDefault()
+    return
+  }
+
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.setData('text/plain', JSON.stringify({
     pane: props.pane,
@@ -1619,29 +1608,24 @@ async function handleLocalFsDisabling() {
 // Keyboard navigation
 // Pane selection functions - ensure only active pane has selections
 function selectLeftPane(indexToSelect = null) {
-  console.log('[DEBUG] selectLeftPane called with indexToSelect:', indexToSelect)
   appStore.setLastFocusedPane('left')
   appStore.setPaneSelection('right', []) // Clear non-active pane
 
   if (indexToSelect !== null) {
     appStore.setPaneSelection('left', [indexToSelect])
   }
-  console.log('[DEBUG] selectLeftPane done. lastFocusedPane:', appStore.lastFocusedPane)
 }
 
 function selectRightPane(indexToSelect = null) {
-  console.log('[DEBUG] selectRightPane called with indexToSelect:', indexToSelect)
   appStore.setLastFocusedPane('right')
   appStore.setPaneSelection('left', []) // Clear non-active pane
 
   if (indexToSelect !== null) {
     appStore.setPaneSelection('right', [indexToSelect])
   }
-  console.log('[DEBUG] selectRightPane done. lastFocusedPane:', appStore.lastFocusedPane)
 }
 
 function togglePane() {
-  console.log('[DEBUG] togglePane called. currentPane:', appStore.lastFocusedPane)
   if (appStore.lastFocusedPane === 'left') {
     selectRightPane()
   } else {
@@ -1691,8 +1675,6 @@ function getSelectedVisibleIndex(pane) {
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
 // NOTE: Only called after checking that THIS pane should switch for this direction
 function handlePaneSwitch(direction) {
-  console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane, 'viewMode:', viewMode.value)
-
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
 
@@ -1702,11 +1684,9 @@ function handlePaneSwitch(direction) {
 
   // Calculate which index to select in the opposite pane (if any)
   let indexToSelect = null
-  console.log('[DEBUG] currentSelection.length:', currentSelection.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
 
   if (viewMode.value === 'grid') {
     // GRID MODE: Always select first item if exists
-    console.log('[DEBUG] Grid mode: selecting first item')
 
     // Get sorted files for opposite pane
     const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
@@ -1726,13 +1706,11 @@ function handlePaneSwitch(direction) {
     if (oppositeSortedFiles.length > 0) {
       const firstFile = oppositeSortedFiles[0]
       indexToSelect = firstFile._originalIndex
-      console.log('[DEBUG] Grid: Selecting first item with original index:', indexToSelect)
     }
   } else {
     // LIST MODE: Use pixel-based matching (distance from top to item middle point)
     // When ".." is selected, select first file in opposite pane (can't do pixel matching for parent)
     if (currentSelection.length === 1 && currentSelection[0] === -1 && oppositePaneState.files.length > 0) {
-      console.log('[DEBUG] List mode: ".." selected, selecting first file in opposite pane')
 
       // Get sorted files for opposite pane
       const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
@@ -1750,10 +1728,8 @@ function handlePaneSwitch(direction) {
       if (oppositeSortedFiles.length > 0) {
         const firstFile = oppositeSortedFiles[0]
         indexToSelect = firstFile._originalIndex
-        console.log('[DEBUG] List: Selected first file with original index:', indexToSelect)
       }
     } else if (currentSelection.length === 1 && currentSelection[0] !== -1 && oppositePaneState.files.length > 0) {
-      console.log('[DEBUG] List mode: calculating pixel-based match...')
 
       // Get current item's middle point distance from container top
       const currentContainer = document.querySelector(`#${props.pane}-files`)
@@ -1777,8 +1753,6 @@ function handlePaneSwitch(direction) {
           const currentItemRect = currentItemElement.getBoundingClientRect()
           const currentItemMiddle = currentItemRect.top + currentItemRect.height / 2
           const distanceFromTop = currentItemMiddle - currentContainerRect.top
-
-          console.log('[DEBUG] Current item middle distance from container top:', distanceFromTop)
 
           // Find item in opposite pane with closest middle point distance
           const oppositeContainer = document.querySelector(`#${oppositePane}-files`)
@@ -1829,7 +1803,6 @@ function handlePaneSwitch(direction) {
               const targetFile = oppositeSortedFiles[closestVisualPos]
               if (targetFile) {
                 indexToSelect = targetFile._originalIndex
-                console.log('[DEBUG] List: Found closest item at visual pos', closestVisualPos, 'original index:', indexToSelect, 'distance diff:', closestDistance)
               }
             }
           }
@@ -1847,7 +1820,6 @@ function handlePaneSwitch(direction) {
     // If not at root and showing hidden files, ".." will be visible
     if (!oppositeIsAtRoot && showHiddenFiles.value) {
       indexToSelect = -1  // Select parent folder
-      console.log('[DEBUG] No files in opposite pane, but ".." is visible - selecting it')
     }
   }
 
@@ -1899,100 +1871,38 @@ function handleKeyDown(event) {
   }
 
   // When nothing is selected
-  if (selectedIndexes.length === 0) {
-    console.log('[DEBUG] Nothing selected, handling initial selection. isAtRoot:', isAtRoot.value, 'showHiddenFiles:', showHiddenFiles.value, 'sortedFiles.length:', sortedFiles.value.length)
-    // Check if ".." is visible
-    const parentVisible = !isAtRoot.value && showHiddenFiles.value
-
+  if (selectedIndexes.length === 0 && sortedFiles.value.length > 0) {
     if (viewMode.value === 'list') {
       if (event.key === 'ArrowDown') {
         event.preventDefault()
-        console.log('[DEBUG] ArrowDown with nothing selected. parentVisible:', parentVisible)
-        // If ".." is visible, select it first; otherwise select first file
-        if (parentVisible) {
-          console.log('[DEBUG] Selecting ".." (index -1)')
-          appStore.setPaneSelection(props.pane, [-1])
-        } else if (sortedFiles.value.length > 0) {
-          console.log('[DEBUG] Selecting first file, index:', sortedFiles.value[0]._originalIndex)
-          appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
-        } else {
-          console.log('[DEBUG] No items to select')
-        }
+        // Select first item (might be ".." or first file)
+        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
         return
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
-        console.log('[DEBUG] ArrowUp with nothing selected. parentVisible:', parentVisible)
-        // Select last file if available; otherwise select ".." if visible
-        if (sortedFiles.value.length > 0) {
-          console.log('[DEBUG] Selecting last file, index:', sortedFiles.value[sortedFiles.value.length - 1]._originalIndex)
-          const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-          appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
-        } else if (parentVisible) {
-          console.log('[DEBUG] Selecting ".." (index -1)')
-          appStore.setPaneSelection(props.pane, [-1])
-        } else {
-          console.log('[DEBUG] No items to select')
-        }
-        return
-      }
-    } else if (viewMode.value === 'grid') {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        event.preventDefault()
-        // If ".." is visible, select it first; otherwise select first file
-        if (parentVisible) {
-          appStore.setPaneSelection(props.pane, [-1])
-        } else if (sortedFiles.value.length > 0) {
-          appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
-        }
-        return
-      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        event.preventDefault()
-        // Select last file if available; otherwise select ".." if visible
-        if (sortedFiles.value.length > 0) {
-          const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
-          appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
-        } else if (parentVisible) {
-          appStore.setPaneSelection(props.pane, [-1])
-        }
-        return
-      }
-    }
-  }
-
-  // Arrow key navigation when parent (..) is selected
-  // Only handle when NO modifier keys (no Shift, no Ctrl) to allow pane switching
-  if (selectedIndexes.length === 1 && selectedIndexes[0] === -1 && !event.shiftKey && !event.ctrlKey) {
-    console.log('[DEBUG] ".." selected, handling arrow navigation')
-    if (sortedFiles.value.length > 0) {
-      // From parent, navigate to first or last file
-      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        event.preventDefault()
-        console.log('[DEBUG] ".." -> selecting first file')
-        // Select first item
-        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
-        return
-      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        event.preventDefault()
-        console.log('[DEBUG] ".." -> selecting last file')
         // Select last item
         const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
         appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
         return
       }
-    } else {
-      // ".." is selected but no files - stay at ".."
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' ||
-          event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    } else if (viewMode.value === 'grid') {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
         event.preventDefault()
-        console.log('[DEBUG] ".." selected, no files, staying at ".."')
-        // Stay at ".." (already selected)
+        // Select first item (might be ".." or first file)
+        appStore.setPaneSelection(props.pane, [sortedFiles.value[0]._originalIndex])
+        return
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault()
+        // Select last item
+        const lastFile = sortedFiles.value[sortedFiles.value.length - 1]
+        appStore.setPaneSelection(props.pane, [lastFile._originalIndex])
         return
       }
     }
   }
 
   // Arrow key navigation - only when exactly one file is selected
-  if (selectedIndexes.length === 1 && selectedIndexes[0] !== -1 && sortedFiles.value.length > 0) {
+  if (selectedIndexes.length === 1 && sortedFiles.value.length > 0) {
     const currentIndex = selectedIndexes[0]
     const currentVisualPos = visualOrder.value[currentIndex]
 
@@ -2014,20 +1924,7 @@ function handleKeyDown(event) {
 
       if (event.key === 'ArrowUp') {
         event.preventDefault()
-        const targetPos = currentVisualPos - cols
-        if (targetPos >= 0) {
-          newVisualPos = targetPos
-        } else {
-          // Would move above first row - check if ".." is visible
-          const parentVisible = !isAtRoot.value && showHiddenFiles.value
-          if (parentVisible) {
-            appStore.setPaneSelection(props.pane, [-1])
-            return
-          } else {
-            // No ".." to navigate to, stay at current position
-            return
-          }
-        }
+        newVisualPos = Math.max(0, currentVisualPos - cols)
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         newVisualPos = Math.min(sortedFiles.value.length - 1, currentVisualPos + cols)
@@ -2036,15 +1933,8 @@ function handleKeyDown(event) {
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
         } else {
-          // At leftmost (first item) - check if ".." is visible
-          const parentVisible = !isAtRoot.value && showHiddenFiles.value
-          if (parentVisible) {
-            appStore.setPaneSelection(props.pane, [-1])
-            return
-          } else {
-            // No ".." to navigate to, stay at current position
-            return
-          }
+          // Already at leftmost, stay there
+          return
         }
       } else if (event.key === 'ArrowRight' && !event.shiftKey) {
         event.preventDefault()
@@ -2062,15 +1952,8 @@ function handleKeyDown(event) {
         if (currentVisualPos > 0) {
           newVisualPos = currentVisualPos - 1
         } else {
-          // At top file - check if ".." is visible to navigate to it
-          const parentVisible = !isAtRoot.value && showHiddenFiles.value
-          if (parentVisible) {
-            appStore.setPaneSelection(props.pane, [-1])
-            return
-          } else {
-            // No ".." to navigate to, stay at current position
-            return
-          }
+          // At top, stay there
+          return
         }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
