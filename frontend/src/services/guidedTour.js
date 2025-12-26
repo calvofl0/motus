@@ -256,20 +256,7 @@ ${contextMenuHtml}`,
         align: 'center',
         doneBtnText: 'Finish',
         showButtons: ['previous', 'next'], // Previous and Finish (next) buttons
-        onPopoverRender: (popover, options) => {
-          // Only show checkbox if --no-tour is not set
-          if (!noTourConfig) {
-            const checkbox = document.createElement('label')
-            checkbox.style.display = 'block'
-            checkbox.style.marginTop = '15px'
-            checkbox.style.fontSize = '14px'
-            checkbox.innerHTML = `
-              <input type="checkbox" id="tour-no-show-again" checked style="margin-right: 8px;">
-              Don't show this tour again on startup
-            `
-            popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)
-          }
-        },
+        // Checkbox is now added by global onPopoverRender
       },
     },
   ]
@@ -386,6 +373,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     let tourActive = true
     let currentStepIndex = 0
     let tourCompleted = false
+    console.log('[Tour] Starting tour, tourCompleted initialized to:', tourCompleted)
 
     const driverObj = driver({
       showProgress: true,
@@ -396,6 +384,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
       allowClose: false, // Disable default X button, use custom handling
       onPopoverRender: (popover, { config, state }) => {
         currentStepIndex = state.activeIndex || 0
+        console.log('[Tour] onPopoverRender called for step:', currentStepIndex, 'tourCompleted:', tourCompleted)
 
         // Focus the Next button for better keyboard navigation
         setTimeout(() => {
@@ -408,7 +397,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         // Add custom cancel button (X) for all steps
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
-        cancelBtn.className = 'driver-popover-close-btn'
+        cancelBtn.className = 'tour-custom-close-btn'  // Use custom class to avoid driver.js conflicts
         cancelBtn.style.cssText = `
           position: absolute;
           top: 10px;
@@ -431,6 +420,19 @@ export function startGuidedTour(appStore, noTourConfig = false) {
           driverObj.destroy()
         }
         popover.wrapper.appendChild(cancelBtn)
+
+        // Add checkbox on Step 15 (last step)
+        if (currentStepIndex === steps.length - 1 && !noTourConfig) {
+          const checkbox = document.createElement('label')
+          checkbox.style.display = 'block'
+          checkbox.style.marginTop = '15px'
+          checkbox.style.fontSize = '14px'
+          checkbox.innerHTML = `
+            <input type="checkbox" id="tour-no-show-again" checked style="margin-right: 8px;">
+            Don't show this tour again on startup
+          `
+          popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)
+        }
       },
       onDestroyed: async () => {
         console.log('[Tour] onDestroyed called, tourCompleted:', tourCompleted)
