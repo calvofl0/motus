@@ -35,12 +35,20 @@
         <h4>File Operations</h4>
         <div class="shortcut-list">
           <div class="shortcut-item">
-            <kbd>Shift</kbd> + <kbd>←</kbd>
+            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>←</kbd>
             <span>Transfer to left pane</span>
           </div>
           <div class="shortcut-item">
-            <kbd>Shift</kbd> + <kbd>→</kbd>
+            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>→</kbd>
             <span>Transfer to right pane</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Shift</kbd> + <kbd>←</kbd>
+            <span>Switch to left pane</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Shift</kbd> + <kbd>→</kbd>
+            <span>Switch to right pane</span>
           </div>
           <div class="shortcut-item">
             <kbd>F2</kbd>

@@ -354,6 +354,13 @@ function handleGlobalKeydown(e) {
       return
     }
 
+    // Don't quit if files are selected (FilePane will handle unselect)
+    const hasSelection = appStore.leftPane.selectedIndexes.length > 0 ||
+                        appStore.rightPane.selectedIndexes.length > 0
+    if (hasSelection) {
+      return
+    }
+
     // Check if any modal or context menu is open
     const hasOpenModal = document.querySelector('.modal-overlay')
     const hasOpenContextMenu = document.querySelector('.context-menu')

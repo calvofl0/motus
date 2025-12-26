@@ -1705,39 +1705,38 @@ function handleKeyDown(event) {
     const oppositePaneState = appStore[`${oppositePane}Pane`]
 
     if (viewMode.value === 'list') {
-      if (event.key === 'ArrowRight' && props.pane === 'left' && oppositePaneState.files.length > 0) {
+      if ((event.key === 'ArrowRight' && props.pane === 'left') ||
+          (event.key === 'ArrowLeft' && props.pane === 'right')) {
+        if (oppositePaneState.files.length === 0) return
+
         event.preventDefault()
-        // Switch to right pane and select first item
-        appStore.setLastFocusedPane('right')
-        appStore.setPaneSelection(props.pane, []) // Clear left selection
 
-        // Get the first item in visual order on the right pane
-        const rightPaneRef = props.pane === 'left' ?
-          document.querySelector('.pane.right-pane') : null
+        // Switch to opposite pane
+        appStore.setLastFocusedPane(oppositePane)
+        appStore.setPaneSelection(props.pane, []) // Clear current selection
 
-        if (rightPaneRef) {
-          // Select first file in the opposite pane
-          const firstFile = oppositePaneState.files.length > 0 ? 0 : null
-          if (firstFile !== null) {
-            appStore.setPaneSelection(oppositePane, [firstFile])
-          }
+        // Sort the opposite pane's files to determine visual order
+        // Assume both panes use similar sorting (common in file managers)
+        const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
+          ...file,
+          _originalIndex: idx
+        }))
+
+        // Filter hidden files if needed
+        let oppositeSortedFiles = oppositeFilesWithIndex
+        if (!showHiddenFiles.value) {
+          oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
         }
-        return
-      } else if (event.key === 'ArrowLeft' && props.pane === 'right' && oppositePaneState.files.length > 0) {
-        event.preventDefault()
-        // Switch to left pane and select first item
-        appStore.setLastFocusedPane('left')
-        appStore.setPaneSelection(props.pane, []) // Clear right selection
 
-        const leftPaneRef = props.pane === 'right' ?
-          document.querySelector('.pane.left-pane') : null
+        // Sort using same logic as current pane
+        oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
 
-        if (leftPaneRef) {
-          // Select first file in the opposite pane
-          const firstFile = oppositePaneState.files.length > 0 ? 0 : null
-          if (firstFile !== null) {
-            appStore.setPaneSelection(oppositePane, [firstFile])
-          }
+        // Select file at same visual position, or last file if position doesn't exist
+        let targetVisualPos = Math.min(currentVisualPos, oppositeSortedFiles.length - 1)
+
+        const targetFile = oppositeSortedFiles[targetVisualPos]
+        if (targetFile) {
+          appStore.setPaneSelection(oppositePane, [targetFile._originalIndex])
         }
         return
       }

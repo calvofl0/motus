@@ -617,8 +617,8 @@ function handleKeyDown(event) {
   const lastPane = appStore.lastFocusedPane
   const paneState = appStore[`${lastPane}Pane`]
 
-  // Shift+Left - Transfer to left pane
-  if (event.shiftKey && event.key === 'ArrowLeft') {
+  // Ctrl+Shift+Left - Transfer to left pane
+  if (event.ctrlKey && event.shiftKey && event.key === 'ArrowLeft') {
     event.preventDefault()
     if (canCopyLeft.value) {
       copyToLeft()
@@ -626,12 +626,26 @@ function handleKeyDown(event) {
     return
   }
 
-  // Shift+Right - Transfer to right pane
-  if (event.shiftKey && event.key === 'ArrowRight') {
+  // Ctrl+Shift+Right - Transfer to right pane
+  if (event.ctrlKey && event.shiftKey && event.key === 'ArrowRight') {
     event.preventDefault()
     if (canCopyRight.value) {
       copyToRight()
     }
+    return
+  }
+
+  // Shift+Left - Switch to left pane
+  if (event.shiftKey && !event.ctrlKey && event.key === 'ArrowLeft') {
+    event.preventDefault()
+    appStore.setLastFocusedPane('left')
+    return
+  }
+
+  // Shift+Right - Switch to right pane
+  if (event.shiftKey && !event.ctrlKey && event.key === 'ArrowRight') {
+    event.preventDefault()
+    appStore.setLastFocusedPane('right')
     return
   }
 
