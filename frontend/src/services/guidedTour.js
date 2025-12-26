@@ -272,6 +272,37 @@ ${contextMenuHtml}`,
         doneBtnText: 'Finish',
         showButtons: ['previous', 'next'], // Previous and Finish (next) buttons
         // Checkbox is now added by global onPopoverRender
+        onNextClick: async () => {
+          // This is called when the Finish button is clicked (Next button on last step)
+          console.log('[Tour] onNextClick called on Step 15')
+          if (!noTourConfig) {
+            const checkboxInput = document.querySelector('#tour-no-show-again')
+            console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
+            if (checkboxInput) {
+              if (checkboxInput.checked) {
+                console.log('[Tour] Calling disableTour()')
+                await disableTour()
+              } else {
+                console.log('[Tour] Calling enableTour()')
+                await enableTour()
+              }
+            }
+          }
+        },
+      },
+      onDeselected: async () => {
+        // This is called when leaving Step 15 (including X button, ESC, etc.)
+        console.log('[Tour] onDeselected called on Step 15')
+        if (!noTourConfig) {
+          const checkboxInput = document.querySelector('#tour-no-show-again')
+          if (checkboxInput) {
+            if (checkboxInput.checked) {
+              await disableTour()
+            } else {
+              await enableTour()
+            }
+          }
+        }
       },
     },
   ]
@@ -390,19 +421,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
         cancelBtn.className = 'tour-custom-close-btn'
-        cancelBtn.onclick = async () => {
-          // On last step, save preference before destroying
-          if (currentStepIndex === steps.length - 1 && !noTourConfig) {
-            console.log('[Tour] X clicked on last step, saving preference')
-            const checkboxInput = document.querySelector('#tour-no-show-again')
-            if (checkboxInput) {
-              if (checkboxInput.checked) {
-                await disableTour()
-              } else {
-                await enableTour()
-              }
-            }
-          }
+        cancelBtn.onclick = () => {
           tourActive = false
           driverObj.destroy()
         }
@@ -417,30 +436,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
             Don't show this tour again on startup
           `
           popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)
-
-          // Add mousedown listener to the Finish button to save preference
-          // Use mousedown instead of click because it fires before driver.js handles the click
-          const finishBtn = popover.nextButton
-          if (finishBtn) {
-            console.log('[Tour] Adding mousedown listener to Finish button')
-            finishBtn.addEventListener('mousedown', async (e) => {
-              console.log('[Tour] Finish button mousedown!')
-              const checkboxInput = document.querySelector('#tour-no-show-again')
-              console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
-              if (checkboxInput) {
-                if (checkboxInput.checked) {
-                  console.log('[Tour] Calling disableTour()')
-                  await disableTour()
-                } else {
-                  console.log('[Tour] Calling enableTour()')
-                  await enableTour()
-                }
-              }
-              tourCompleted = true
-            }, true)  // Use capture phase
-          } else {
-            console.log('[Tour] Finish button not found!')
-          }
         }
       },
       onDestroyed: async () => {
