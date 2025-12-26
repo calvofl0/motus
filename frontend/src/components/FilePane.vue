@@ -196,6 +196,9 @@ import { formatFileSize } from '../services/helpers'
 import { sortRemotes } from '../utils/remoteSorting'
 import DownloadConfirmModal from './modals/DownloadConfirmModal.vue'
 
+// Shared state to prevent double-processing of pane switch events
+let lastPaneSwitchEventTime = 0
+
 const props = defineProps({
   pane: {
     type: String,
@@ -1687,8 +1690,16 @@ function getSelectedVisibleIndex(pane) {
 }
 
 // Handle pane switching (Shift+Left/Right, and also bare Left/Right in list mode)
-function handlePaneSwitch(direction) {
+function handlePaneSwitch(direction, event) {
   console.log('[DEBUG] handlePaneSwitch called. direction:', direction, 'props.pane:', props.pane, 'viewMode:', viewMode.value)
+
+  // Prevent double-processing of the same event by both panes
+  const eventTime = event.timeStamp
+  if (eventTime === lastPaneSwitchEventTime) {
+    console.log('[DEBUG] Ignoring duplicate event')
+    return false
+  }
+
   // Only switch to opposite pane if direction matches
   const shouldSwitch = (direction === 'left' && props.pane === 'right') ||
                        (direction === 'right' && props.pane === 'left')
@@ -1698,6 +1709,9 @@ function handlePaneSwitch(direction) {
     console.log('[DEBUG] Not switching - wrong pane for this direction')
     return false
   }
+
+  // Mark this event as processed
+  lastPaneSwitchEventTime = eventTime
 
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
@@ -2021,7 +2035,7 @@ function handleKeyDown(event) {
 
     if (isShiftPaneSwitch || isListPaneSwitch) {
       const direction = event.key === 'ArrowLeft' ? 'left' : 'right'
-      if (handlePaneSwitch(direction)) {
+      if (handlePaneSwitch(direction, event)) {
         event.preventDefault()
         return
       }

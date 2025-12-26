@@ -111,9 +111,14 @@
 
         /* Empty State */
         .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
             padding: 40px;
             color: var(--color-text-secondary);
+            width: 100%;
         }
 
         .toolbar-button.secondary {
@@ -132,6 +137,7 @@
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
             align-content: start;
+            position: relative;
         }
 
         .file-grid.drag-over {
@@ -186,6 +192,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 0;
+            position: relative;
         }
 
         .file-list.drag-over {
