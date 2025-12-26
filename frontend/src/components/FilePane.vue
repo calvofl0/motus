@@ -1645,13 +1645,17 @@ function handlePaneSwitch(direction) {
   const oppositePane = props.pane === 'left' ? 'right' : 'left'
   const oppositePaneState = appStore[`${oppositePane}Pane`]
 
+  // Get current pane's selection from store
+  const currentPaneState = appStore[`${props.pane}Pane`]
+  const currentSelection = currentPaneState.selectedIndexes
+
   // Calculate which index to select in the opposite pane (if any)
   let indexToSelect = null
-  console.log('[DEBUG] selectedIndexes.length:', selectedIndexes.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
+  console.log('[DEBUG] currentSelection.length:', currentSelection.length, 'oppositePaneState.files.length:', oppositePaneState.files.length)
 
-  if (selectedIndexes.length === 1 && oppositePaneState.files.length > 0) {
+  if (currentSelection.length === 1 && oppositePaneState.files.length > 0) {
     console.log('[DEBUG] Calculating index to select...')
-    const currentIndex = selectedIndexes[0]
+    const currentIndex = currentSelection[0]
     const currentVisualPos = visualOrder.value[currentIndex]
 
     // Get sorted files for opposite pane
