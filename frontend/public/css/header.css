@@ -125,6 +125,12 @@
             background: var(--color-bg-hover);
         }
 
+        .view-menu-item.selected,
+        .help-menu-item.selected {
+            background: var(--color-bg-primary-light);
+            font-weight: var(--font-weight-semibold);
+        }
+
         .mode-toggle-button {
             background: var(--color-warning);
             color: #333; /* Dark text for readability on yellow background in both themes */
@@ -211,6 +217,12 @@
         .theme-menu-item.active {
             background: var(--color-bg-primary-light);
             font-weight: var(--font-weight-semibold);
+        }
+
+        .theme-menu-item.selected {
+            background: var(--color-bg-hover);
+            outline: 2px solid var(--color-primary);
+            outline-offset: -2px;
         }
 
         /* Hidden class for dropdowns */

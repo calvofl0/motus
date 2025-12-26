@@ -92,6 +92,11 @@
       @action="handleContextMenuAction"
       @sort="handleContextMenuSort"
     />
+
+    <!-- Keyboard Shortcuts Modal -->
+    <KeyboardShortcutsModal
+      v-model="showKeyboardShortcutsModal"
+    />
   </div>
 </template>
 
@@ -112,6 +117,7 @@ import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import JobLogModal from '../components/modals/JobLogModal.vue'
+import KeyboardShortcutsModal from '../components/modals/KeyboardShortcutsModal.vue'
 import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 
 const appStore = useAppStore()
@@ -142,6 +148,9 @@ const downloadPreparingMessage = ref('Downloading file from remote server...')
 // Job log modal state
 const showJobLogModal = ref(false)
 const jobLogData = ref(null)
+
+// Keyboard shortcuts modal state
+const showKeyboardShortcutsModal = ref(false)
 
 // Computed
 const canCopyRight = computed(() =>
@@ -585,6 +594,14 @@ function handleRefreshPane(event) {
   }
 }
 
+// Helper to check if any modal is open
+function hasOpenModal() {
+  return document.querySelector('.modal-overlay') !== null ||
+         document.querySelector('.context-menu') !== null ||
+         document.querySelector('.view-dropdown-menu:not(.hidden)') !== null ||
+         document.querySelector('.help-dropdown-menu:not(.hidden)') !== null
+}
+
 // Keyboard shortcuts
 function handleKeyDown(event) {
   // Only handle shortcuts when not typing in an input
@@ -592,8 +609,73 @@ function handleKeyDown(event) {
     return
   }
 
+  // Don't handle if a modal is open
+  if (hasOpenModal()) {
+    return
+  }
+
   const lastPane = appStore.lastFocusedPane
   const paneState = appStore[`${lastPane}Pane`]
+
+  // Shift+Left - Transfer to left pane
+  if (event.shiftKey && event.key === 'ArrowLeft') {
+    event.preventDefault()
+    if (canCopyLeft.value) {
+      copyToLeft()
+    }
+    return
+  }
+
+  // Shift+Right - Transfer to right pane
+  if (event.shiftKey && event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (canCopyRight.value) {
+      copyToRight()
+    }
+    return
+  }
+
+  // J or Shift+J - Open Jobs panel
+  if (event.key === 'j' || event.key === 'J') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('toggle-jobs-panel'))
+    return
+  }
+
+  // R - Open Manage Remotes
+  if (event.key === 'r' || event.key === 'R') {
+    event.preventDefault()
+    appStore.openManageRemotes()
+    return
+  }
+
+  // V - Open View menu
+  if (event.key === 'v' || event.key === 'V') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('open-view-menu'))
+    return
+  }
+
+  // H - Open Help menu
+  if (event.key === 'h' || event.key === 'H') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('open-help-menu'))
+    return
+  }
+
+  // E - Toggle Expert/Easy mode
+  if (event.key === 'e' || event.key === 'E') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('toggle-mode'))
+    return
+  }
+
+  // Q - Quit (same as ESC)
+  if (event.key === 'q' || event.key === 'Q') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('quit-server'))
+    return
+  }
 
   // F2 - Rename selected file
   if (event.key === 'F2' && paneState.selectedIndexes.length === 1) {
@@ -609,15 +691,22 @@ function handleKeyDown(event) {
   }
 }
 
+// Handle show keyboard shortcuts event
+function handleShowKeyboardShortcuts() {
+  showKeyboardShortcutsModal.value = true
+}
+
 // Lifecycle
 onMounted(() => {
   window.addEventListener('refresh-pane', handleRefreshPane)
   window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('show-keyboard-shortcuts', handleShowKeyboardShortcuts)
 })
 
 onUnmounted(() => {
   window.removeEventListener('refresh-pane', handleRefreshPane)
   window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('show-keyboard-shortcuts', handleShowKeyboardShortcuts)
 })
 </script>
 

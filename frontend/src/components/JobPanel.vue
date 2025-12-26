@@ -477,16 +477,24 @@ function handleServerShutdown() {
   stopJobUpdates()
 }
 
+// Handle keyboard shortcut to toggle jobs panel
+function handleToggleJobsPanel() {
+  activeJobsCollapsed.value = !activeJobsCollapsed.value
+  jobPanelManuallyToggled.value = !activeJobsCollapsed.value
+}
+
 onMounted(() => {
   startJobUpdates()
   window.addEventListener('update-jobs', handleUpdateJobs)
   window.addEventListener('server-shutting-down', handleServerShutdown)
+  window.addEventListener('toggle-jobs-panel', handleToggleJobsPanel)
 })
 
 onUnmounted(() => {
   stopJobUpdates()
   window.removeEventListener('update-jobs', handleUpdateJobs)
   window.removeEventListener('server-shutting-down', handleServerShutdown)
+  window.removeEventListener('toggle-jobs-panel', handleToggleJobsPanel)
 })
 </script>
 

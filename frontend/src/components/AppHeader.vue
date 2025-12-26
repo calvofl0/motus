@@ -19,13 +19,13 @@
           View ▾
         </button>
         <div class="view-dropdown-menu" :class="{ hidden: !showViewMenu }">
-          <div class="view-menu-item" @click="switchViewMode">
+          <div class="view-menu-item" :class="{ selected: viewMenuSelectedIndex === 0 }" @click="switchViewMode">
             <span>{{ viewModeIcon }}</span> <span>{{ viewModeText }}</span>
           </div>
-          <div class="view-menu-item" @click="toggleHiddenFiles">
+          <div class="view-menu-item" :class="{ selected: viewMenuSelectedIndex === 1 }" @click="toggleHiddenFiles">
             <span>{{ hiddenFilesText }}</span>
           </div>
-          <div class="view-menu-item" @click="toggleAbsolutePaths">
+          <div class="view-menu-item" :class="{ selected: viewMenuSelectedIndex === 2 }" @click="toggleAbsolutePaths">
             <span>{{ absolutePathsText }}</span>
           </div>
         </div>
@@ -35,7 +35,10 @@
           Help ▾
         </button>
         <div class="help-dropdown-menu" :class="{ hidden: !showHelpMenu }">
-          <div class="help-menu-item" @click="showGuidedTour">
+          <div class="help-menu-item" :class="{ selected: helpMenuSelectedIndex === 0 }" @click="showKeyboardShortcuts">
+            <span>⌨️ Keyboard Shortcuts</span>
+          </div>
+          <div class="help-menu-item" :class="{ selected: helpMenuSelectedIndex === 1 }" @click="showGuidedTour">
             <span>📖 Show Guided Tour</span>
           </div>
         </div>
@@ -49,13 +52,13 @@
           {{ themeIcon }}
         </button>
         <div class="theme-dropdown-menu" :class="{ hidden: !showThemeMenu }">
-          <div class="theme-menu-item" @click="setTheme('auto')" :class="{ active: appStore.theme === 'auto' }">
+          <div class="theme-menu-item" @click="setTheme('auto')" :class="{ active: appStore.theme === 'auto', selected: themeMenuSelectedIndex === 0 }">
             <span>☀️/🌙 Auto</span>
           </div>
-          <div class="theme-menu-item" @click="setTheme('light')" :class="{ active: appStore.theme === 'light' }">
+          <div class="theme-menu-item" @click="setTheme('light')" :class="{ active: appStore.theme === 'light', selected: themeMenuSelectedIndex === 1 }">
             <span>☀️ Light</span>
           </div>
-          <div class="theme-menu-item" @click="setTheme('dark')" :class="{ active: appStore.theme === 'dark' }">
+          <div class="theme-menu-item" @click="setTheme('dark')" :class="{ active: appStore.theme === 'dark', selected: themeMenuSelectedIndex === 2 }">
             <span>🌙 Dark</span>
           </div>
         </div>
@@ -80,6 +83,11 @@ const showHelpMenu = ref(false)
 const showThemeMenu = ref(false)
 const allowExpertMode = ref(false)
 const noTourConfig = ref(false)
+
+// Menu navigation state
+const viewMenuSelectedIndex = ref(0)
+const helpMenuSelectedIndex = ref(0)
+const themeMenuSelectedIndex = ref(0)
 
 const viewModeIcon = computed(() =>
   appStore.viewMode === 'grid' ? '☰' : '⊞'
@@ -136,8 +144,9 @@ function openCompletedJobs() {
 function toggleViewMenu(e) {
   e.stopPropagation()
   showViewMenu.value = !showViewMenu.value
-  // Close other menus if they're open
+  // Reset selected index when opening
   if (showViewMenu.value) {
+    viewMenuSelectedIndex.value = 0
     showHelpMenu.value = false
     showThemeMenu.value = false
   }
@@ -161,11 +170,17 @@ function toggleAbsolutePaths() {
 function toggleHelpMenu(e) {
   e.stopPropagation()
   showHelpMenu.value = !showHelpMenu.value
-  // Close other menus if they're open
+  // Reset selected index when opening
   if (showHelpMenu.value) {
+    helpMenuSelectedIndex.value = 0
     showViewMenu.value = false
     showThemeMenu.value = false
   }
+}
+
+function showKeyboardShortcuts() {
+  showHelpMenu.value = false
+  window.dispatchEvent(new CustomEvent('show-keyboard-shortcuts'))
 }
 
 function showGuidedTour() {
@@ -176,8 +191,9 @@ function showGuidedTour() {
 function toggleThemeMenu(e) {
   e.stopPropagation()
   showThemeMenu.value = !showThemeMenu.value
-  // Close other menus if they're open
+  // Reset selected index when opening
   if (showThemeMenu.value) {
+    themeMenuSelectedIndex.value = 0
     showViewMenu.value = false
     showHelpMenu.value = false
   }
@@ -270,6 +286,63 @@ function showShutdownConfirmation() {
 
 // Handle ESC key to quit when no modals or context menu are open
 function handleGlobalKeydown(e) {
+  // Handle menu navigation
+  if (showViewMenu.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value + 1) % 3 // 3 items in View menu
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value - 1 + 3) % 3
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      // Activate selected menu item
+      if (viewMenuSelectedIndex.value === 0) {
+        switchViewMode()
+      } else if (viewMenuSelectedIndex.value === 1) {
+        toggleHiddenFiles()
+      } else if (viewMenuSelectedIndex.value === 2) {
+        toggleAbsolutePaths()
+      }
+    }
+    return
+  }
+
+  if (showHelpMenu.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value + 1) % 2 // 2 items in Help menu
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value - 1 + 2) % 2
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      // Activate selected menu item
+      if (helpMenuSelectedIndex.value === 0) {
+        showKeyboardShortcuts()
+      } else if (helpMenuSelectedIndex.value === 1) {
+        showGuidedTour()
+      }
+    }
+    return
+  }
+
+  if (showThemeMenu.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value + 1) % 3 // 3 items in Theme menu
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value - 1 + 3) % 3
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      // Activate selected theme
+      const themes = ['auto', 'light', 'dark']
+      setTheme(themes[themeMenuSelectedIndex.value])
+    }
+    return
+  }
+
   if (e.key === 'Escape') {
     // Close View/Help/Theme dropdown menu if open
     if (showViewMenu.value || showHelpMenu.value || showThemeMenu.value) {
@@ -295,8 +368,37 @@ document.addEventListener('click', () => {
   showThemeMenu.value = false
 })
 
+// Event handlers for keyboard shortcuts
+function handleOpenViewMenu() {
+  // Close other menus and toggle View menu
+  showHelpMenu.value = false
+  showThemeMenu.value = false
+  showViewMenu.value = !showViewMenu.value
+}
+
+function handleOpenHelpMenu() {
+  // Close other menus and toggle Help menu
+  showViewMenu.value = false
+  showThemeMenu.value = false
+  showHelpMenu.value = !showHelpMenu.value
+}
+
+function handleToggleMode() {
+  toggleMode()
+}
+
+function handleQuitServer() {
+  quitServer()
+}
+
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
+
+  // Listen for keyboard shortcut events
+  window.addEventListener('open-view-menu', handleOpenViewMenu)
+  window.addEventListener('open-help-menu', handleOpenHelpMenu)
+  window.addEventListener('toggle-mode', handleToggleMode)
+  window.addEventListener('quit-server', handleQuitServer)
 
   // Fetch config to check if expert mode is allowed and if tour is disabled
   try {
@@ -313,5 +415,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('open-view-menu', handleOpenViewMenu)
+  window.removeEventListener('open-help-menu', handleOpenHelpMenu)
+  window.removeEventListener('toggle-mode', handleToggleMode)
+  window.removeEventListener('quit-server', handleQuitServer)
 })
 </script>

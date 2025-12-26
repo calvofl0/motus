@@ -184,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, inject, nextTick } from 'vue'
 import { useAppStore } from '../stores/app'
 import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 import { useUpload } from '../composables/useUpload'
@@ -1491,6 +1491,9 @@ onMounted(async () => {
 
   // Listen for local-fs being disabled (when toggling from absolute to relative paths)
   window.addEventListener('local-fs-disabling', handleLocalFsDisabling)
+
+  // Listen for keyboard events
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 // Watch for changes to currentAliasBasePath to sync with store
@@ -1569,12 +1572,114 @@ async function handleLocalFsDisabling() {
   }
 }
 
+// Keyboard navigation
+function handleKeyDown(event) {
+  // Only handle if this pane is focused
+  if (appStore.lastFocusedPane !== props.pane) {
+    return
+  }
+
+  // Don't handle if typing in input
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+    return
+  }
+
+  const selectedIndexes = paneState.value.selectedIndexes
+
+  // Arrow key navigation - only when exactly one file is selected
+  if (selectedIndexes.length === 1 && sortedFiles.value.length > 0) {
+    const currentIndex = selectedIndexes[0]
+    const currentVisualPos = visualOrder.value[currentIndex]
+
+    let newVisualPos = null
+
+    if (viewMode.value === 'grid') {
+      // Grid view - all arrows work
+      // Calculate grid columns dynamically
+      const gridContainer = document.querySelector(`#${props.pane}-files`)
+      if (!gridContainer) return
+
+      const items = gridContainer.querySelectorAll('.file-item:not(.empty-state)')
+      if (items.length === 0) return
+
+      const containerWidth = gridContainer.offsetWidth
+      const itemWidth = items[0].offsetWidth
+      const gap = 10 // from CSS
+      const cols = Math.max(1, Math.floor((containerWidth + gap) / (itemWidth + gap)))
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        newVisualPos = Math.max(0, currentVisualPos - cols)
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        newVisualPos = Math.min(sortedFiles.value.length - 1, currentVisualPos + cols)
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        if (currentVisualPos > 0) {
+          newVisualPos = currentVisualPos - 1
+        }
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        if (currentVisualPos < sortedFiles.value.length - 1) {
+          newVisualPos = currentVisualPos + 1
+        }
+      }
+    } else {
+      // List view - only up/down
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        if (currentVisualPos > 0) {
+          newVisualPos = currentVisualPos - 1
+        }
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        if (currentVisualPos < sortedFiles.value.length - 1) {
+          newVisualPos = currentVisualPos + 1
+        }
+      }
+    }
+
+    // Update selection to new position
+    if (newVisualPos !== null && newVisualPos !== currentVisualPos) {
+      // Find original index for this visual position
+      const newOriginalIndex = Object.keys(visualOrder.value).find(
+        origIdx => visualOrder.value[origIdx] === newVisualPos
+      )
+
+      if (newOriginalIndex !== undefined) {
+        appStore.setPaneSelection(props.pane, [parseInt(newOriginalIndex)])
+
+        // Scroll into view
+        nextTick(() => {
+          const selector = viewMode.value === 'grid'
+            ? `.file-item:nth-child(${newVisualPos + 1})`
+            : `.file-row:nth-child(${newVisualPos + 1})`
+          const element = document.querySelector(`#${props.pane}-files ${selector}`)
+          if (element) {
+            element.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          }
+        })
+      }
+    }
+  }
+
+  // ENTER key - open folder or download file
+  if (event.key === 'Enter' && selectedIndexes.length === 1) {
+    event.preventDefault()
+    const file = files.value[selectedIndexes[0]]
+    if (file) {
+      handleFileDblClick(file)
+    }
+  }
+}
+
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('remotes-changed', handleRemotesChanged)
   window.removeEventListener('job-completed', handleJobCompleted)
   window.removeEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
   window.removeEventListener('local-fs-disabling', handleLocalFsDisabling)
+  window.removeEventListener('keydown', handleKeyDown)
 })
 
 // Expose methods to parent
