@@ -403,6 +403,29 @@ export function startGuidedTour(appStore, noTourConfig = false) {
             Don't show this tour again on startup
           `
           popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)
+
+          // Add click listener to the Finish button to save preference
+          const finishBtn = popover.nextButton
+          if (finishBtn) {
+            console.log('[Tour] Adding click listener to Finish button')
+            finishBtn.addEventListener('click', async () => {
+              console.log('[Tour] Finish button clicked!')
+              const checkboxInput = document.querySelector('#tour-no-show-again')
+              console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
+              if (checkboxInput) {
+                if (checkboxInput.checked) {
+                  console.log('[Tour] Calling disableTour()')
+                  await disableTour()
+                } else {
+                  console.log('[Tour] Calling enableTour()')
+                  await enableTour()
+                }
+              }
+              tourCompleted = true
+            })
+          } else {
+            console.log('[Tour] Finish button not found!')
+          }
         }
       },
       onDestroyed: async () => {
@@ -435,27 +458,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         // Resolve the Promise now (after dialog if shown)
         resolveTour()
-      },
-      onCloseClick: async () => {
-        // This handles the Finish button on last step
-        tourCompleted = true
-        const checkbox = document.querySelector('#tour-no-show-again')
-        console.log('[Tour] Finish button clicked, checkbox found:', !!checkbox, 'checked:', checkbox?.checked, 'noTourConfig:', noTourConfig)
-        if (checkbox && !noTourConfig) {
-          // Save preference based on checkbox state
-          console.log('[Tour] Saving preference, checkbox.checked:', checkbox.checked)
-          if (checkbox.checked) {
-            await disableTour()
-            console.log('[Tour] Called disableTour()')
-          } else {
-            await enableTour()
-            console.log('[Tour] Called enableTour()')
-          }
-        } else {
-          console.log('[Tour] Not saving preference - checkbox:', !!checkbox, 'noTourConfig:', noTourConfig)
-        }
-        tourActive = false
-        driverObj.destroy()
       },
     })
 
