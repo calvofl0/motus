@@ -39,6 +39,15 @@ export async function disableTour() {
 }
 
 /**
+ * Enable tour auto-show on startup
+ */
+export async function enableTour() {
+  const prefs = await getTourPreferences()
+  prefs.show_tour = true
+  await savePreferences(apiCall, prefs)
+}
+
+/**
  * Reset tour preferences (for testing/debugging)
  */
 export async function resetTourPreferences() {
@@ -463,8 +472,13 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         // This handles the Finish button on last step
         tourCompleted = true
         const checkbox = document.querySelector('#tour-no-show-again')
-        if (checkbox && checkbox.checked && !noTourConfig) {
-          await disableTour()
+        if (checkbox && !noTourConfig) {
+          // Save preference based on checkbox state
+          if (checkbox.checked) {
+            await disableTour()
+          } else {
+            await enableTour()
+          }
         }
         tourActive = false
         driverObj.destroy()
