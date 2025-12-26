@@ -85,7 +85,7 @@
             <kbd>T</kbd>
             <span>Open Theme menu</span>
           </div>
-          <div class="shortcut-item">
+          <div v-if="appStore.allowExpertMode" class="shortcut-item">
             <kbd>E</kbd>
             <span>Toggle Expert/Easy mode</span>
           </div>
@@ -126,6 +126,9 @@
 
 <script setup>
 import BaseModal from './BaseModal.vue'
+import { useAppStore } from '../../stores/app'
+
+const appStore = useAppStore()
 
 defineProps({
   modelValue: {

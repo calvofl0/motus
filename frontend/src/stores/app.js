@@ -15,6 +15,7 @@ export const useAppStore = defineStore('app', () => {
   const showManageRemotesModal = ref(false)
   const showCompletedJobsModal = ref(false)
   const absolutePathsMode = ref(false) // Loaded from config
+  const allowExpertMode = ref(false) // Whether expert mode toggle is allowed (from config)
 
   // Remote configuration state (for dynamic local-fs behavior)
   const localFsName = ref('Local Filesystem') // Display name for local filesystem (always non-empty)
@@ -115,6 +116,7 @@ export const useAppStore = defineStore('app', () => {
       currentMode.value = config.default_mode || 'easy'
       maxUploadSize.value = config.max_upload_size || 0
       configAbsolutePaths = config.absolute_paths || false
+      allowExpertMode.value = config.allow_expert_mode || false
     } catch (e) {
       console.error('Failed to load config:', e)
       currentMode.value = 'easy'
@@ -466,6 +468,7 @@ export const useAppStore = defineStore('app', () => {
     showManageRemotesModal,
     showCompletedJobsModal,
     absolutePathsMode,
+    allowExpertMode,
     leftPane,
     rightPane,
     contextMenu,

@@ -214,12 +214,12 @@
         }
 
         .theme-menu-item.active {
-            background: var(--color-bg-primary-light);
+            background: var(--color-bg-hover);
             font-weight: var(--font-weight-semibold);
         }
 
         .theme-menu-item.selected {
-            background: var(--color-bg-hover);
+            background: var(--color-bg-primary-light);
         }
 
         /* Hidden class for dropdowns */

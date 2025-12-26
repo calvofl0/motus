@@ -683,10 +683,12 @@ function handleKeyDown(event) {
     return
   }
 
-  // E - Toggle Expert/Easy mode
+  // E - Toggle Expert/Easy mode (only if allowed)
   if (event.key === 'e' || event.key === 'E') {
     event.preventDefault()
-    window.dispatchEvent(new CustomEvent('toggle-mode'))
+    if (appStore.allowExpertMode) {
+      window.dispatchEvent(new CustomEvent('toggle-mode'))
+    }
     return
   }
 
