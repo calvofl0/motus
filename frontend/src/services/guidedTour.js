@@ -34,8 +34,10 @@ export async function isTourDisabled() {
  */
 export async function disableTour() {
   const prefs = await getTourPreferences()
+  console.log('[Tour] disableTour() - Before:', prefs.show_tour)
   prefs.show_tour = false
   await savePreferences(apiCall, prefs)
+  console.log('[Tour] disableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
 /**
@@ -43,8 +45,10 @@ export async function disableTour() {
  */
 export async function enableTour() {
   const prefs = await getTourPreferences()
+  console.log('[Tour] enableTour() - Before:', prefs.show_tour)
   prefs.show_tour = true
   await savePreferences(apiCall, prefs)
+  console.log('[Tour] enableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
 /**
@@ -421,6 +425,8 @@ export function startGuidedTour(appStore, noTourConfig = false) {
             const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
             if (disableAutoShow) {
               await disableTour()
+            } else {
+              await enableTour()
             }
           } catch (error) {
             console.error('[Tour] Error showing exit dialog:', error)
@@ -434,13 +440,19 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         // This handles the Finish button on last step
         tourCompleted = true
         const checkbox = document.querySelector('#tour-no-show-again')
+        console.log('[Tour] Finish button clicked, checkbox found:', !!checkbox, 'checked:', checkbox?.checked, 'noTourConfig:', noTourConfig)
         if (checkbox && !noTourConfig) {
           // Save preference based on checkbox state
+          console.log('[Tour] Saving preference, checkbox.checked:', checkbox.checked)
           if (checkbox.checked) {
             await disableTour()
+            console.log('[Tour] Called disableTour()')
           } else {
             await enableTour()
+            console.log('[Tour] Called enableTour()')
           }
+        } else {
+          console.log('[Tour] Not saving preference - checkbox:', !!checkbox, 'noTourConfig:', noTourConfig)
         }
         tourActive = false
         driverObj.destroy()
