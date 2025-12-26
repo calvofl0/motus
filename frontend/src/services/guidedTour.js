@@ -391,12 +391,16 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
     // Add onNextClick hook to Step 15's popover (for Finish button)
     const step15 = steps[steps.length - 1]
-    step15.popover.onNextClick = async () => {
+    const originalOnNextClick = step15.popover.onNextClick  // Save original if exists
+    step15.popover.onNextClick = async (...args) => {
       console.log('[Tour] onNextClick called on Step 15 (Finish button)')
       await savePreferenceFromCheckbox()
-      // Now close the tour
       tourCompleted = true
-      driverObj.destroy()
+      // Call original handler if it exists, otherwise let driver.js handle default behavior
+      if (originalOnNextClick) {
+        originalOnNextClick(...args)
+      }
+      // Don't call destroy() - let driver.js handle it naturally
     }
     // Note: X button is handled in onPopoverRender's custom button onclick
 
