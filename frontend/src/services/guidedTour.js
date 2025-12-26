@@ -34,11 +34,9 @@ export async function isTourDisabled() {
  */
 export async function disableTour() {
   const prefs = await getTourPreferences()
-  console.log('[Tour] disableTour() - Before:', prefs.show_tour)
   prefs.show_tour = false
   await savePreferences(apiCall, prefs)
   _preferencesCache = null  // Invalidate cache
-  console.log('[Tour] disableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
 /**
@@ -46,11 +44,9 @@ export async function disableTour() {
  */
 export async function enableTour() {
   const prefs = await getTourPreferences()
-  console.log('[Tour] enableTour() - Before:', prefs.show_tour)
   prefs.show_tour = true
   await savePreferences(apiCall, prefs)
   _preferencesCache = null  // Invalidate cache
-  console.log('[Tour] enableTour() - After save, show_tour set to:', prefs.show_tour)
 }
 
 /**
@@ -377,13 +373,10 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     const savePreferenceFromCheckbox = async () => {
       if (!noTourConfig) {
         const checkboxInput = document.querySelector('#tour-no-show-again')
-        console.log('[Tour] Checkbox found:', !!checkboxInput, 'checked:', checkboxInput?.checked)
         if (checkboxInput) {
           if (checkboxInput.checked) {
-            console.log('[Tour] Calling disableTour()')
             await disableTour()
           } else {
-            console.log('[Tour] Calling enableTour()')
             await enableTour()
           }
         }
@@ -396,7 +389,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     // Add onNextClick hook to Step 15's popover (for Finish button)
     const step15 = steps[steps.length - 1]
     step15.popover.onNextClick = async () => {
-      console.log('[Tour] onNextClick called on Step 15 (Finish button)')
       await savePreferenceFromCheckbox()
       tourCompleted = true
       // Call moveNext() to follow driver.js's proper flow
@@ -430,7 +422,6 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         cancelBtn.onclick = async () => {
           // On last step, save preference before destroying
           if (currentStepIndex === steps.length - 1) {
-            console.log('[Tour] X button clicked on Step 15')
             await savePreferenceFromCheckbox()
           }
           tourActive = false

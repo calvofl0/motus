@@ -1701,9 +1701,11 @@ function handleKeyDown(event) {
     }
 
     // Switch panes: Right arrow on left pane, Left arrow on right pane
+    // Also Shift+Left/Right for explicit pane switching
     const oppositePane = props.pane === 'left' ? 'right' : 'left'
     const oppositePaneState = appStore[`${oppositePane}Pane`]
 
+    // List layout: Left/Right and Shift+Left/Right work the same (switch panes, keep visual position)
     if (viewMode.value === 'list') {
       if ((event.key === 'ArrowRight' && props.pane === 'left') ||
           (event.key === 'ArrowLeft' && props.pane === 'right')) {
@@ -1716,7 +1718,6 @@ function handleKeyDown(event) {
         appStore.setPaneSelection(props.pane, []) // Clear current selection
 
         // Sort the opposite pane's files to determine visual order
-        // Assume both panes use similar sorting (common in file managers)
         const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
           ...file,
           _originalIndex: idx
@@ -1737,6 +1738,42 @@ function handleKeyDown(event) {
         const targetFile = oppositeSortedFiles[targetVisualPos]
         if (targetFile) {
           appStore.setPaneSelection(oppositePane, [targetFile._originalIndex])
+        }
+        return
+      }
+    }
+
+    // Grid layout: Shift+Left/Right switches panes and selects first item
+    if (viewMode.value === 'grid' && event.shiftKey) {
+      if ((event.key === 'ArrowLeft' && props.pane === 'right') ||
+          (event.key === 'ArrowRight' && props.pane === 'left')) {
+        if (oppositePaneState.files.length === 0) return
+
+        event.preventDefault()
+
+        // Switch to opposite pane
+        appStore.setLastFocusedPane(oppositePane)
+        appStore.setPaneSelection(props.pane, []) // Clear current selection
+
+        // Get sorted files for opposite pane
+        const oppositeFilesWithIndex = oppositePaneState.files.map((file, idx) => ({
+          ...file,
+          _originalIndex: idx
+        }))
+
+        // Filter hidden files if needed
+        let oppositeSortedFiles = oppositeFilesWithIndex
+        if (!showHiddenFiles.value) {
+          oppositeSortedFiles = oppositeFilesWithIndex.filter(f => !f.Name.startsWith('.'))
+        }
+
+        // Sort using same logic as current pane
+        oppositeSortedFiles = sortFiles(oppositeSortedFiles, sortBy.value, sortAsc.value)
+
+        // Select first item
+        if (oppositeSortedFiles.length > 0) {
+          const firstFile = oppositeSortedFiles[0]
+          appStore.setPaneSelection(oppositePane, [firstFile._originalIndex])
         }
         return
       }

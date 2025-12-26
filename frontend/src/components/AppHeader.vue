@@ -83,6 +83,7 @@ const showHelpMenu = ref(false)
 const showThemeMenu = ref(false)
 const allowExpertMode = ref(false)
 const noTourConfig = ref(false)
+const isQuitting = ref(false) // Prevent multiple quit confirmations
 
 // Menu navigation state
 const viewMenuSelectedIndex = ref(0)
@@ -218,7 +219,14 @@ function toggleMode() {
 }
 
 async function quitServer() {
+  // Prevent multiple simultaneous quit attempts
+  if (isQuitting.value) {
+    return
+  }
+
   try {
+    isQuitting.value = true
+
     // Check how many frontends are registered
     const frontendData = await apiCall('/api/frontend/count')
     const frontendCount = frontendData.count || 0
@@ -246,6 +254,7 @@ async function quitServer() {
     confirmMessage += `Are you sure you want to quit?`
 
     if (!confirm(confirmMessage)) {
+      isQuitting.value = false
       return
     }
 
@@ -263,6 +272,7 @@ async function quitServer() {
     showShutdownConfirmation()
   } catch (error) {
     console.error('[Quit] Shutdown failed:', error)
+    isQuitting.value = false
     // Show error and reload
     alert(`Failed to shutdown server: ${error.message}`)
     location.reload()

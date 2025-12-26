@@ -599,7 +599,8 @@ function hasOpenModal() {
   return document.querySelector('.modal-overlay') !== null ||
          document.querySelector('.context-menu') !== null ||
          document.querySelector('.view-dropdown-menu:not(.hidden)') !== null ||
-         document.querySelector('.help-dropdown-menu:not(.hidden)') !== null
+         document.querySelector('.help-dropdown-menu:not(.hidden)') !== null ||
+         document.querySelector('.theme-dropdown-menu:not(.hidden)') !== null
 }
 
 // Keyboard shortcuts
@@ -635,19 +636,7 @@ function handleKeyDown(event) {
     return
   }
 
-  // Shift+Left - Switch to left pane
-  if (event.shiftKey && !event.ctrlKey && event.key === 'ArrowLeft') {
-    event.preventDefault()
-    appStore.setLastFocusedPane('left')
-    return
-  }
-
-  // Shift+Right - Switch to right pane
-  if (event.shiftKey && !event.ctrlKey && event.key === 'ArrowRight') {
-    event.preventDefault()
-    appStore.setLastFocusedPane('right')
-    return
-  }
+  // Note: Shift+Left/Right for pane switching is handled in FilePane.vue
 
   // J or Shift+J - Show Completed Jobs
   if (event.key === 'j' || event.key === 'J') {
@@ -691,18 +680,30 @@ function handleKeyDown(event) {
     return
   }
 
-  // ESC - Quit (but only when nothing is selected - unselect is handled in FilePane)
+  // ESC - Close menus first, then unselect files (handled in FilePane), then quit
   if (event.key === 'Escape') {
+    // Check if any menu is open
+    const hasMenu = document.querySelector('.view-dropdown-menu:not(.hidden)') !== null ||
+                   document.querySelector('.help-dropdown-menu:not(.hidden)') !== null ||
+                   document.querySelector('.theme-dropdown-menu:not(.hidden)') !== null
+
+    if (hasMenu) {
+      // AppHeader will close the menus
+      return
+    }
+
     // Check if any files are selected
     const hasSelection = appStore.leftPane.selectedIndexes.length > 0 ||
                         appStore.rightPane.selectedIndexes.length > 0
 
-    if (!hasSelection) {
-      event.preventDefault()
-      window.dispatchEvent(new CustomEvent('quit-server'))
+    if (hasSelection) {
+      // FilePane will handle ESC to unselect
       return
     }
-    // If files are selected, FilePane will handle ESC to unselect
+
+    // Only quit if no menus open and no files selected
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('quit-server'))
   }
 
   // F2 - Rename selected file
