@@ -228,12 +228,12 @@ async function quitServer() {
     const runningCount = jobsData.jobs ? jobsData.jobs.length : 0
 
     // Build confirmation message
-    let confirmMessage = 'Are you sure you want to quit the server?'
+    let confirmMessage = ''
 
     // Warn about other tabs if they exist
     if (frontendCount > 1) {
       const otherTabs = frontendCount - 1
-      confirmMessage = `⚠️ Warning: ${otherTabs} other tab(s) are currently open.\n\n` +
+      confirmMessage += `⚠️ Warning: ${otherTabs} other tab(s) are currently open.\n\n` +
         `Shutting down will close the server for all tabs.\n\n`
     }
 
