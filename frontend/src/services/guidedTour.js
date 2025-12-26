@@ -282,35 +282,14 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
     // Create modal overlay
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay tour-exit-overlay'
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: var(--modal-overlay-bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100000;
-    `
 
     // Create modal
     const modal = document.createElement('div')
     modal.className = 'tour-exit-modal'
-    modal.style.cssText = `
-      background: var(--color-bg-white);
-      color: var(--color-text-primary);
-      padding: 24px;
-      border-radius: 8px;
-      max-width: 500px;
-      box-shadow: var(--shadow-md);
-    `
 
     // Build modal content
     const title = document.createElement('h3')
     title.textContent = 'Guided Tour'
-    title.style.marginTop = '0'
 
     const message = document.createElement('p')
     message.textContent = 'You can restart the guided tour anytime from the Help menu in the header.'
@@ -319,18 +298,18 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
     let checkbox = null
     if (!noTourConfig) {
       checkbox = document.createElement('label')
-      checkbox.style.cssText = 'display: block; margin: 15px 0; font-size: 14px;'
+      checkbox.className = 'tour-exit-checkbox'
       // Checkbox is checked if show_tour is currently false (already disabled)
       const isChecked = !currentShowTourValue
       checkbox.innerHTML = `
-        <input type="checkbox" id="tour-exit-no-show" ${isChecked ? 'checked' : ''} style="margin-right: 8px;">
+        <input type="checkbox" id="tour-exit-no-show" ${isChecked ? 'checked' : ''}>
         Don't show this tour automatically on startup
       `
     }
 
     // OK Button
     const buttonContainer = document.createElement('div')
-    buttonContainer.style.cssText = 'display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;'
+    buttonContainer.className = 'tour-exit-buttons'
 
     const okBtn = document.createElement('button')
     okBtn.textContent = 'OK'
@@ -404,22 +383,7 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         // Add custom cancel button (X) for all steps
         const cancelBtn = document.createElement('button')
         cancelBtn.textContent = '×'
-        cancelBtn.className = 'tour-custom-close-btn'  // Use custom class to avoid driver.js conflicts
-        cancelBtn.style.cssText = `
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          background: transparent;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: var(--color-text-muted);
-          padding: 0;
-          width: 24px;
-          height: 24px;
-          line-height: 20px;
-          z-index: 1;
-        `
+        cancelBtn.className = 'tour-custom-close-btn'
         cancelBtn.onclick = () => {
           tourActive = false
           driverObj.destroy()
@@ -429,11 +393,9 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         // Add checkbox on Step 15 (last step)
         if (currentStepIndex === steps.length - 1 && !noTourConfig) {
           const checkbox = document.createElement('label')
-          checkbox.style.display = 'block'
-          checkbox.style.marginTop = '15px'
-          checkbox.style.fontSize = '14px'
+          checkbox.className = 'tour-step-checkbox'
           checkbox.innerHTML = `
-            <input type="checkbox" id="tour-no-show-again" checked style="margin-right: 8px;">
+            <input type="checkbox" id="tour-no-show-again" checked>
             Don't show this tour again on startup
           `
           popover.wrapper.querySelector('.driver-popover-description')?.parentNode.appendChild(checkbox)

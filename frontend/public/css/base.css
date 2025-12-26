@@ -108,3 +108,79 @@
 .driver-popover-arrow-side-bottom {
     border-bottom-color: var(--color-bg-white) !important;
 }
+
+/* Custom X button for tour */
+.tour-custom-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 20px;
+    z-index: 1;
+}
+
+.tour-custom-close-btn:hover {
+    color: var(--color-text-primary);
+}
+
+/* Tour exit dialog */
+.tour-exit-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--modal-overlay-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.tour-exit-modal {
+    background: var(--color-bg-white);
+    color: var(--color-text-primary);
+    padding: 24px;
+    border-radius: 8px;
+    max-width: 500px;
+    box-shadow: var(--shadow-md);
+}
+
+.tour-exit-modal h3 {
+    margin-top: 0;
+}
+
+.tour-exit-checkbox {
+    display: block;
+    margin: 15px 0;
+    font-size: 14px;
+}
+
+.tour-exit-checkbox input {
+    margin-right: 8px;
+}
+
+.tour-exit-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* Tour step 15 checkbox */
+.tour-step-checkbox {
+    display: block;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+.tour-step-checkbox input {
+    margin-right: 8px;
+}
