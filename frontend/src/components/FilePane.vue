@@ -1743,8 +1743,8 @@ function handleKeyDown(event) {
       }
     }
 
-    // Grid layout: Shift+Left/Right switches panes and selects first item
-    if (viewMode.value === 'grid' && event.shiftKey) {
+    // Grid layout: Shift+Left/Right switches panes and selects first item (only when one item is selected)
+    if (viewMode.value === 'grid' && event.shiftKey && selectedIndexes.length === 1) {
       if ((event.key === 'ArrowLeft' && props.pane === 'right') ||
           (event.key === 'ArrowRight' && props.pane === 'left')) {
         if (oppositePaneState.files.length === 0) return

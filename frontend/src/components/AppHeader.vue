@@ -85,10 +85,10 @@ const allowExpertMode = ref(false)
 const noTourConfig = ref(false)
 const isQuitting = ref(false) // Prevent multiple quit confirmations
 
-// Menu navigation state
-const viewMenuSelectedIndex = ref(0)
-const helpMenuSelectedIndex = ref(0)
-const themeMenuSelectedIndex = ref(0)
+// Menu navigation state (-1 means no selection)
+const viewMenuSelectedIndex = ref(-1)
+const helpMenuSelectedIndex = ref(-1)
+const themeMenuSelectedIndex = ref(-1)
 
 const viewModeIcon = computed(() =>
   appStore.viewMode === 'grid' ? '☰' : '⊞'
@@ -147,7 +147,7 @@ function toggleViewMenu(e) {
   showViewMenu.value = !showViewMenu.value
   // Reset selected index when opening
   if (showViewMenu.value) {
-    viewMenuSelectedIndex.value = 0
+    viewMenuSelectedIndex.value = -1
     showHelpMenu.value = false
     showThemeMenu.value = false
   }
@@ -173,7 +173,7 @@ function toggleHelpMenu(e) {
   showHelpMenu.value = !showHelpMenu.value
   // Reset selected index when opening
   if (showHelpMenu.value) {
-    helpMenuSelectedIndex.value = 0
+    helpMenuSelectedIndex.value = -1
     showViewMenu.value = false
     showThemeMenu.value = false
   }
@@ -194,7 +194,7 @@ function toggleThemeMenu(e) {
   showThemeMenu.value = !showThemeMenu.value
   // Reset selected index when opening
   if (showThemeMenu.value) {
-    themeMenuSelectedIndex.value = 0
+    themeMenuSelectedIndex.value = -1
     showViewMenu.value = false
     showHelpMenu.value = false
   }
@@ -298,15 +298,29 @@ function showShutdownConfirmation() {
 function handleGlobalKeydown(e) {
   // Handle menu navigation
   if (showViewMenu.value) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
       e.preventDefault()
-      viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value + 1) % 3 // 3 items in View menu
+      e.stopPropagation()
+      showViewMenu.value = false
+      viewMenuSelectedIndex.value = -1
+      return
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (viewMenuSelectedIndex.value === -1) {
+        viewMenuSelectedIndex.value = 0
+      } else {
+        viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value + 1) % 3 // 3 items in View menu
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value - 1 + 3) % 3
+      if (viewMenuSelectedIndex.value === -1) {
+        viewMenuSelectedIndex.value = 2 // Last item
+      } else {
+        viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value - 1 + 3) % 3
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      // Activate selected menu item
+      // Only activate if something is selected
       if (viewMenuSelectedIndex.value === 0) {
         switchViewMode()
       } else if (viewMenuSelectedIndex.value === 1) {
@@ -319,15 +333,29 @@ function handleGlobalKeydown(e) {
   }
 
   if (showHelpMenu.value) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
       e.preventDefault()
-      helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value + 1) % 2 // 2 items in Help menu
+      e.stopPropagation()
+      showHelpMenu.value = false
+      helpMenuSelectedIndex.value = -1
+      return
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (helpMenuSelectedIndex.value === -1) {
+        helpMenuSelectedIndex.value = 0
+      } else {
+        helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value + 1) % 2 // 2 items in Help menu
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value - 1 + 2) % 2
+      if (helpMenuSelectedIndex.value === -1) {
+        helpMenuSelectedIndex.value = 1 // Last item
+      } else {
+        helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value - 1 + 2) % 2
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      // Activate selected menu item
+      // Only activate if something is selected
       if (helpMenuSelectedIndex.value === 0) {
         showKeyboardShortcuts()
       } else if (helpMenuSelectedIndex.value === 1) {
@@ -338,17 +366,33 @@ function handleGlobalKeydown(e) {
   }
 
   if (showThemeMenu.value) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
       e.preventDefault()
-      themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value + 1) % 3 // 3 items in Theme menu
+      e.stopPropagation()
+      showThemeMenu.value = false
+      themeMenuSelectedIndex.value = -1
+      return
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (themeMenuSelectedIndex.value === -1) {
+        themeMenuSelectedIndex.value = 0
+      } else {
+        themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value + 1) % 3 // 3 items in Theme menu
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value - 1 + 3) % 3
+      if (themeMenuSelectedIndex.value === -1) {
+        themeMenuSelectedIndex.value = 2 // Last item
+      } else {
+        themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value - 1 + 3) % 3
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      // Activate selected theme
-      const themes = ['auto', 'light', 'dark']
-      setTheme(themes[themeMenuSelectedIndex.value])
+      // Only activate if something is selected
+      if (themeMenuSelectedIndex.value >= 0) {
+        const themes = ['auto', 'light', 'dark']
+        setTheme(themes[themeMenuSelectedIndex.value])
+      }
     }
     return
   }
@@ -385,6 +429,9 @@ document.addEventListener('click', () => {
   showViewMenu.value = false
   showHelpMenu.value = false
   showThemeMenu.value = false
+  viewMenuSelectedIndex.value = -1
+  helpMenuSelectedIndex.value = -1
+  themeMenuSelectedIndex.value = -1
 })
 
 // Event handlers for keyboard shortcuts
@@ -393,6 +440,10 @@ function handleOpenViewMenu() {
   showHelpMenu.value = false
   showThemeMenu.value = false
   showViewMenu.value = !showViewMenu.value
+  // Reset selection when opening
+  if (showViewMenu.value) {
+    viewMenuSelectedIndex.value = -1
+  }
 }
 
 function handleOpenHelpMenu() {
@@ -400,6 +451,10 @@ function handleOpenHelpMenu() {
   showViewMenu.value = false
   showThemeMenu.value = false
   showHelpMenu.value = !showHelpMenu.value
+  // Reset selection when opening
+  if (showHelpMenu.value) {
+    helpMenuSelectedIndex.value = -1
+  }
 }
 
 function handleToggleMode() {
