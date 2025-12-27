@@ -14,55 +14,60 @@
     <template #body>
       <!-- Step 1: List Remotes -->
       <div v-if="currentStep === 1" class="remotes-list-container">
-        <p v-if="loading" class="loading-text">Loading remotes...</p>
-        <p v-else-if="remotes.length === 0" class="empty-text">No remotes configured</p>
-        <div v-else class="remotes-table">
-          <div class="table-header">
-            <div>Name</div>
-            <div>Type</div>
-            <div>Actions</div>
-          </div>
-          <div class="table-body" ref="remotesTableBody">
-            <div
-              v-for="(remote, index) in sortedRemotes"
-              :key="remote.name"
-              @click="handleRemoteRowClick(remote.name, index)"
-              class="remote-row"
-              :class="{ 'selected-remote': index === selectedRemoteIndex }"
-              title="Click to view configuration"
-            >
-              <div class="col-name">{{ remote.name }}</div>
-              <div class="col-type">{{ remote.type }}</div>
-              <div class="col-actions">
-                <button
-                  v-if="remote.is_oauth"
-                  class="remote-icon-btn oauth-refresh-btn"
-                  @click.stop="refreshOAuth(remote.name)"
-                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
-                  :title="remote.is_readonly ? 'Cannot refresh OAuth for read-only remote' : (isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token')"
-                >↻</button>
-                <span v-else class="oauth-spacer"></span>
+        <ModalTable
+          ref="modalTableRef"
+          :items="sortedRemotes"
+          :columns="remoteColumns"
+          v-model:selected-index="selectedRemoteIndex"
+          :grid-template-columns="'1fr 1fr 140px'"
+          :row-key="remote => remote.name"
+          :loading="loading"
+          loading-message="Loading remotes..."
+          empty-message="No remotes configured"
+          @row-click="handleRemoteRowClick"
+          @keydown="handleCustomKeyDown"
+        >
+          <!-- Custom cell: Name -->
+          <template #cell-name="{ item }">
+            <span class="col-name">{{ item.name }}</span>
+          </template>
 
-                <button
-                  class="remote-icon-btn"
-                  @click.stop="editRemoteConfig(remote.name)"
-                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
-                  :title="remote.is_readonly ? 'Cannot edit read-only remote' : (isActiveRemote(remote.name) ? 'Cannot edit remote while in use' : 'Edit remote')"
-                >✏️</button>
+          <!-- Custom cell: Type -->
+          <template #cell-type="{ item }">
+            <span class="col-type">{{ item.type }}</span>
+          </template>
 
-                <button
-                  class="remote-icon-btn"
-                  @click.stop="deleteRemote(remote.name)"
-                  :disabled="isActiveRemote(remote.name) || remote.is_readonly"
-                  :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
-                  :title="remote.is_readonly ? 'Cannot delete read-only remote' : (isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote')"
-                >🗑️</button>
-              </div>
+          <!-- Custom cell: Actions -->
+          <template #cell-actions="{ item }">
+            <div class="col-actions">
+              <button
+                v-if="item.is_oauth"
+                class="remote-icon-btn oauth-refresh-btn"
+                @click.stop="refreshOAuth(item.name)"
+                :disabled="isActiveRemote(item.name) || item.is_readonly"
+                :class="{ 'disabled': isActiveRemote(item.name) || item.is_readonly }"
+                :title="item.is_readonly ? 'Cannot refresh OAuth for read-only remote' : (isActiveRemote(item.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token')"
+              >↻</button>
+              <span v-else class="oauth-spacer"></span>
+
+              <button
+                class="remote-icon-btn"
+                @click.stop="editRemoteConfig(item.name)"
+                :disabled="isActiveRemote(item.name) || item.is_readonly"
+                :class="{ 'disabled': isActiveRemote(item.name) || item.is_readonly }"
+                :title="item.is_readonly ? 'Cannot edit read-only remote' : (isActiveRemote(item.name) ? 'Cannot edit remote while in use' : 'Edit remote')"
+              >✏️</button>
+
+              <button
+                class="remote-icon-btn"
+                @click.stop="deleteRemote(item.name)"
+                :disabled="isActiveRemote(item.name) || item.is_readonly"
+                :class="{ 'disabled': isActiveRemote(item.name) || item.is_readonly }"
+                :title="item.is_readonly ? 'Cannot delete read-only remote' : (isActiveRemote(item.name) ? 'Cannot delete remote while in use' : 'Delete remote')"
+              >🗑️</button>
             </div>
-          </div>
-        </div>
+          </template>
+        </ModalTable>
       </div>
 
       <!-- Step 2: Select Template -->
@@ -311,18 +316,26 @@ import { apiCall } from '../../services/api'
 import { validateRemoteName } from '../../utils/remoteNameValidation'
 import { sortRemotes } from '../../utils/remoteSorting'
 import BaseModal from './BaseModal.vue'
+import ModalTable from './ModalTable.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
 import CustomRemoteWizardModal from './CustomRemoteWizardModal.vue'
 
 const appStore = useAppStore()
 
+// Column definitions for remotes table
+const remoteColumns = [
+  { key: 'name', header: 'Name' },
+  { key: 'type', header: 'Type' },
+  { key: 'actions', header: 'Actions' }
+]
+
 // State
 const currentStep = ref(1)
 const loading = ref(false)
 const remotes = ref([])
 const selectedRemoteIndex = ref(-1) // For keyboard navigation
-const remotesTableBody = ref(null)
+const modalTableRef = ref(null)
 const templates = ref([])
 const templatesAvailable = ref(false)
 const selectedTemplate = ref(null)
@@ -949,9 +962,9 @@ async function createCustomRemote() {
 }
 
 // View remote config
-function handleRemoteRowClick(name, index) {
-  selectedRemoteIndex.value = index
-  viewRemoteConfig(name)
+function handleRemoteRowClick(remote, index) {
+  // Note: selectedRemoteIndex is already updated by v-model
+  viewRemoteConfig(remote.name)
 }
 
 async function viewRemoteConfig(name) {
@@ -995,7 +1008,8 @@ function handleViewConfigKeyDown(event) {
 }
 
 // Keyboard navigation for Step 1 (remotes list)
-function handleRemotesListKeyDown(event) {
+// Custom keyboard shortcuts (beyond basic navigation handled by ModalTable)
+function handleCustomKeyDown(event) {
   // Only handle on Step 1
   if (currentStep.value !== 1) return
 
@@ -1006,98 +1020,74 @@ function handleRemotesListKeyDown(event) {
   const sortedRemotesList = sortedRemotes.value
   if (sortedRemotesList.length === 0) return
 
-  if (event.key === 'ArrowDown') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (selectedRemoteIndex.value < sortedRemotesList.length - 1) {
-      selectedRemoteIndex.value++
-      scrollToSelectedRemote()
-    }
-  } else if (event.key === 'ArrowUp') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (selectedRemoteIndex.value > 0) {
-      selectedRemoteIndex.value--
-      scrollToSelectedRemote()
-    } else if (selectedRemoteIndex.value === -1 && sortedRemotesList.length > 0) {
-      selectedRemoteIndex.value = 0
-      scrollToSelectedRemote()
-    }
-  } else if (event.key === 'Enter' && selectedRemoteIndex.value >= 0) {
+  // Enter - View config
+  if (event.key === 'Enter' && selectedRemoteIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     const remote = sortedRemotesList[selectedRemoteIndex.value]
     viewRemoteConfig(remote.name)
-  } else if ((event.key === 'e' || event.key === 'E') && selectedRemoteIndex.value >= 0) {
+  }
+  // E - Edit config
+  else if ((event.key === 'e' || event.key === 'E') && selectedRemoteIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     const remote = sortedRemotesList[selectedRemoteIndex.value]
     if (!isActiveRemote(remote.name) && !remote.is_readonly) {
       editRemoteConfig(remote.name)
     }
-  } else if ((event.key === 'r' || event.key === 'R') && selectedRemoteIndex.value >= 0) {
+  }
+  // R - Refresh OAuth
+  else if ((event.key === 'r' || event.key === 'R') && selectedRemoteIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     const remote = sortedRemotesList[selectedRemoteIndex.value]
     if (remote.is_oauth && !isActiveRemote(remote.name) && !remote.is_readonly) {
       refreshOAuth(remote.name)
     }
-  } else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedRemoteIndex.value >= 0) {
+  }
+  // D/Delete - Delete remote
+  else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedRemoteIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     const remote = sortedRemotesList[selectedRemoteIndex.value]
     if (!isActiveRemote(remote.name) && !remote.is_readonly) {
       deleteRemote(remote.name)
     }
-  } else if (event.key === 'PageDown') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (remotesTableBody.value) {
-      remotesTableBody.value.scrollTop += remotesTableBody.value.clientHeight
-    }
-  } else if (event.key === 'PageUp') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (remotesTableBody.value) {
-      remotesTableBody.value.scrollTop -= remotesTableBody.value.clientHeight
-    }
-  } else if (event.key === 'Home') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (remotesTableBody.value) {
-      remotesTableBody.value.scrollTop = 0
-    }
-  } else if (event.key === 'End') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (remotesTableBody.value) {
-      remotesTableBody.value.scrollTop = remotesTableBody.value.scrollHeight
-    }
-  }
-}
-
-function scrollToSelectedRemote() {
-  if (!remotesTableBody.value || selectedRemoteIndex.value < 0) return
-
-  const rows = remotesTableBody.value.children
-  if (rows[selectedRemoteIndex.value]) {
-    rows[selectedRemoteIndex.value].scrollIntoView({
-      block: 'nearest',
-      behavior: 'smooth'
-    })
   }
 }
 
 // Watch for modal open/close to manage keyboard listener
 watch(() => appStore.showManageRemotesModal, (isOpen) => {
   if (isOpen) {
+    // Start keyboard listener in ModalTable when on step 1
     nextTick(() => {
-      // Use capture phase to handle events before BaseModal's handler
-      window.addEventListener('keydown', handleRemotesListKeyDown, { capture: true })
+      if (modalTableRef.value && currentStep.value === 1) {
+        modalTableRef.value.startKeyboardListener()
+      }
     })
   } else {
-    window.removeEventListener('keydown', handleRemotesListKeyDown, { capture: true })
+    // Stop keyboard listener in ModalTable
+    if (modalTableRef.value) {
+      modalTableRef.value.stopKeyboardListener()
+    }
     selectedRemoteIndex.value = -1 // Reset selection
+  }
+})
+
+// Watch for step changes to manage keyboard listener
+watch(currentStep, (newStep, oldStep) => {
+  if (newStep === 1 && oldStep !== 1 && appStore.showManageRemotesModal) {
+    // Entering step 1, start keyboard listener
+    nextTick(() => {
+      if (modalTableRef.value) {
+        modalTableRef.value.startKeyboardListener()
+      }
+    })
+  } else if (newStep !== 1 && oldStep === 1) {
+    // Leaving step 1, stop keyboard listener
+    if (modalTableRef.value) {
+      modalTableRef.value.stopKeyboardListener()
+    }
   }
 })
 
@@ -1337,56 +1327,7 @@ async function handleOAuthRefreshed() {
   margin-bottom: var(--spacing-lg);
 }
 
-.loading-text,
-.empty-text {
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-/* Table header styling - keep in sync with CompletedJobsModal */
-.table-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr 140px;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-bg-secondary);
-  border-bottom: 2px solid var(--color-border);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.table-body {
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.remote-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 140px;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-lighter);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  min-height: 44px;
-  align-items: center;
-}
-
-.remote-row:hover {
-  background-color: var(--color-bg-light);
-  border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
-}
-
-.remote-row.selected-remote {
-  background-color: var(--color-bg-primary-light);
-  border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
-}
-
+/* Custom column styling */
 .col-name,
 .col-type {
   color: var(--color-text-primary);

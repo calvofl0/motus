@@ -7,46 +7,57 @@
     @close="handleClose"
   >
     <div class="completed-jobs-container">
-      <div v-if="loading" class="loading">Loading completed jobs...</div>
+      <ModalTable
+        ref="modalTableRef"
+        :items="completedJobs"
+        :columns="columns"
+        v-model:selected-index="selectedJobIndex"
+        :grid-template-columns="'50px 60px 1fr 1fr 100px 40px'"
+        :row-key="job => job.job_id"
+        :loading="loading"
+        loading-message="Loading completed jobs..."
+        empty-message="No completed jobs found."
+        @row-click="handleJobRowClick"
+        @keydown="handleCustomKeyDown"
+      >
+        <!-- Custom cell: ID -->
+        <template #cell-id="{ item }">
+          <span class="col-id">#{{ item.job_id }}</span>
+        </template>
 
-      <div v-else-if="completedJobs.length === 0" class="no-jobs">
-        No completed jobs found.
-      </div>
+        <!-- Custom cell: Operation -->
+        <template #cell-operation="{ item }">
+          <span class="col-operation">{{ formatOperation(item.operation) }}</span>
+        </template>
 
-      <div v-else class="jobs-table">
-        <div class="table-header">
-          <div>ID</div>
-          <div>Op</div>
-          <div>Source</div>
-          <div>Destination</div>
-          <div>Completed</div>
-          <div></div>
-        </div>
-        <div class="table-body" ref="tableBodyRef">
-          <div
-            v-for="(job, index) in completedJobs"
-            :key="job.job_id"
-            class="job-row"
-            :class="{ 'selected-job': index === selectedJobIndex }"
-            @click="handleJobRowClick(job, index)"
-          >
-            <div class="col-id">#{{ job.job_id }}</div>
-            <div class="col-operation">{{ formatOperation(job.operation) }}</div>
-            <div class="col-source" :title="job.src_path">{{ truncatePath(job.src_path) }}</div>
-            <div class="col-dest" :title="job.dst_path">{{ truncatePath(job.dst_path) }}</div>
-            <div class="col-time">{{ formatRelativeTime(job.finished_at) }}</div>
-            <div class="col-actions">
-              <button
-                class="delete-btn"
-                @click.stop="handleDeleteJob(job.job_id)"
-                title="Delete the log of this job"
-              >
-                🗑️
-              </button>
-            </div>
+        <!-- Custom cell: Source -->
+        <template #cell-source="{ item }">
+          <span class="col-source" :title="item.src_path">{{ truncatePath(item.src_path) }}</span>
+        </template>
+
+        <!-- Custom cell: Destination -->
+        <template #cell-destination="{ item }">
+          <span class="col-dest" :title="item.dst_path">{{ truncatePath(item.dst_path) }}</span>
+        </template>
+
+        <!-- Custom cell: Completed -->
+        <template #cell-completed="{ item }">
+          <span class="col-time">{{ formatRelativeTime(item.finished_at) }}</span>
+        </template>
+
+        <!-- Custom cell: Actions -->
+        <template #cell-actions="{ item }">
+          <div class="col-actions">
+            <button
+              class="delete-btn"
+              @click.stop="handleDeleteJob(item.job_id)"
+              title="Delete the log of this job"
+            >
+              🗑️
+            </button>
           </div>
-        </div>
-      </div>
+        </template>
+      </ModalTable>
     </div>
 
     <template #footer>
@@ -84,6 +95,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { apiCall } from '../../services/api'
 import BaseModal from './BaseModal.vue'
+import ModalTable from './ModalTable.vue'
 import JobLogModal from './JobLogModal.vue'
 import ConfirmModal from './ConfirmModal.vue'
 
@@ -101,6 +113,16 @@ const isOpen = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
+// Column definitions
+const columns = [
+  { key: 'id', header: 'ID' },
+  { key: 'operation', header: 'Op' },
+  { key: 'source', header: 'Source' },
+  { key: 'destination', header: 'Destination' },
+  { key: 'completed', header: 'Completed' },
+  { key: 'actions', header: '' }
+]
+
 const completedJobs = ref([])
 const loading = ref(false)
 const selectedJob = ref(null)
@@ -108,15 +130,25 @@ const selectedJobIndex = ref(-1) // For keyboard navigation
 const showJobLogModal = ref(false)
 const showPurgeConfirm = ref(false)
 const modalRef = ref(null)
-const tableBodyRef = ref(null)
+const modalTableRef = ref(null)
 
 // Fetch completed jobs when modal opens
 watch(isOpen, async (newVal) => {
   if (newVal) {
     await fetchCompletedJobs()
     selectedJobIndex.value = -1 // Reset selection
+    // Start keyboard listener in ModalTable
+    nextTick(() => {
+      if (modalTableRef.value) {
+        modalTableRef.value.startKeyboardListener()
+      }
+    })
   } else {
     selectedJobIndex.value = -1 // Reset when closing
+    // Stop keyboard listener in ModalTable
+    if (modalTableRef.value) {
+      modalTableRef.value.stopKeyboardListener()
+    }
   }
 })
 
@@ -134,7 +166,7 @@ async function fetchCompletedJobs() {
 }
 
 function handleJobRowClick(job, index) {
-  selectedJobIndex.value = index
+  // Note: selectedJobIndex is already updated by v-model
   handleShowJobLog(job)
 }
 
@@ -206,8 +238,8 @@ function formatOperation(op) {
   return op.charAt(0).toUpperCase() + op.slice(1)
 }
 
-// Keyboard navigation
-function handleKeyDown(event) {
+// Custom keyboard shortcuts (beyond basic navigation handled by ModalTable)
+function handleCustomKeyDown(event) {
   // Don't handle if child modals are open
   if (showJobLogModal.value || showPurgeConfirm.value) return
 
@@ -221,82 +253,20 @@ function handleKeyDown(event) {
 
   if (completedJobs.value.length === 0) return
 
-  if (event.key === 'ArrowDown') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (selectedJobIndex.value < completedJobs.value.length - 1) {
-      selectedJobIndex.value++
-      scrollToSelectedJob()
-    }
-  } else if (event.key === 'ArrowUp') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (selectedJobIndex.value > 0) {
-      selectedJobIndex.value--
-      scrollToSelectedJob()
-    } else if (selectedJobIndex.value === -1 && completedJobs.value.length > 0) {
-      selectedJobIndex.value = 0
-      scrollToSelectedJob()
-    }
-  } else if (event.key === 'PageDown') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (tableBodyRef.value) {
-      tableBodyRef.value.scrollTop += tableBodyRef.value.clientHeight
-    }
-  } else if (event.key === 'PageUp') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (tableBodyRef.value) {
-      tableBodyRef.value.scrollTop -= tableBodyRef.value.clientHeight
-    }
-  } else if (event.key === 'Home') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (tableBodyRef.value) {
-      tableBodyRef.value.scrollTop = 0
-    }
-  } else if (event.key === 'End') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (tableBodyRef.value) {
-      tableBodyRef.value.scrollTop = tableBodyRef.value.scrollHeight
-    }
-  } else if (event.key === 'Enter' && selectedJobIndex.value >= 0) {
+  // Enter - View log
+  if (event.key === 'Enter' && selectedJobIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     handleShowJobLog(completedJobs.value[selectedJobIndex.value])
-  } else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedJobIndex.value >= 0) {
+  }
+  // D/Delete - Delete job
+  else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedJobIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
     const job = completedJobs.value[selectedJobIndex.value]
     handleDeleteJob(job.job_id)
   }
 }
-
-function scrollToSelectedJob() {
-  if (!tableBodyRef.value || selectedJobIndex.value < 0) return
-
-  const rows = tableBodyRef.value.children
-  if (rows[selectedJobIndex.value]) {
-    rows[selectedJobIndex.value].scrollIntoView({
-      block: 'nearest',
-      behavior: 'smooth'
-    })
-  }
-}
-
-// Add keyboard listener when modal is open
-watch(isOpen, (newVal) => {
-  if (newVal) {
-    // Use capture phase to handle events before BaseModal's handler
-    nextTick(() => {
-      window.addEventListener('keydown', handleKeyDown, { capture: true })
-    })
-  } else {
-    window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }
-})
 
 function truncatePath(path) {
   if (!path) return ''
@@ -422,63 +392,7 @@ function formatRelativeTime(isoString) {
   min-height: 300px;
 }
 
-.loading,
-.no-jobs {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--color-text-secondary);
-  font-style: italic;
-}
-
-.jobs-table {
-  display: flex;
-  flex-direction: column;
-  font-size: var(--font-size-sm);
-}
-
-/* Table header styling - keep in sync with ManageRemotesModal */
-.table-header {
-  display: grid;
-  grid-template-columns: 50px 60px 1fr 1fr 100px 40px;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-bg-secondary);
-  border-bottom: 2px solid var(--color-border);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.table-body {
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.job-row {
-  display: grid;
-  grid-template-columns: 50px 60px 1fr 1fr 100px 40px;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-light);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  align-items: center;
-}
-
-.job-row:hover {
-  background: var(--color-bg-light);
-  border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
-}
-
-.job-row.selected-job {
-  background: var(--color-bg-primary-light);
-  border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
-}
-
+/* Custom column styling */
 .col-id {
   font-weight: var(--font-weight-semibold);
   color: var(--color-primary);
