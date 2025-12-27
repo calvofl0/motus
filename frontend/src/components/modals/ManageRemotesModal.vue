@@ -16,13 +16,13 @@
       <div v-if="currentStep === 1" class="remotes-list-container">
         <p v-if="loading" class="loading-text">Loading remotes...</p>
         <p v-else-if="remotes.length === 0" class="empty-text">No remotes configured</p>
-        <div v-else class="remotes-table-container">
-          <div class="table-body-wrapper" ref="remotesTableBody">
-            <div class="table-header">
-              <div>Name</div>
-              <div>Type</div>
-              <div>Actions</div>
-            </div>
+        <div v-else class="remotes-table">
+          <div class="table-header">
+            <div>Name</div>
+            <div>Type</div>
+            <div>Actions</div>
+          </div>
+          <div class="table-body" ref="remotesTableBody">
             <div
               v-for="(remote, index) in sortedRemotes"
               :key="remote.name"
@@ -1079,8 +1079,7 @@ function handleRemotesListKeyDown(event) {
 function scrollToSelectedRemote() {
   if (!remotesTableBody.value || selectedRemoteIndex.value < 0) return
 
-  // Get all children, skip the first one (table-header)
-  const rows = Array.from(remotesTableBody.value.children).slice(1)
+  const rows = remotesTableBody.value.children
   if (rows[selectedRemoteIndex.value]) {
     rows[selectedRemoteIndex.value].scrollIntoView({
       block: 'nearest',
@@ -1336,20 +1335,12 @@ async function handleOAuthRefreshed() {
 
 .remotes-list-container {
   margin-bottom: var(--spacing-lg);
-  overflow-y: auto;
-  max-height: 50vh;
 }
 
 .loading-text,
 .empty-text {
   color: var(--color-text-secondary);
   text-align: center;
-}
-
-/* Scrollable container */
-.table-body-wrapper {
-  max-height: 50vh;
-  overflow-y: auto;
 }
 
 /* Table header styling - keep in sync with CompletedJobsModal */
@@ -1365,9 +1356,11 @@ async function handleOAuthRefreshed() {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+}
+
+.table-body {
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .remote-row {
