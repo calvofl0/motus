@@ -4,7 +4,7 @@
     @update:modelValue="$emit('update:modelValue', $event)"
     @confirm="$emit('update:modelValue', false)"
     title="Keyboard Shortcuts"
-    size="large"
+    size="xlarge"
   >
     <div class="shortcuts-container">
       <!-- File Navigation -->
@@ -224,7 +224,7 @@ defineEmits(['update:modelValue'])
 <style scoped>
 .shortcuts-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--spacing-lg);
 }
 

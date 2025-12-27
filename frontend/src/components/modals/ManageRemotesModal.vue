@@ -1327,11 +1327,15 @@ async function handleOAuthRefreshed() {
   margin-bottom: var(--spacing-lg);
 }
 
+/* Increase base font size for remotes table */
+.remotes-list-container :deep(.table-row) {
+  font-size: var(--font-size-base);
+}
+
 /* Custom column styling */
 .col-name,
 .col-type {
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
 }
 
 .col-actions {

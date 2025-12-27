@@ -233,7 +233,7 @@ defineExpose({
 .table-header {
   display: grid;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) 0;
   background: var(--color-bg-secondary);
   border-bottom: 2px solid var(--color-border);
   font-weight: var(--font-weight-bold);
@@ -251,7 +251,7 @@ defineExpose({
 .table-row {
   display: grid;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) 0;
   border-bottom: 1px solid var(--color-border-lighter);
   cursor: pointer;
   transition: var(--transition-fast);
@@ -262,13 +262,11 @@ defineExpose({
 .table-row:hover {
   background-color: var(--color-bg-light);
   border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
 }
 
 .table-row.selected-row {
   background-color: var(--color-bg-primary-light);
   border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--spacing-md) - 3px);
 }
 
 /* Column content styling */

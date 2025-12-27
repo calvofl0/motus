@@ -45,7 +45,7 @@ const props = defineProps({
   size: {
     type: String,
     default: 'medium',
-    validator: (value) => ['small', 'medium', 'large'].includes(value)
+    validator: (value) => ['small', 'medium', 'large', 'xlarge'].includes(value)
   },
   closeOnOverlayClick: {
     type: Boolean,
@@ -120,8 +120,9 @@ function findScrollableElement(element) {
     }
   }
 
-  // Check direct children for scrollable elements
+  // Recursively check children for scrollable elements
   for (const child of element.children) {
+    // First check if this child is directly scrollable
     if (child.scrollHeight > child.clientHeight) {
       const overflowY = window.getComputedStyle(child).overflowY
       if (overflowY === 'auto' || overflowY === 'scroll') {
@@ -130,12 +131,16 @@ function findScrollableElement(element) {
     }
     // Recursively check nested children
     const scrollableChild = findScrollableElement(child)
-    if (scrollableChild) {
-      return scrollableChild
+    // Only return if we actually found a scrollable element (not the fallback)
+    if (scrollableChild && scrollableChild.scrollHeight > scrollableChild.clientHeight) {
+      const overflowY = window.getComputedStyle(scrollableChild).overflowY
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        return scrollableChild
+      }
     }
   }
 
-  // If no scrollable child found, return the original element
+  // If no scrollable child found, return the original element as fallback
   return element
 }
 
@@ -205,6 +210,11 @@ defineExpose({
 .modal-large {
   width: 900px;
   max-width: 95vw;
+}
+
+.modal-xlarge {
+  width: 80vw;
+  max-width: 1400px;
 }
 
 .modal-header {
