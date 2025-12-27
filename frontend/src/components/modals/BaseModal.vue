@@ -83,27 +83,60 @@ function handleKeyDown(event) {
   // Handle arrow keys for scrolling
   if (!modalBodyRef.value) return
 
+  // Find the scrollable element (either modal-body itself or a child with overflow)
+  const scrollableElement = findScrollableElement(modalBodyRef.value)
+  if (!scrollableElement) return
+
   const scrollAmount = 40 // pixels to scroll per key press
 
   if (event.key === 'ArrowDown') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop += scrollAmount
+    scrollableElement.scrollTop += scrollAmount
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop -= scrollAmount
+    scrollableElement.scrollTop -= scrollAmount
   } else if (event.key === 'PageDown') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop += modalBodyRef.value.clientHeight
+    scrollableElement.scrollTop += scrollableElement.clientHeight
   } else if (event.key === 'PageUp') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop -= modalBodyRef.value.clientHeight
+    scrollableElement.scrollTop -= scrollableElement.clientHeight
   } else if (event.key === 'Home') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop = 0
+    scrollableElement.scrollTop = 0
   } else if (event.key === 'End') {
     event.preventDefault()
-    modalBodyRef.value.scrollTop = modalBodyRef.value.scrollHeight
+    scrollableElement.scrollTop = scrollableElement.scrollHeight
   }
+}
+
+// Find the first scrollable element (element with scrollbar)
+function findScrollableElement(element) {
+  // Check if the element itself is scrollable
+  if (element.scrollHeight > element.clientHeight) {
+    const overflowY = window.getComputedStyle(element).overflowY
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return element
+    }
+  }
+
+  // Check direct children for scrollable elements
+  for (const child of element.children) {
+    if (child.scrollHeight > child.clientHeight) {
+      const overflowY = window.getComputedStyle(child).overflowY
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        return child
+      }
+    }
+    // Recursively check nested children
+    const scrollableChild = findScrollableElement(child)
+    if (scrollableChild) {
+      return scrollableChild
+    }
+  }
+
+  // If no scrollable child found, return the original element
+  return element
 }
 
 // Focus overlay when modal opens to capture keyboard events
