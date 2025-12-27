@@ -266,8 +266,9 @@ const optimalColumnCount = computed(() => {
   const upperBound = Math.min(columnsToFitAllContent, maxColumnsBeforeOverflow)
 
   // minColumnsForMinWidth: Minimum columns for 25% window width constraint
+  // Use MIN_COLUMN_WIDTH so we don't force modal wider than necessary
   const minModalWidth = windowWidth.value * MIN_MODAL_WIDTH_RATIO
-  const minColumnsForMinWidth = Math.max(1, Math.ceil(minModalWidth / MAX_COLUMN_WIDTH))
+  const minColumnsForMinWidth = Math.max(1, Math.ceil(minModalWidth / MIN_COLUMN_WIDTH))
 
   // Search range: [minColumnsForMinWidth, upperBound]
   let bestColumnCount = minColumnsForMinWidth
