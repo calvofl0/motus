@@ -24,6 +24,7 @@
           :key="getRowKey(item, index)"
           class="table-row"
           :class="{ 'selected-row': index === selectedIndex }"
+          :style="{ gridTemplateColumns: gridTemplateColumns }"
           @click="handleRowClick(item, index)"
         >
           <div v-for="column in columns" :key="column.key" :class="`col-${column.key}`">
