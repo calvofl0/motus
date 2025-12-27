@@ -224,8 +224,8 @@ defineEmits(['update:modelValue'])
 <style scoped>
 .shortcuts-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: var(--spacing-xl);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
 }
 
 .shortcut-section h4 {
