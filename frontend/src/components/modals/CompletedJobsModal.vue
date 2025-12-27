@@ -160,6 +160,17 @@ watch(isOpen, async (newVal) => {
   }
 })
 
+// Stop keyboard listener when shortcuts modal opens, restart when it closes
+watch(showShortcutsModal, (isOpen) => {
+  if (isOpen) {
+    // Stop keyboard listener while shortcuts modal is open
+    if (modalTableRef.value) {
+      modalTableRef.value.stopKeyboardListener()
+    }
+  }
+  // Note: Listener is restarted in handleShortcutsClose()
+})
+
 async function fetchCompletedJobs() {
   loading.value = true
   try {
@@ -247,6 +258,10 @@ async function handleShortcutsClose() {
   await nextTick()
   if (modalRef.value && modalRef.value.focusOverlay) {
     modalRef.value.focusOverlay()
+  }
+  // Restart keyboard listener
+  if (modalTableRef.value) {
+    modalTableRef.value.startKeyboardListener()
   }
 }
 

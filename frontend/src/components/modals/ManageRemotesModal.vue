@@ -1112,6 +1112,25 @@ watch(currentStep, () => {
   selectedRemoteIndex.value = -1
 })
 
+// Stop keyboard listener when shortcuts modal opens
+watch(showShortcutsModal, (isOpen) => {
+  if (isOpen) {
+    // Stop keyboard listener while shortcuts modal is open
+    if (modalTableRef.value) {
+      modalTableRef.value.stopKeyboardListener()
+    }
+  } else {
+    // Restart keyboard listener when shortcuts modal closes (if on step 1)
+    if (currentStep.value === 1 && appStore.showManageRemotesModal) {
+      nextTick(() => {
+        if (modalTableRef.value) {
+          modalTableRef.value.startKeyboardListener()
+        }
+      })
+    }
+  }
+})
+
 // Watch view config modal to add/remove keyboard listener
 watch(showViewConfigModal, (isOpen) => {
   if (isOpen) {
