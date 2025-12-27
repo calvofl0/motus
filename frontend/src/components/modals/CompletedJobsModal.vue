@@ -211,6 +211,14 @@ function handleKeyDown(event) {
   // Don't handle if child modals are open
   if (showJobLogModal.value || showPurgeConfirm.value) return
 
+  // p/P - Purge All (works even without selection)
+  if ((event.key === 'p' || event.key === 'P') && completedJobs.value.length > 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    handlePurge()
+    return
+  }
+
   if (completedJobs.value.length === 0) return
 
   if (event.key === 'ArrowDown') {
@@ -414,9 +422,9 @@ function formatRelativeTime(isoString) {
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-secondary);
   border-bottom: 2px solid var(--color-border);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }

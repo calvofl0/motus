@@ -35,6 +35,10 @@
             <kbd>Shift</kbd> + <kbd>→</kbd>
             <span>Switch to right pane (or <kbd>→</kbd> in list mode)</span>
           </div>
+          <div class="shortcut-item">
+            <kbd>PgUp</kbd><kbd>PgDn</kbd>
+            <span>Scroll file list</span>
+          </div>
         </div>
       </div>
 
@@ -115,6 +119,79 @@
           <div class="shortcut-item">
             <kbd>Esc</kbd>
             <span>Close menu</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Scrolling -->
+      <div class="shortcut-section">
+        <h4>Modal Scrolling</h4>
+        <div class="shortcut-list">
+          <div class="shortcut-item">
+            <kbd>↑</kbd><kbd>↓</kbd>
+            <span>Scroll modal content (40px)</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>PgUp</kbd><kbd>PgDn</kbd>
+            <span>Scroll modal content (full page)</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Home</kbd><kbd>End</kbd>
+            <span>Jump to top/bottom of modal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Jobs Modal -->
+      <div class="shortcut-section">
+        <h4>Completed Jobs Modal</h4>
+        <div class="shortcut-list">
+          <div class="shortcut-item">
+            <kbd>↑</kbd><kbd>↓</kbd>
+            <span>Select job</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Enter</kbd>
+            <span>View selected job log</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>D</kbd> or <kbd>Del</kbd>
+            <span>Delete selected job</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>P</kbd>
+            <span>Purge all jobs</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>PgUp</kbd><kbd>PgDn</kbd>
+            <span>Scroll job list</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Remotes Modal -->
+      <div class="shortcut-section">
+        <h4>Manage Remotes Modal</h4>
+        <div class="shortcut-list">
+          <div class="shortcut-item">
+            <kbd>↑</kbd><kbd>↓</kbd>
+            <span>Select remote</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Enter</kbd>
+            <span>View selected remote config</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>E</kbd>
+            <span>Edit selected remote</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>R</kbd>
+            <span>Refresh OAuth for selected remote</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>D</kbd> or <kbd>Del</kbd>
+            <span>Delete selected remote</span>
           </div>
         </div>
       </div>

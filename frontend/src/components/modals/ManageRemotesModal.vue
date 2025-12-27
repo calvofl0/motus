@@ -1327,6 +1327,13 @@ async function handleOAuthRefreshed() {
   border-collapse: collapse;
 }
 
+.remotes-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-white);
+}
+
 .remotes-table thead tr {
   border-bottom: 2px solid var(--color-border);
 }
@@ -1335,7 +1342,9 @@ async function handleOAuthRefreshed() {
   text-align: left;
   padding: var(--spacing-xs);
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-secondary);
 }
 
 .remotes-table th.col-actions {
