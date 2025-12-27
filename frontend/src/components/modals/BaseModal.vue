@@ -102,14 +102,10 @@ const modalStyle = computed(() => {
   const maxWidthVw = windowWidth.value * 0.8
   const maxWidth = Math.min(maxWidthVw, 1400)
 
-  const style = {
+  return {
     width: props.customWidth,
     maxWidth: `${maxWidth}px`
   }
-
-  console.log('[BaseModal] modalStyle:', style, 'sizeClass:', sizeClass.value)
-
-  return style
 })
 
 function close() {

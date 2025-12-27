@@ -127,7 +127,8 @@ const optimalColumnCount = computed(() => {
     }
   }
 
-  return bestColumnCount
+  // IMPORTANT: Never have more columns than items!
+  return Math.min(bestColumnCount, itemCount)
 })
 
 // Generate grid-template-columns CSS
@@ -160,14 +161,6 @@ const modalWidth = computed(() => {
 
   // Calculate final modal width: exactly fits the columns (no empty space)
   const width = cols * desiredColumnWidth + gapTotal + padding
-
-  console.log('[BaseKeyboardShortcutsModal] Calculated width:', {
-    cols,
-    desiredColumnWidth,
-    width,
-    maxAvailableWidth,
-    spaceForColumns
-  })
 
   return `${Math.round(width)}px`
 })
