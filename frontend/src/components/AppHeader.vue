@@ -319,16 +319,19 @@ function handleGlobalKeydown(e) {
         viewMenuSelectedIndex.value = (viewMenuSelectedIndex.value - 1 + 3) % 3
       }
     } else if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      // Only activate if something is selected
-      if (viewMenuSelectedIndex.value === 0) {
-        switchViewMode()
-      } else if (viewMenuSelectedIndex.value === 1) {
-        toggleHiddenFiles()
-      } else if (viewMenuSelectedIndex.value === 2) {
-        toggleAbsolutePaths()
+      // Only prevent/activate if something is selected
+      if (viewMenuSelectedIndex.value >= 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (viewMenuSelectedIndex.value === 0) {
+          switchViewMode()
+        } else if (viewMenuSelectedIndex.value === 1) {
+          toggleHiddenFiles()
+        } else if (viewMenuSelectedIndex.value === 2) {
+          toggleAbsolutePaths()
+        }
       }
+      // If nothing selected, let event propagate (for Driver.js during tour)
     }
     return
   }
@@ -355,14 +358,17 @@ function handleGlobalKeydown(e) {
         helpMenuSelectedIndex.value = (helpMenuSelectedIndex.value - 1 + 2) % 2
       }
     } else if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      // Only activate if something is selected
-      if (helpMenuSelectedIndex.value === 0) {
-        showKeyboardShortcuts()
-      } else if (helpMenuSelectedIndex.value === 1) {
-        showGuidedTour()
+      // Only prevent/activate if something is selected
+      if (helpMenuSelectedIndex.value >= 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (helpMenuSelectedIndex.value === 0) {
+          showKeyboardShortcuts()
+        } else if (helpMenuSelectedIndex.value === 1) {
+          showGuidedTour()
+        }
       }
+      // If nothing selected, let event propagate (for Driver.js during tour)
     }
     return
   }
@@ -389,13 +395,14 @@ function handleGlobalKeydown(e) {
         themeMenuSelectedIndex.value = (themeMenuSelectedIndex.value - 1 + 3) % 3
       }
     } else if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      // Only activate if something is selected
+      // Only prevent/activate if something is selected
       if (themeMenuSelectedIndex.value >= 0) {
+        e.preventDefault()
+        e.stopPropagation()
         const themes = ['auto', 'light', 'dark']
         setTheme(themes[themeMenuSelectedIndex.value])
       }
+      // If nothing selected, let event propagate (for Driver.js during tour)
     }
     return
   }
