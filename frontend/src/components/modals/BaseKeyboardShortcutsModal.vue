@@ -168,7 +168,7 @@ const modalWidth = computed(() => {
 
 <style scoped>
 /* Override modal width to use dynamic width based on content */
-.keyboard-shortcuts-modal :deep(.modal-content) {
+.keyboard-shortcuts-modal :deep(.modal-dialog) {
   width: var(--modal-dynamic-width);
   max-width: min(80vw, 1400px);
 }
