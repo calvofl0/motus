@@ -271,19 +271,27 @@ const optimalColumnCount = computed(() => {
   const minColumnsForMinWidth = Math.max(1, Math.ceil(minModalWidth / MIN_COLUMN_WIDTH))
 
   // Search range: [minColumnsForMinWidth, upperBound]
-  let bestColumnCount = minColumnsForMinWidth
+  // First pass: find the minimum number of empty cells
   let minEmptyCells = Infinity
+  const emptyCellsMap = new Map()
 
   for (let cols = minColumnsForMinWidth; cols <= upperBound; cols++) {
     // Calculate empty cells in last row
-    // Formula: (cols - (itemCount % cols)) % cols
-    // This gives 0 when itemCount is perfectly divisible by cols
+    // Formula: cols - (itemCount % cols) when itemCount % cols != 0
+    // Simplified: (cols - (itemCount % cols)) % cols
     const emptyCells = (cols - (itemCount % cols)) % cols
+    emptyCellsMap.set(cols, emptyCells)
+    minEmptyCells = Math.min(minEmptyCells, emptyCells)
+  }
 
-    // Minimize empty cells, prefer more columns on tie
-    if (emptyCells < minEmptyCells || (emptyCells === minEmptyCells && cols > bestColumnCount)) {
-      minEmptyCells = emptyCells
-      bestColumnCount = cols
+  // Second pass: accept columns with emptyCells = k or k+1
+  // This allows one extra empty cell to get more columns (shorter modal)
+  let bestColumnCount = minColumnsForMinWidth
+  for (let cols = minColumnsForMinWidth; cols <= upperBound; cols++) {
+    const emptyCells = emptyCellsMap.get(cols)
+    // Accept if emptyCells is k or k+1, choose greatest column count
+    if (emptyCells === minEmptyCells || emptyCells === minEmptyCells + 1) {
+      bestColumnCount = cols // Always update to get the greatest
     }
   }
 
