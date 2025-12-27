@@ -7,6 +7,7 @@
         @click.self="handleOverlayClick"
         @keydown.esc.stop="close"
         @keydown.enter="handleEnter"
+        @keydown="handleKeyDown"
         tabindex="-1"
         ref="overlayRef"
       >
@@ -16,7 +17,7 @@
             <slot v-else name="header"></slot>
             <button class="modal-close" @click="close" aria-label="Close">&times;</button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body" ref="modalBodyRef">
             <slot v-if="!$slots.body"></slot>
             <slot v-else name="body"></slot>
           </div>
@@ -55,6 +56,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
 
 const overlayRef = ref(null)
+const modalBodyRef = ref(null)
 const sizeClass = computed(() => `modal-${props.size}`)
 
 function close() {
@@ -77,10 +79,41 @@ function handleEnter(event) {
   emit('confirm')
 }
 
+function handleKeyDown(event) {
+  // Handle arrow keys for scrolling
+  if (!modalBodyRef.value) return
+
+  const scrollAmount = 40 // pixels to scroll per key press
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop += scrollAmount
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop -= scrollAmount
+  } else if (event.key === 'PageDown') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop += modalBodyRef.value.clientHeight
+  } else if (event.key === 'PageUp') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop -= modalBodyRef.value.clientHeight
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop = 0
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    modalBodyRef.value.scrollTop = modalBodyRef.value.scrollHeight
+  }
+}
+
 // Focus overlay when modal opens to capture keyboard events
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     await nextTick()
+    // Reset scroll position to top
+    if (modalBodyRef.value) {
+      modalBodyRef.value.scrollTop = 0
+    }
     if (overlayRef.value) {
       // Always focus overlay to capture ESC and other keyboard events
       overlayRef.value.focus()
