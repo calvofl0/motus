@@ -159,9 +159,17 @@ const modalWidth = computed(() => {
   )
 
   // Calculate final modal width: exactly fits the columns (no empty space)
-  const modalWidth = cols * desiredColumnWidth + gapTotal + padding
+  const width = cols * desiredColumnWidth + gapTotal + padding
 
-  return `${Math.round(modalWidth)}px`
+  console.log('[BaseKeyboardShortcutsModal] Calculated width:', {
+    cols,
+    desiredColumnWidth,
+    width,
+    maxAvailableWidth,
+    spaceForColumns
+  })
+
+  return `${Math.round(width)}px`
 })
 </script>
 

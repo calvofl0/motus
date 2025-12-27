@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -61,6 +61,29 @@ const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
 
 const overlayRef = ref(null)
 const modalBodyRef = ref(null)
+
+// Reactive window width for custom width calculations
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600)
+
+const updateWindowWidth = () => {
+  if (typeof window !== 'undefined') {
+    windowWidth.value = window.innerWidth
+  }
+}
+
+// Add window resize listener for customWidth modals
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateWindowWidth)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateWindowWidth)
+  }
+})
+
 const sizeClass = computed(() => {
   // If customWidth is provided, don't apply size class to avoid conflicts
   if (props.customWidth) {
@@ -75,14 +98,18 @@ const modalStyle = computed(() => {
     return {}
   }
 
-  // Calculate max width: min(80vw, 1400px)
-  const maxWidthVw = window.innerWidth * 0.8
+  // Calculate max width: min(80vw, 1400px) using reactive windowWidth
+  const maxWidthVw = windowWidth.value * 0.8
   const maxWidth = Math.min(maxWidthVw, 1400)
 
-  return {
+  const style = {
     width: props.customWidth,
     maxWidth: `${maxWidth}px`
   }
+
+  console.log('[BaseModal] modalStyle:', style, 'sizeClass:', sizeClass.value)
+
+  return style
 })
 
 function close() {
