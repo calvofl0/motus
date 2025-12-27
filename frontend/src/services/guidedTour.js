@@ -4,59 +4,39 @@
  */
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
-import { apiCall } from './api'
-import { loadPreferences, savePreferences } from './preferences'
-
-// Cache for preferences to avoid repeated API calls during tour
-let _preferencesCache = null
-
-/**
- * Get current tour preferences from backend
- */
-async function getTourPreferences() {
-  if (_preferencesCache) {
-    return _preferencesCache
-  }
-  _preferencesCache = await loadPreferences(apiCall)
-  return _preferencesCache
-}
+import { useAppStore } from '../stores/app'
 
 /**
  * Check if tour is disabled (should not auto-show on startup)
  */
 export async function isTourDisabled() {
-  const prefs = await getTourPreferences()
-  return prefs.show_tour === false
+  const appStore = useAppStore()
+  const showTour = await appStore.getPreference('show_tour')
+  return showTour === false
 }
 
 /**
  * Disable tour auto-show on startup
  */
 export async function disableTour() {
-  const prefs = await getTourPreferences()
-  prefs.show_tour = false
-  await savePreferences(apiCall, prefs)
-  _preferencesCache = null  // Invalidate cache
+  const appStore = useAppStore()
+  await appStore.setPreference('show_tour', false)
 }
 
 /**
  * Enable tour auto-show on startup
  */
 export async function enableTour() {
-  const prefs = await getTourPreferences()
-  prefs.show_tour = true
-  await savePreferences(apiCall, prefs)
-  _preferencesCache = null  // Invalidate cache
+  const appStore = useAppStore()
+  await appStore.setPreference('show_tour', true)
 }
 
 /**
  * Reset tour preferences (for testing/debugging)
  */
 export async function resetTourPreferences() {
-  const prefs = await getTourPreferences()
-  prefs.show_tour = true
-  await savePreferences(apiCall, prefs)
-  _preferencesCache = null
+  const appStore = useAppStore()
+  await appStore.setPreference('show_tour', true)
 }
 
 /**
@@ -465,8 +445,8 @@ export function startGuidedTour(appStore, noTourConfig = false) {
         if (!reachedLastStep) {
           try {
             // Get current preference value to show in checkbox
-            const prefs = await getTourPreferences()
-            const currentShowTour = prefs.show_tour !== false
+            const appStore = useAppStore()
+            const currentShowTour = await appStore.getPreference('show_tour') !== false
 
             const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour, tourCompleted)
             if (disableAutoShow) {

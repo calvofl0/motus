@@ -17,6 +17,10 @@ export const useAppStore = defineStore('app', () => {
   const absolutePathsMode = ref(false) // Loaded from config
   const allowExpertMode = ref(false) // Whether expert mode toggle is allowed (from config)
 
+  // Preferences state (centralized cache to avoid race conditions)
+  const preferences = ref({})
+  const preferencesLoaded = ref(false)
+
   // Remote configuration state (for dynamic local-fs behavior)
   const localFsName = ref('Local Filesystem') // Display name for local filesystem (always non-empty)
   const hideLocalFsConfig = ref(false) // Config preference: hide local-fs when possible (from config)
@@ -124,6 +128,11 @@ export const useAppStore = defineStore('app', () => {
 
     // Load user preferences (overrides config defaults)
     const prefs = await loadPreferences(apiCall)
+
+    // Store preferences in centralized cache
+    preferences.value = prefs
+    preferencesLoaded.value = true
+
     if (prefs.view_mode) {
       viewMode.value = prefs.view_mode
     }
@@ -209,34 +218,49 @@ export const useAppStore = defineStore('app', () => {
     currentMode.value = mode
   }
 
+  // Centralized preference methods (prevents race conditions)
+  async function getPreference(key) {
+    // Wait for preferences to load if not loaded yet
+    while (!preferencesLoaded.value) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    return preferences.value[key]
+  }
+
+  async function setPreference(key, value) {
+    // Update local cache
+    preferences.value[key] = value
+    // Save to backend
+    await savePreferences(apiCall, preferences.value)
+  }
+
+  async function getAllPreferences() {
+    // Wait for preferences to load if not loaded yet
+    while (!preferencesLoaded.value) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    return { ...preferences.value }
+  }
+
   function toggleViewMode() {
     viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
-    savePreferences(apiCall, {
-      view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value,
-      theme: theme.value,
-      absolute_paths: absolutePathsMode.value
-    })
+    // Update centralized cache
+    preferences.value.view_mode = viewMode.value
+    savePreferences(apiCall, preferences.value)
   }
 
   function toggleHiddenFiles() {
     showHiddenFiles.value = !showHiddenFiles.value
-    savePreferences(apiCall, {
-      view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value,
-      theme: theme.value,
-      absolute_paths: absolutePathsMode.value
-    })
+    // Update centralized cache
+    preferences.value.show_hidden_files = showHiddenFiles.value
+    savePreferences(apiCall, preferences.value)
   }
 
   function toggleAbsolutePaths() {
     absolutePathsMode.value = !absolutePathsMode.value
-    savePreferences(apiCall, {
-      view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value,
-      theme: theme.value,
-      absolute_paths: absolutePathsMode.value
-    })
+    // Update centralized cache
+    preferences.value.absolute_paths = absolutePathsMode.value
+    savePreferences(apiCall, preferences.value)
 
     // Notify components that absolute paths mode changed
     // This triggers alias re-detection and pane refresh
@@ -256,12 +280,9 @@ export const useAppStore = defineStore('app', () => {
     }
 
     applyTheme()
-    savePreferences(apiCall, {
-      view_mode: viewMode.value,
-      show_hidden_files: showHiddenFiles.value,
-      theme: theme.value,
-      absolute_paths: absolutePathsMode.value
-    })
+    // Update centralized cache
+    preferences.value.theme = theme.value
+    savePreferences(apiCall, preferences.value)
   }
 
   function applyTheme() {
@@ -490,6 +511,9 @@ export const useAppStore = defineStore('app', () => {
     initializeRemoteConfig,
     detectAliases,
     setMode,
+    getPreference,
+    setPreference,
+    getAllPreferences,
     toggleViewMode,
     toggleHiddenFiles,
     toggleAbsolutePaths,
