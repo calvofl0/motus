@@ -56,6 +56,7 @@
 
     <!-- File Container -->
     <div
+      ref="fileContainer"
       :class="viewMode === 'grid' ? 'file-grid' : 'file-list'"
       :id="`${pane}-files`"
       @click="handleContainerClick"
@@ -186,6 +187,7 @@ const { handleExternalFileUpload } = useUpload()
 // Reactive state
 const refreshHover = ref(false)
 const parentHover = ref(false)
+const fileContainer = ref(null)
 const selectedRemote = ref('')
 const previousRemote = ref('') // Track last working remote
 const currentPath = ref('/')
@@ -1857,6 +1859,20 @@ function handleKeyDown(event) {
   }
 
   const selectedIndexes = paneState.value.selectedIndexes
+
+  // PageUp/PageDown - Scroll file list
+  if (event.key === 'PageDown' || event.key === 'PageUp') {
+    event.preventDefault()
+    if (fileContainer.value) {
+      const scrollAmount = fileContainer.value.clientHeight
+      if (event.key === 'PageDown') {
+        fileContainer.value.scrollTop += scrollAmount
+      } else {
+        fileContainer.value.scrollTop -= scrollAmount
+      }
+    }
+    return
+  }
 
   // ESC - Unselect all
   if (event.key === 'Escape' && selectedIndexes.length > 0) {
