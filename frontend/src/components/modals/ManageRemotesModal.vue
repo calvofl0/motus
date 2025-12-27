@@ -24,13 +24,14 @@
               <th class="col-actions">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref="remotesTableBody">
             <tr
-              v-for="remote in sortedRemotes"
+              v-for="(remote, index) in sortedRemotes"
               :key="remote.name"
-              @dblclick="viewRemoteConfig(remote.name)"
+              @click="handleRemoteRowClick(remote.name, index)"
               class="remote-row"
-              title="Double-click to view configuration"
+              :class="{ 'selected-remote': index === selectedRemoteIndex }"
+              title="Click to view configuration"
             >
               <td>{{ remote.name }}</td>
               <td>{{ remote.type }}</td>
@@ -322,6 +323,8 @@ const appStore = useAppStore()
 const currentStep = ref(1)
 const loading = ref(false)
 const remotes = ref([])
+const selectedRemoteIndex = ref(-1) // For keyboard navigation
+const remotesTableBody = ref(null)
 const templates = ref([])
 const templatesAvailable = ref(false)
 const selectedTemplate = ref(null)
@@ -948,6 +951,11 @@ async function createCustomRemote() {
 }
 
 // View remote config
+function handleRemoteRowClick(name, index) {
+  selectedRemoteIndex.value = index
+  viewRemoteConfig(name)
+}
+
 async function viewRemoteConfig(name) {
   const remote = remotes.value.find(r => r.name === name)
   if (!remote) return
@@ -987,6 +995,93 @@ function handleViewConfigKeyDown(event) {
     }
   }
 }
+
+// Keyboard navigation for Step 1 (remotes list)
+function handleRemotesListKeyDown(event) {
+  // Only handle on Step 1
+  if (currentStep.value !== 1) return
+
+  // Don't handle if any modal is open
+  if (showViewConfigModal.value || showEditConfigModal.value || showOAuthModal.value ||
+      showCustomMethodModal.value || showCustomWizardModal.value || showCustomConfigModal.value) return
+
+  const sortedRemotesList = sortedRemotes.value
+  if (sortedRemotesList.length === 0) return
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (selectedRemoteIndex.value < sortedRemotesList.length - 1) {
+      selectedRemoteIndex.value++
+      scrollToSelectedRemote()
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (selectedRemoteIndex.value > 0) {
+      selectedRemoteIndex.value--
+      scrollToSelectedRemote()
+    } else if (selectedRemoteIndex.value === -1 && sortedRemotesList.length > 0) {
+      selectedRemoteIndex.value = 0
+      scrollToSelectedRemote()
+    }
+  } else if (event.key === 'Enter' && selectedRemoteIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    const remote = sortedRemotesList[selectedRemoteIndex.value]
+    viewRemoteConfig(remote.name)
+  } else if ((event.key === 'e' || event.key === 'E') && selectedRemoteIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    const remote = sortedRemotesList[selectedRemoteIndex.value]
+    if (!isActiveRemote(remote.name) && !remote.is_readonly) {
+      editRemoteConfig(remote.name)
+    }
+  } else if ((event.key === 'r' || event.key === 'R') && selectedRemoteIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    const remote = sortedRemotesList[selectedRemoteIndex.value]
+    if (remote.is_oauth && !isActiveRemote(remote.name) && !remote.is_readonly) {
+      refreshOAuth(remote.name)
+    }
+  } else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedRemoteIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    const remote = sortedRemotesList[selectedRemoteIndex.value]
+    if (!isActiveRemote(remote.name) && !remote.is_readonly) {
+      deleteRemote(remote.name)
+    }
+  }
+}
+
+function scrollToSelectedRemote() {
+  if (!remotesTableBody.value || selectedRemoteIndex.value < 0) return
+
+  const rows = remotesTableBody.value.children
+  if (rows[selectedRemoteIndex.value]) {
+    rows[selectedRemoteIndex.value].scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth'
+    })
+  }
+}
+
+// Watch for modal open/close to manage keyboard listener
+watch(() => appStore.showManageRemotesModal, (isOpen) => {
+  if (isOpen) {
+    nextTick(() => {
+      window.addEventListener('keydown', handleRemotesListKeyDown)
+    })
+  } else {
+    window.removeEventListener('keydown', handleRemotesListKeyDown)
+    selectedRemoteIndex.value = -1 // Reset selection
+  }
+})
+
+// Watch step changes to reset selection
+watch(currentStep, () => {
+  selectedRemoteIndex.value = -1
+})
 
 // Watch view config modal to add/remove keyboard listener
 watch(showViewConfigModal, (isOpen) => {
@@ -1256,6 +1351,11 @@ async function handleOAuthRefreshed() {
 
 .remote-row:hover {
   background-color: var(--color-bg-hover);
+}
+
+.remote-row.selected-remote {
+  background-color: var(--color-bg-primary-light);
+  border-left: 3px solid var(--color-primary);
 }
 
 .remotes-table td {
