@@ -258,6 +258,8 @@ ${contextMenuHtml}`,
         title: 'Successfully Completed Jobs History',
         description: 'View your successfully completed file operations, including statistics, timing, and any errors that occurred. Great for auditing and troubleshooting.',
         side: 'bottom',
+        // Mark tour as completed when moving from step 14 to step 15
+        // This will be set in startGuidedTour() where tourCompleted variable is accessible
       },
     },
 
@@ -282,9 +284,10 @@ ${contextMenuHtml}`,
  * Show tour exit information dialog
  * @param {boolean} noTourConfig - Whether --no-tour flag is set
  * @param {boolean} currentShowTourValue - Current value of show_tour preference
+ * @param {boolean} tourCompleted - Whether user completed the tour
  * @returns {Promise<boolean>} True if user wants to disable auto-show
  */
-export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
+export function showTourExitDialog(noTourConfig, currentShowTourValue = true, tourCompleted = false) {
   return new Promise((resolve) => {
     // Create modal overlay
     const overlay = document.createElement('div')
@@ -306,8 +309,8 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true) {
     if (!noTourConfig) {
       checkbox = document.createElement('label')
       checkbox.className = 'tour-exit-checkbox'
-      // Checkbox is checked if show_tour is currently false (already disabled)
-      const isChecked = !currentShowTourValue
+      // Checkbox is checked if tour was completed OR show_tour is currently false
+      const isChecked = tourCompleted || !currentShowTourValue
       checkbox.innerHTML = `
         <input type="checkbox" id="tour-exit-no-show" ${isChecked ? 'checked' : ''}>
         Don't show this tour automatically on startup
@@ -386,11 +389,19 @@ export function startGuidedTour(appStore, noTourConfig = false) {
     // Create driver object (we'll need reference for hooks)
     let driverObj = null
 
+    // Add onNextClick hook to Step 14's popover (mark tour as completed when user has seen everything)
+    const step14 = steps[steps.length - 2]
+    step14.popover.onNextClick = () => {
+      tourCompleted = true
+      // Continue to next step normally
+      driverObj.moveNext()
+    }
+
     // Add onNextClick hook to Step 15's popover (for Finish button)
     const step15 = steps[steps.length - 1]
     step15.popover.onNextClick = async () => {
       await savePreferenceFromCheckbox()
-      tourCompleted = true
+      // tourCompleted already set in step 14
       // Call moveNext() to follow driver.js's proper flow
       // On last step, moveNext() will destroy the tour
       driverObj.moveNext()
@@ -449,15 +460,15 @@ export function startGuidedTour(appStore, noTourConfig = false) {
 
         tourActive = false
 
-        // Show exit dialog only if tour wasn't completed AND user didn't reach last step
+        // Show exit dialog if user didn't reach last step
         const reachedLastStep = currentStepIndex === steps.length - 1
-        if (!tourCompleted && !reachedLastStep) {
+        if (!reachedLastStep) {
           try {
             // Get current preference value to show in checkbox
             const prefs = await getTourPreferences()
             const currentShowTour = prefs.show_tour !== false
 
-            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour)
+            const disableAutoShow = await showTourExitDialog(noTourConfig, currentShowTour, tourCompleted)
             if (disableAutoShow) {
               await disableTour()
             } else {
