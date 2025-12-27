@@ -16,16 +16,14 @@
       <div v-if="currentStep === 1" class="remotes-list-container">
         <p v-if="loading" class="loading-text">Loading remotes...</p>
         <p v-else-if="remotes.length === 0" class="empty-text">No remotes configured</p>
-        <table v-else class="remotes-table">
-          <thead>
-            <tr>
-              <th class="col-name">Name</th>
-              <th class="col-type">Type</th>
-              <th class="col-actions">Actions</th>
-            </tr>
-          </thead>
-          <tbody ref="remotesTableBody">
-            <tr
+        <div v-else class="remotes-table-container">
+          <div class="table-body-wrapper" ref="remotesTableBody">
+            <div class="table-header">
+              <div>Name</div>
+              <div>Type</div>
+              <div>Actions</div>
+            </div>
+            <div
               v-for="(remote, index) in sortedRemotes"
               :key="remote.name"
               @click="handleRemoteRowClick(remote.name, index)"
@@ -33,9 +31,9 @@
               :class="{ 'selected-remote': index === selectedRemoteIndex }"
               title="Click to view configuration"
             >
-              <td>{{ remote.name }}</td>
-              <td>{{ remote.type }}</td>
-              <td style="padding: 8px; text-align: center;">
+              <div class="col-name">{{ remote.name }}</div>
+              <div class="col-type">{{ remote.type }}</div>
+              <div class="col-actions">
                 <button
                   v-if="remote.is_oauth"
                   class="remote-icon-btn oauth-refresh-btn"
@@ -44,7 +42,7 @@
                   :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
                   :title="remote.is_readonly ? 'Cannot refresh OAuth for read-only remote' : (isActiveRemote(remote.name) ? 'Cannot refresh OAuth while remote is in use' : 'Refresh OAuth token')"
                 >↻</button>
-                <span v-else style="display: inline-block; width: 32px; margin-right: 4px;"></span>
+                <span v-else class="oauth-spacer"></span>
 
                 <button
                   class="remote-icon-btn"
@@ -61,10 +59,10 @@
                   :class="{ 'disabled': isActiveRemote(remote.name) || remote.is_readonly }"
                   :title="remote.is_readonly ? 'Cannot delete read-only remote' : (isActiveRemote(remote.name) ? 'Cannot delete remote while in use' : 'Delete remote')"
                 >🗑️</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Step 2: Select Template -->
@@ -1051,13 +1049,38 @@ function handleRemotesListKeyDown(event) {
     if (!isActiveRemote(remote.name) && !remote.is_readonly) {
       deleteRemote(remote.name)
     }
+  } else if (event.key === 'PageDown') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (remotesTableBody.value) {
+      remotesTableBody.value.scrollTop += remotesTableBody.value.clientHeight
+    }
+  } else if (event.key === 'PageUp') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (remotesTableBody.value) {
+      remotesTableBody.value.scrollTop -= remotesTableBody.value.clientHeight
+    }
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (remotesTableBody.value) {
+      remotesTableBody.value.scrollTop = 0
+    }
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (remotesTableBody.value) {
+      remotesTableBody.value.scrollTop = remotesTableBody.value.scrollHeight
+    }
   }
 }
 
 function scrollToSelectedRemote() {
   if (!remotesTableBody.value || selectedRemoteIndex.value < 0) return
 
-  const rows = remotesTableBody.value.children
+  // Get all children, skip the first one (table-header)
+  const rows = Array.from(remotesTableBody.value.children).slice(1)
   if (rows[selectedRemoteIndex.value]) {
     rows[selectedRemoteIndex.value].scrollIntoView({
       block: 'nearest',
@@ -1323,75 +1346,70 @@ async function handleOAuthRefreshed() {
   text-align: center;
 }
 
-.remotes-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Scrollable container */
+.table-body-wrapper {
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
-.remotes-table thead {
+/* Table header styling - keep in sync with CompletedJobsModal */
+.table-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 140px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--color-bg-white);
-}
-
-.remotes-table thead tr {
-  border-bottom: 2px solid var(--color-border);
-}
-
-.remotes-table th {
-  text-align: left;
-  padding: var(--spacing-sm) var(--spacing-xs);
-  color: var(--color-text-tertiary);
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-sm);
-  background: var(--color-bg-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.remotes-table th.col-actions {
-  text-align: center;
-  width: 140px;
 }
 
 .remote-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 140px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--color-border-lighter);
   cursor: pointer;
   transition: var(--transition-fast);
-  height: 44px;
-}
-
-.remote-row td {
-  vertical-align: middle;
-}
-
-.remote-row:hover td:first-child {
-  padding-left: calc(var(--spacing-xs) - 3px);
+  min-height: 44px;
+  align-items: center;
 }
 
 .remote-row:hover {
   background-color: var(--color-bg-light);
   border-left: 3px solid var(--color-primary);
-}
-
-.remote-row.selected-remote td:first-child {
-  padding-left: calc(var(--spacing-xs) - 3px);
+  padding-left: calc(var(--spacing-md) - 3px);
 }
 
 .remote-row.selected-remote {
   background-color: var(--color-bg-primary-light);
   border-left: 3px solid var(--color-primary);
+  padding-left: calc(var(--spacing-md) - 3px);
 }
 
-.remotes-table td {
-  padding: var(--spacing-sm) var(--spacing-xs);
+.col-name,
+.col-type {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 
-.remotes-table td:last-child {
-  text-align: center;
+.col-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.oauth-spacer {
+  display: inline-block;
+  width: 32px;
 }
 
 .template-intro {

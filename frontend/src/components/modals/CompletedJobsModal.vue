@@ -238,9 +238,30 @@ function handleKeyDown(event) {
       selectedJobIndex.value = 0
       scrollToSelectedJob()
     }
-  } else if (event.key === 'PageDown' || event.key === 'PageUp' || event.key === 'Home' || event.key === 'End') {
-    // Let BaseModal handle PageUp/PageDown/Home/End for scrolling
-    return
+  } else if (event.key === 'PageDown') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (tableBodyRef.value) {
+      tableBodyRef.value.scrollTop += tableBodyRef.value.clientHeight
+    }
+  } else if (event.key === 'PageUp') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (tableBodyRef.value) {
+      tableBodyRef.value.scrollTop -= tableBodyRef.value.clientHeight
+    }
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (tableBodyRef.value) {
+      tableBodyRef.value.scrollTop = 0
+    }
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (tableBodyRef.value) {
+      tableBodyRef.value.scrollTop = tableBodyRef.value.scrollHeight
+    }
   } else if (event.key === 'Enter' && selectedJobIndex.value >= 0) {
     event.preventDefault()
     event.stopPropagation()
