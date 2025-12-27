@@ -91,7 +91,7 @@
           </div>
           <div class="shortcut-item">
             <kbd>Q</kbd>
-            <span>Quit server (when no modal is open)</span>
+            <span>Shutdown server (when no modal is open)</span>
           </div>
         </div>
       </div>

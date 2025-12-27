@@ -195,7 +195,7 @@ ${contextMenuHtml}`,
       element: '.job-panel',
       popover: {
         title: 'Active Jobs Panel',
-        description: 'Monitor your file operations in real-time. See progress, transfer speed, and estimated time remaining. You can cancel running jobs if needed.',
+        description: 'Monitor your file operations in real-time. See progress, transfer speed, and estimated time remaining. You can cancel running jobs if needed. Important: The Motus server continues processing active jobs even when you close the browser tab or switch off your laptop/desktop—jobs run on the server, not in your browser.',
         side: 'top',
       },
     },

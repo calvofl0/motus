@@ -46,7 +46,7 @@
       <button v-if="allowExpertMode" class="mode-toggle-button" @click="toggleMode">
         <span>{{ modeButtonText }}</span>
       </button>
-      <button class="quit-button" @click="quitServer">Quit</button>
+      <button class="quit-button" @click="quitServer">Shutdown Server</button>
       <div class="theme-dropdown-container">
         <button class="theme-icon-button" @click="toggleThemeMenu" :title="themeTooltip">
           {{ themeIcon }}
