@@ -11,7 +11,7 @@
         tabindex="-1"
         ref="overlayRef"
       >
-        <div class="modal-dialog" :class="sizeClass" :style="customWidth ? { width: customWidth, maxWidth: 'min(80vw, 1400px)' } : {}">
+        <div class="modal-dialog" :class="sizeClass" :style="modalStyle">
           <div class="modal-header">
             <h3 v-if="!$slots.header">{{ title }}</h3>
             <slot v-else name="header"></slot>
@@ -61,7 +61,29 @@ const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
 
 const overlayRef = ref(null)
 const modalBodyRef = ref(null)
-const sizeClass = computed(() => `modal-${props.size}`)
+const sizeClass = computed(() => {
+  // If customWidth is provided, don't apply size class to avoid conflicts
+  if (props.customWidth) {
+    return ''
+  }
+  return `modal-${props.size}`
+})
+
+// Calculate maxWidth for customWidth case
+const modalStyle = computed(() => {
+  if (!props.customWidth) {
+    return {}
+  }
+
+  // Calculate max width: min(80vw, 1400px)
+  const maxWidthVw = window.innerWidth * 0.8
+  const maxWidth = Math.min(maxWidthVw, 1400)
+
+  return {
+    width: props.customWidth,
+    maxWidth: `${maxWidth}px`
+  }
+})
 
 function close() {
   emit('update:modelValue', false)
