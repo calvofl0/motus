@@ -94,7 +94,7 @@
     />
 
     <!-- Keyboard Shortcuts Modal -->
-    <KeyboardShortcutsModal
+    <MainKeyboardShortcutsModal
       v-model="showKeyboardShortcutsModal"
     />
   </div>
@@ -117,7 +117,7 @@ import DownloadPreparingModal from '../components/modals/DownloadPreparingModal.
 import CreateAliasModal from '../components/modals/CreateAliasModal.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import JobLogModal from '../components/modals/JobLogModal.vue'
-import KeyboardShortcutsModal from '../components/modals/KeyboardShortcutsModal.vue'
+import MainKeyboardShortcutsModal from '../components/modals/MainKeyboardShortcutsModal.vue'
 import { apiCall, getAuthToken, getApiUrl } from '../services/api'
 
 const appStore = useAppStore()

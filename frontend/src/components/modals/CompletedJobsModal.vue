@@ -89,6 +89,12 @@
     @confirm="confirmPurge"
     @close="handlePurgeConfirmClose"
   />
+
+  <!-- Keyboard Shortcuts Modal -->
+  <CompletedJobsShortcutsModal
+    v-model="showShortcutsModal"
+    @close="handleShortcutsClose"
+  />
 </template>
 
 <script setup>
@@ -98,6 +104,7 @@ import BaseModal from './BaseModal.vue'
 import ModalTable from './ModalTable.vue'
 import JobLogModal from './JobLogModal.vue'
 import ConfirmModal from './ConfirmModal.vue'
+import CompletedJobsShortcutsModal from './CompletedJobsShortcutsModal.vue'
 
 const props = defineProps({
   modelValue: {
@@ -129,6 +136,7 @@ const selectedJob = ref(null)
 const selectedJobIndex = ref(-1) // For keyboard navigation
 const showJobLogModal = ref(false)
 const showPurgeConfirm = ref(false)
+const showShortcutsModal = ref(false)
 const modalRef = ref(null)
 const modalTableRef = ref(null)
 
@@ -234,6 +242,14 @@ async function handlePurgeConfirmClose() {
   }
 }
 
+async function handleShortcutsClose() {
+  // Restore focus to parent modal after shortcuts modal closes
+  await nextTick()
+  if (modalRef.value && modalRef.value.focusOverlay) {
+    modalRef.value.focusOverlay()
+  }
+}
+
 function formatOperation(op) {
   return op.charAt(0).toUpperCase() + op.slice(1)
 }
@@ -241,7 +257,15 @@ function formatOperation(op) {
 // Custom keyboard shortcuts (beyond basic navigation handled by ModalTable)
 function handleCustomKeyDown(event) {
   // Don't handle if child modals are open
-  if (showJobLogModal.value || showPurgeConfirm.value) return
+  if (showJobLogModal.value || showPurgeConfirm.value || showShortcutsModal.value) return
+
+  // F1 - Show keyboard shortcuts
+  if (event.key === 'F1') {
+    event.preventDefault()
+    event.stopPropagation()
+    showShortcutsModal.value = true
+    return
+  }
 
   // p/P - Purge All (works even without selection)
   if ((event.key === 'p' || event.key === 'P') && completedJobs.value.length > 0) {

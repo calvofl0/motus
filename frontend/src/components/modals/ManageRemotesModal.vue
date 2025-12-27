@@ -307,6 +307,11 @@
     v-model="showCustomWizardModal"
     @remote-created="handleCustomRemoteCreated"
   />
+
+  <!-- Keyboard Shortcuts Modal -->
+  <ManageRemotesShortcutsModal
+    v-model="showShortcutsModal"
+  />
 </template>
 
 <script setup>
@@ -320,6 +325,7 @@ import ModalTable from './ModalTable.vue'
 import OAuthInteractiveModal from './OAuthInteractiveModal.vue'
 import CustomRemoteMethodModal from './CustomRemoteMethodModal.vue'
 import CustomRemoteWizardModal from './CustomRemoteWizardModal.vue'
+import ManageRemotesShortcutsModal from './ManageRemotesShortcutsModal.vue'
 
 const appStore = useAppStore()
 
@@ -368,6 +374,7 @@ const editConfigText = ref('')
 const editingRemoteName = ref('')
 const showOAuthModal = ref(false)
 const oauthRemoteName = ref('')
+const showShortcutsModal = ref(false)
 
 // Validate remote name input
 function validateRemoteNameInput() {
@@ -449,10 +456,10 @@ watch(currentStep, async (newStep) => {
 })
 
 // Watch child modals closing to refocus parent modal
-watch([showCustomMethodModal, showCustomWizardModal, showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal], async ([method, wizard, custom, view, edit, oauth], [prevMethod, prevWizard, prevCustom, prevView, prevEdit, prevOAuth]) => {
+watch([showCustomMethodModal, showCustomWizardModal, showCustomConfigModal, showViewConfigModal, showEditConfigModal, showOAuthModal, showShortcutsModal], async ([method, wizard, custom, view, edit, oauth, shortcuts], [prevMethod, prevWizard, prevCustom, prevView, prevEdit, prevOAuth, prevShortcuts]) => {
   // If any child modal just closed (was true, now false) and main modal is still open
   if (appStore.showManageRemotesModal) {
-    if ((prevMethod && !method) || (prevWizard && !wizard) || (prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth)) {
+    if ((prevMethod && !method) || (prevWizard && !wizard) || (prevCustom && !custom) || (prevView && !view) || (prevEdit && !edit) || (prevOAuth && !oauth) || (prevShortcuts && !shortcuts)) {
       // Wait for DOM update, then refocus main modal overlay
       await nextTick()
       const mainOverlay = document.querySelector('.modal-overlay')
@@ -1015,7 +1022,16 @@ function handleCustomKeyDown(event) {
 
   // Don't handle if any modal is open
   if (showViewConfigModal.value || showEditConfigModal.value || showOAuthModal.value ||
-      showCustomMethodModal.value || showCustomWizardModal.value || showCustomConfigModal.value) return
+      showCustomMethodModal.value || showCustomWizardModal.value || showCustomConfigModal.value ||
+      showShortcutsModal.value) return
+
+  // F1 - Show keyboard shortcuts
+  if (event.key === 'F1') {
+    event.preventDefault()
+    event.stopPropagation()
+    showShortcutsModal.value = true
+    return
+  }
 
   const sortedRemotesList = sortedRemotes.value
   if (sortedRemotesList.length === 0) return
