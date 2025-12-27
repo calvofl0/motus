@@ -1070,10 +1070,11 @@ function scrollToSelectedRemote() {
 watch(() => appStore.showManageRemotesModal, (isOpen) => {
   if (isOpen) {
     nextTick(() => {
-      window.addEventListener('keydown', handleRemotesListKeyDown)
+      // Use capture phase to handle events before BaseModal's handler
+      window.addEventListener('keydown', handleRemotesListKeyDown, { capture: true })
     })
   } else {
-    window.removeEventListener('keydown', handleRemotesListKeyDown)
+    window.removeEventListener('keydown', handleRemotesListKeyDown, { capture: true })
     selectedRemoteIndex.value = -1 // Reset selection
   }
 })
@@ -1340,11 +1341,13 @@ async function handleOAuthRefreshed() {
 
 .remotes-table th {
   text-align: left;
-  padding: var(--spacing-xs);
-  color: var(--color-text-primary);
+  padding: var(--spacing-sm) var(--spacing-xs);
+  color: var(--color-text-tertiary);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   background: var(--color-bg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .remotes-table th.col-actions {

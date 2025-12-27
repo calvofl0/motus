@@ -268,12 +268,12 @@ function scrollToSelectedJob() {
 // Add keyboard listener when modal is open
 watch(isOpen, (newVal) => {
   if (newVal) {
-    // Add keyboard listener with slight delay to ensure modal is mounted
+    // Use capture phase to handle events before BaseModal's handler
     nextTick(() => {
-      window.addEventListener('keydown', handleKeyDown)
+      window.addEventListener('keydown', handleKeyDown, { capture: true })
     })
   } else {
-    window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }
 })
 
@@ -415,6 +415,7 @@ function formatRelativeTime(isoString) {
   font-size: var(--font-size-sm);
 }
 
+/* Table header styling - keep in sync with ManageRemotesModal */
 .table-header {
   display: grid;
   grid-template-columns: 50px 60px 1fr 1fr 100px 40px;
