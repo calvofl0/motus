@@ -251,7 +251,7 @@ async function quitServer() {
         `These jobs will be stopped and marked as interrupted.\n\n`
     }
 
-    confirmMessage += `Are you sure you want to quit?`
+    confirmMessage += `Are you sure you want to shutdown the Motus Server?`
 
     if (!confirm(confirmMessage)) {
       isQuitting.value = false

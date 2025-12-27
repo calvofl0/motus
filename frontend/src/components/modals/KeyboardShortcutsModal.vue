@@ -66,12 +66,16 @@
         <h4>Global Shortcuts</h4>
         <div class="shortcut-list">
           <div class="shortcut-item">
+            <kbd>F1</kbd>
+            <span>Show Keyboard Shortcuts</span>
+          </div>
+          <div class="shortcut-item">
             <kbd>J</kbd>
             <span>Show Completed Jobs</span>
           </div>
           <div class="shortcut-item">
             <kbd>R</kbd>
-            <span>Open Manage Remotes</span>
+            <span>Open Remotes Manager</span>
           </div>
           <div class="shortcut-item">
             <kbd>V</kbd>

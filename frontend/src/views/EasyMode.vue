@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, provide, nextTick } from 'vue'
 import { useAppStore } from '../stores/app'
 import { useFileOperations } from '../composables/useFileOperations'
 import { useUpload } from '../composables/useUpload'
@@ -151,6 +151,7 @@ const jobLogData = ref(null)
 
 // Keyboard shortcuts modal state
 const showKeyboardShortcutsModal = ref(false)
+const previousFocusedElement = ref(null)
 
 // Computed
 const canCopyRight = computed(() =>
@@ -692,6 +693,13 @@ function handleKeyDown(event) {
     return
   }
 
+  // F1 - Show Keyboard Shortcuts
+  if (event.key === 'F1') {
+    event.preventDefault()
+    window.dispatchEvent(new CustomEvent('show-keyboard-shortcuts'))
+    return
+  }
+
   // Q - Quit
   if (event.key === 'q' || event.key === 'Q') {
     event.preventDefault()
@@ -749,8 +757,23 @@ function handleKeyDown(event) {
 
 // Handle show keyboard shortcuts event
 function handleShowKeyboardShortcuts() {
+  // Capture current focus before opening modal
+  previousFocusedElement.value = document.activeElement
   showKeyboardShortcutsModal.value = true
 }
+
+// Watch for keyboard shortcuts modal close to restore focus
+watch(showKeyboardShortcutsModal, (isOpen) => {
+  if (!isOpen && previousFocusedElement.value) {
+    // Restore focus after modal closes
+    nextTick(() => {
+      if (previousFocusedElement.value && typeof previousFocusedElement.value.focus === 'function') {
+        previousFocusedElement.value.focus()
+      }
+      previousFocusedElement.value = null
+    })
+  }
+})
 
 // Lifecycle
 onMounted(() => {
