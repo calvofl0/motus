@@ -59,9 +59,9 @@ const displayedSections = computed(() => {
 const sectionCount = computed(() => displayedSections.value.length)
 
 // Constants for layout calculation
-const MIN_COLUMN_WIDTH = 280 // Prevent content overflow
-const MAX_COLUMN_WIDTH = 400 // Maximum reasonable column width
-const MODAL_MAX_WIDTH_RATIO = 0.8 // Modal takes 80% of window width
+const MIN_COLUMN_WIDTH = 280 // Minimum width to prevent content overflow
+const MAX_COLUMN_WIDTH = 450 // Maximum reasonable column width
+const MODAL_MAX_WIDTH_RATIO = 0.8 // Modal can take up to 80% of window width
 const MIN_MODAL_WIDTH_RATIO = 0.25 // Columns should take at least 25% of window width
 
 // Reactive window width for responsive calculations
@@ -137,22 +137,32 @@ const gridTemplateColumns = computed(() => {
 })
 
 // Calculate actual modal width needed based on column count
-// This allows the modal to be smaller than 80vw when content doesn't need it
+// Expands up to 80vw to give columns more space, but without creating empty space
 const modalWidth = computed(() => {
   const cols = optimalColumnCount.value
   const gap = 24 // var(--spacing-lg) is typically 24px
   const padding = 48 // Modal body padding (24px each side)
+  const gapTotal = (cols - 1) * gap
 
-  // Calculate width needed: columns * min width + gaps between columns + padding
-  const neededWidth = cols * MIN_COLUMN_WIDTH + (cols - 1) * gap + padding
+  // Calculate max available width (80vw or 1400px, whichever is smaller)
+  const maxAvailableWidth = Math.min(windowWidth.value * MODAL_MAX_WIDTH_RATIO, 1400)
 
-  // Apply max constraints: 80vw or 1400px
-  const maxWidth = Math.min(windowWidth.value * MODAL_MAX_WIDTH_RATIO, 1400)
+  // Calculate space available for columns after accounting for gaps and padding
+  const spaceForColumns = maxAvailableWidth - gapTotal - padding
 
-  // Return the smaller of needed width or max width
-  const actualWidth = Math.min(neededWidth, maxWidth)
+  // Calculate desired column width:
+  // - At least MIN_COLUMN_WIDTH (to prevent wrapping)
+  // - At most MAX_COLUMN_WIDTH (to prevent overly wide columns)
+  // - Use as much space as available within these constraints
+  const desiredColumnWidth = Math.max(
+    MIN_COLUMN_WIDTH,
+    Math.min(MAX_COLUMN_WIDTH, spaceForColumns / cols)
+  )
 
-  return `${actualWidth}px`
+  // Calculate final modal width: exactly fits the columns (no empty space)
+  const modalWidth = cols * desiredColumnWidth + gapTotal + padding
+
+  return `${Math.round(modalWidth)}px`
 })
 </script>
 
