@@ -15,12 +15,12 @@
 
       <div v-else class="jobs-table">
         <div class="table-header">
-          <div class="col-id">ID</div>
-          <div class="col-operation">Op</div>
-          <div class="col-source">Source</div>
-          <div class="col-dest">Destination</div>
-          <div class="col-time">Completed</div>
-          <div class="col-actions"></div>
+          <div>ID</div>
+          <div>Op</div>
+          <div>Source</div>
+          <div>Destination</div>
+          <div>Completed</div>
+          <div></div>
         </div>
         <div class="table-body" ref="tableBodyRef">
           <div

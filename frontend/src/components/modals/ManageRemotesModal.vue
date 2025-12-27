@@ -1355,11 +1355,25 @@ async function handleOAuthRefreshed() {
 .remote-row {
   border-bottom: 1px solid var(--color-border-lighter);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: var(--transition-fast);
+  height: 44px;
+}
+
+.remote-row td {
+  vertical-align: middle;
+}
+
+.remote-row:hover td:first-child {
+  padding-left: calc(var(--spacing-xs) - 3px);
 }
 
 .remote-row:hover {
-  background-color: var(--color-bg-hover);
+  background-color: var(--color-bg-light);
+  border-left: 3px solid var(--color-primary);
+}
+
+.remote-row.selected-remote td:first-child {
+  padding-left: calc(var(--spacing-xs) - 3px);
 }
 
 .remote-row.selected-remote {
@@ -1368,8 +1382,9 @@ async function handleOAuthRefreshed() {
 }
 
 .remotes-table td {
-  padding: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-xs);
   color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .remotes-table td:last-child {
