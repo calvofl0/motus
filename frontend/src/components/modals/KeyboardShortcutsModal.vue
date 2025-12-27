@@ -129,7 +129,7 @@
         <div class="shortcut-list">
           <div class="shortcut-item">
             <kbd>↑</kbd><kbd>↓</kbd>
-            <span>Scroll modal content (40px)</span>
+            <span>Scroll modal content</span>
           </div>
           <div class="shortcut-item">
             <kbd>PgUp</kbd><kbd>PgDn</kbd>

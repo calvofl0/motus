@@ -238,8 +238,8 @@ function handleKeyDown(event) {
       selectedJobIndex.value = 0
       scrollToSelectedJob()
     }
-  } else if (event.key === 'PageDown' || event.key === 'PageUp') {
-    // Let BaseModal handle PageUp/PageDown for scrolling
+  } else if (event.key === 'PageDown' || event.key === 'PageUp' || event.key === 'Home' || event.key === 'End') {
+    // Let BaseModal handle PageUp/PageDown/Home/End for scrolling
     return
   } else if (event.key === 'Enter' && selectedJobIndex.value >= 0) {
     event.preventDefault()
