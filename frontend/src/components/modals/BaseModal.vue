@@ -11,7 +11,7 @@
         tabindex="-1"
         ref="overlayRef"
       >
-        <div class="modal-dialog" :class="sizeClass">
+        <div class="modal-dialog" :class="sizeClass" :style="customWidth ? { width: customWidth, maxWidth: 'min(80vw, 1400px)' } : {}">
           <div class="modal-header">
             <h3 v-if="!$slots.header">{{ title }}</h3>
             <slot v-else name="header"></slot>
@@ -50,6 +50,10 @@ const props = defineProps({
   closeOnOverlayClick: {
     type: Boolean,
     default: true
+  },
+  customWidth: {
+    type: String,
+    default: null
   }
 })
 

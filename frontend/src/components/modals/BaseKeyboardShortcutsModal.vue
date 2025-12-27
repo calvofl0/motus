@@ -5,8 +5,7 @@
     @confirm="$emit('update:modelValue', false)"
     :title="title"
     size="large"
-    class="keyboard-shortcuts-modal"
-    :style="{ '--modal-dynamic-width': modalWidth }"
+    :customWidth="modalWidth"
   >
     <div class="shortcuts-container" :style="{ gridTemplateColumns: gridTemplateColumns }">
       <!-- Render each section -->
@@ -167,12 +166,6 @@ const modalWidth = computed(() => {
 </script>
 
 <style scoped>
-/* Override modal width to use dynamic width based on content */
-.keyboard-shortcuts-modal :deep(.modal-dialog) {
-  width: var(--modal-dynamic-width);
-  max-width: min(80vw, 1400px);
-}
-
 .shortcuts-container {
   display: grid;
   /* grid-template-columns set dynamically via :style binding */
