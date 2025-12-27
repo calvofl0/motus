@@ -1847,8 +1847,10 @@ function handleKeyDown(event) {
     return
   }
 
-  // Don't handle if a menu is open
-  if (document.querySelector('.view-dropdown-menu:not(.hidden)') ||
+  // Don't handle if a modal or menu is open
+  if (document.querySelector('.modal-overlay') ||
+      document.querySelector('.context-menu') ||
+      document.querySelector('.view-dropdown-menu:not(.hidden)') ||
       document.querySelector('.help-dropdown-menu:not(.hidden)') ||
       document.querySelector('.theme-dropdown-menu:not(.hidden)')) {
     return
