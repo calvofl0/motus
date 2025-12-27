@@ -22,12 +22,13 @@
           <div class="col-time">Completed</div>
           <div class="col-actions"></div>
         </div>
-        <div class="table-body">
+        <div class="table-body" ref="tableBodyRef">
           <div
-            v-for="job in completedJobs"
+            v-for="(job, index) in completedJobs"
             :key="job.job_id"
             class="job-row"
-            @click="handleShowJobLog(job)"
+            :class="{ 'selected-job': index === selectedJobIndex }"
+            @click="handleJobRowClick(job, index)"
           >
             <div class="col-id">#{{ job.job_id }}</div>
             <div class="col-operation">{{ formatOperation(job.operation) }}</div>
@@ -103,14 +104,19 @@ const isOpen = computed({
 const completedJobs = ref([])
 const loading = ref(false)
 const selectedJob = ref(null)
+const selectedJobIndex = ref(-1) // For keyboard navigation
 const showJobLogModal = ref(false)
 const showPurgeConfirm = ref(false)
 const modalRef = ref(null)
+const tableBodyRef = ref(null)
 
 // Fetch completed jobs when modal opens
 watch(isOpen, async (newVal) => {
   if (newVal) {
     await fetchCompletedJobs()
+    selectedJobIndex.value = -1 // Reset selection
+  } else {
+    selectedJobIndex.value = -1 // Reset when closing
   }
 })
 
@@ -125,6 +131,11 @@ async function fetchCompletedJobs() {
   } finally {
     loading.value = false
   }
+}
+
+function handleJobRowClick(job, index) {
+  selectedJobIndex.value = index
+  handleShowJobLog(job)
 }
 
 async function handleShowJobLog(job) {
@@ -194,6 +205,69 @@ async function handlePurgeConfirmClose() {
 function formatOperation(op) {
   return op.charAt(0).toUpperCase() + op.slice(1)
 }
+
+// Keyboard navigation
+function handleKeyDown(event) {
+  // Don't handle if child modals are open
+  if (showJobLogModal.value || showPurgeConfirm.value) return
+
+  if (completedJobs.value.length === 0) return
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (selectedJobIndex.value < completedJobs.value.length - 1) {
+      selectedJobIndex.value++
+      scrollToSelectedJob()
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    event.stopPropagation()
+    if (selectedJobIndex.value > 0) {
+      selectedJobIndex.value--
+      scrollToSelectedJob()
+    } else if (selectedJobIndex.value === -1 && completedJobs.value.length > 0) {
+      selectedJobIndex.value = 0
+      scrollToSelectedJob()
+    }
+  } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+    // Let BaseModal handle PageUp/PageDown for scrolling
+    return
+  } else if (event.key === 'Enter' && selectedJobIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    handleShowJobLog(completedJobs.value[selectedJobIndex.value])
+  } else if ((event.key === 'd' || event.key === 'D' || event.key === 'Delete') && selectedJobIndex.value >= 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    const job = completedJobs.value[selectedJobIndex.value]
+    handleDeleteJob(job.job_id)
+  }
+}
+
+function scrollToSelectedJob() {
+  if (!tableBodyRef.value || selectedJobIndex.value < 0) return
+
+  const rows = tableBodyRef.value.children
+  if (rows[selectedJobIndex.value]) {
+    rows[selectedJobIndex.value].scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth'
+    })
+  }
+}
+
+// Add keyboard listener when modal is open
+watch(isOpen, (newVal) => {
+  if (newVal) {
+    // Add keyboard listener with slight delay to ensure modal is mounted
+    nextTick(() => {
+      window.addEventListener('keydown', handleKeyDown)
+    })
+  } else {
+    window.removeEventListener('keydown', handleKeyDown)
+  }
+})
 
 function truncatePath(path) {
   if (!path) return ''
@@ -365,6 +439,12 @@ function formatRelativeTime(isoString) {
 
 .job-row:hover {
   background: var(--color-bg-light);
+  border-left: 3px solid var(--color-primary);
+  padding-left: calc(var(--spacing-md) - 3px);
+}
+
+.job-row.selected-job {
+  background: var(--color-bg-primary-light);
   border-left: 3px solid var(--color-primary);
   padding-left: calc(var(--spacing-md) - 3px);
 }
