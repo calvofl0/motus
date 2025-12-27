@@ -6,7 +6,7 @@
     title="Keyboard Shortcuts"
     size="xlarge"
   >
-    <div class="shortcuts-container">
+    <div class="shortcuts-container" :style="{ gridTemplateColumns: gridTemplateColumns }">
       <!-- File Navigation -->
       <div class="shortcut-section">
         <h4>File Navigation</h4>
@@ -206,6 +206,7 @@
 </template>
 
 <script setup>
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useAppStore } from '../../stores/app'
 
@@ -219,12 +220,85 @@ defineProps({
 })
 
 defineEmits(['update:modelValue'])
+
+// Number of shortcut sections (static content)
+const sectionCount = 7
+
+// Constants for layout calculation
+const MIN_COLUMN_WIDTH = 280 // Prevent content overflow
+const MAX_COLUMN_WIDTH = 400 // Maximum reasonable column width
+const MODAL_MAX_WIDTH_RATIO = 0.8 // Modal takes 80% of window width
+const MIN_MODAL_WIDTH_RATIO = 0.25 // Columns should take at least 25% of window width
+
+// Reactive window width for responsive calculations
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600)
+
+// Update window width on resize
+const updateWidth = () => {
+  windowWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  window.addEventListener('resize', updateWidth)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateWidth)
+})
+
+// Calculate optimal number of columns using the algorithm
+const optimalColumnCount = computed(() => {
+  const itemCount = sectionCount
+  if (itemCount === 0) return 1
+
+  // Calculate modal max width (80% of window or 1400px max)
+  const modalMaxWidth = Math.min(windowWidth.value * MODAL_MAX_WIDTH_RATIO, 1400)
+
+  // maxColumnsBeforeOverflow: Maximum columns that fit without content overflow
+  const maxColumnsBeforeOverflow = Math.floor(modalMaxWidth / MIN_COLUMN_WIDTH)
+
+  // columnsToFitAllContent: Minimum columns needed to avoid vertical scrolling
+  // For simplicity, we use a reasonable upper limit of 6 columns
+  // (could be calculated based on content height if needed)
+  const columnsToFitAllContent = 6
+
+  // upperBound: min(columnsToFitAllContent, maxColumnsBeforeOverflow)
+  const upperBound = Math.min(columnsToFitAllContent, maxColumnsBeforeOverflow)
+
+  // minColumnsForMinWidth: Minimum columns for 25% window width constraint
+  const minModalWidth = windowWidth.value * MIN_MODAL_WIDTH_RATIO
+  const minColumnsForMinWidth = Math.max(1, Math.ceil(minModalWidth / MAX_COLUMN_WIDTH))
+
+  // Search range: [minColumnsForMinWidth, upperBound]
+  let bestColumnCount = minColumnsForMinWidth
+  let minEmptyCells = Infinity
+
+  for (let cols = minColumnsForMinWidth; cols <= upperBound; cols++) {
+    // Calculate empty cells in last row
+    // Formula: (cols - (itemCount % cols)) % cols
+    // This gives 0 when itemCount is perfectly divisible by cols
+    const emptyCells = (cols - (itemCount % cols)) % cols
+
+    // Minimize empty cells, prefer more columns on tie
+    if (emptyCells < minEmptyCells || (emptyCells === minEmptyCells && cols > bestColumnCount)) {
+      minEmptyCells = emptyCells
+      bestColumnCount = cols
+    }
+  }
+
+  return bestColumnCount
+})
+
+// Generate grid-template-columns CSS
+const gridTemplateColumns = computed(() => {
+  return `repeat(${optimalColumnCount.value}, 1fr)`
+})
 </script>
 
 <style scoped>
 .shortcuts-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* grid-template-columns set dynamically via :style binding */
   gap: var(--spacing-lg);
 }
 
