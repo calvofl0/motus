@@ -4,7 +4,9 @@
     @update:modelValue="$emit('update:modelValue', $event)"
     @confirm="$emit('update:modelValue', false)"
     :title="title"
-    size="xlarge"
+    size="large"
+    class="keyboard-shortcuts-modal"
+    :style="{ '--modal-dynamic-width': modalWidth }"
   >
     <div class="shortcuts-container" :style="{ gridTemplateColumns: gridTemplateColumns }">
       <!-- Render each section -->
@@ -133,9 +135,34 @@ const optimalColumnCount = computed(() => {
 const gridTemplateColumns = computed(() => {
   return `repeat(${optimalColumnCount.value}, 1fr)`
 })
+
+// Calculate actual modal width needed based on column count
+// This allows the modal to be smaller than 80vw when content doesn't need it
+const modalWidth = computed(() => {
+  const cols = optimalColumnCount.value
+  const gap = 24 // var(--spacing-lg) is typically 24px
+  const padding = 48 // Modal body padding (24px each side)
+
+  // Calculate width needed: columns * min width + gaps between columns + padding
+  const neededWidth = cols * MIN_COLUMN_WIDTH + (cols - 1) * gap + padding
+
+  // Apply max constraints: 80vw or 1400px
+  const maxWidth = Math.min(windowWidth.value * MODAL_MAX_WIDTH_RATIO, 1400)
+
+  // Return the smaller of needed width or max width
+  const actualWidth = Math.min(neededWidth, maxWidth)
+
+  return `${actualWidth}px`
+})
 </script>
 
 <style scoped>
+/* Override modal width to use dynamic width based on content */
+.keyboard-shortcuts-modal :deep(.modal-content) {
+  width: var(--modal-dynamic-width);
+  max-width: min(80vw, 1400px);
+}
+
 .shortcuts-container {
   display: grid;
   /* grid-template-columns set dynamically via :style binding */
