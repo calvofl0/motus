@@ -8,7 +8,10 @@ export const shortcutSections = {
     shortcuts: [
       { keys: ['F1'], description: 'Show keyboard shortcuts' },
       { keys: ['R'], description: 'Open Remotes Manager' },
-      { keys: ['J'], description: 'Open Completed Jobs' }
+      { keys: ['J'], description: 'Open Completed Jobs' },
+      { keys: ['F'], description: 'Focus file pane' },
+      { keys: ['Alt', 'R'], description: 'Focus remote dropdown' },
+      { keys: ['Alt', 'L'], description: 'Focus location input' }
     ]
   },
 
@@ -84,7 +87,8 @@ export const shortcutSections = {
       { keys: ['D', 'Delete'], description: 'Delete remote' },
       { keys: ['+'], description: 'Add Remote (start wizard)' },
       { keys: ['C'], description: 'Custom Remote (in template selection)' },
-      { keys: ['Alt', '<'], description: 'Back (in wizard configuration step)' }
+      { keys: ['Alt', '<'], description: 'Back (in wizard)' },
+      { keys: ['Alt', '>'], description: 'Next/Create (in wizard)' }
     ]
   }
 }
