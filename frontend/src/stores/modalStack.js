@@ -21,6 +21,7 @@ export const useModalStack = defineStore('modalStack', () => {
    */
   const pushModal = (id) => {
     stack.value.push(id)
+    console.log('[ModalStack] PUSH:', id.toString(), '| Stack size:', stack.value.length, '| Stack:', stack.value.map(s => s.toString()))
   }
 
   /**
@@ -32,6 +33,9 @@ export const useModalStack = defineStore('modalStack', () => {
     const index = stack.value.lastIndexOf(id)
     if (index !== -1) {
       stack.value.splice(index, 1)
+      console.log('[ModalStack] POP:', id.toString(), '| Stack size:', stack.value.length, '| Stack:', stack.value.map(s => s.toString()))
+    } else {
+      console.warn('[ModalStack] POP failed - ID not found:', id.toString())
     }
   }
 
@@ -41,7 +45,10 @@ export const useModalStack = defineStore('modalStack', () => {
    * @returns {Boolean} - True if this modal is on top of the stack
    */
   const isTopModal = (id) => {
-    return stack.value.length > 0 && stack.value[stack.value.length - 1] === id
+    const isTop = stack.value.length > 0 && stack.value[stack.value.length - 1] === id
+    // Uncomment for verbose debugging:
+    // console.log('[ModalStack] isTopModal check:', id.toString(), '| Result:', isTop, '| Top:', stack.value[stack.value.length - 1]?.toString())
+    return isTop
   }
 
   /**

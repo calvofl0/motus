@@ -139,7 +139,12 @@ function handleEnter(event) {
 
 function handleKeyDown(event) {
   // Only handle events if this modal is the topmost (active) modal
-  if (!isTopModal.value) return
+  if (!isTopModal.value) {
+    console.log('[BaseModal] Ignoring keydown (not top):', event.key, '| Modal ID:', modalId.toString())
+    return
+  }
+
+  console.log('[BaseModal] Handling keydown:', event.key, '| Modal ID:', modalId.toString())
 
   // Handle arrow keys for scrolling
   if (!modalBodyRef.value) return

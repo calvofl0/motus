@@ -130,8 +130,12 @@ function handleKeyDown(event) {
   if (props.parentModal && props.parentModal.isTopModal) {
     // If parent modal is not the top modal, don't handle keyboard events
     if (!props.parentModal.isTopModal.value) {
+      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key, '| Parent isTop:', props.parentModal.isTopModal.value)
       return
     }
+    console.log('[ModalTable] Handling keydown (parent is top):', event.key, '| Parent isTop:', props.parentModal.isTopModal.value)
+  } else {
+    console.log('[ModalTable] No parentModal ref provided, handling keydown:', event.key)
   }
 
   if (props.disableDefaultKeyboard) {
