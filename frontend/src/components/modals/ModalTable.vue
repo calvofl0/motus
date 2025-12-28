@@ -128,18 +128,12 @@ function scrollToSelectedRow() {
 // Keyboard navigation
 function handleKeyDown(event) {
   // Check if parent modal is the top modal (if parentIsTopModal is provided)
-  console.log('[ModalTable] handleKeyDown called:', event.key, '| parentIsTopModal:', props.parentIsTopModal, '| typeof:', typeof props.parentIsTopModal)
-
   // Only check if parentIsTopModal was explicitly provided (not null/undefined)
   if (props.parentIsTopModal !== null && props.parentIsTopModal !== undefined) {
     // If parent modal is not the top modal, don't handle keyboard events
     if (!props.parentIsTopModal) {
-      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key)
       return
     }
-    console.log('[ModalTable] Handling keydown (parent is top):', event.key)
-  } else {
-    console.log('[ModalTable] No parentIsTopModal provided, handling keydown:', event.key)
   }
 
   if (props.disableDefaultKeyboard) {
@@ -231,7 +225,6 @@ function stopKeyboardListener() {
 // Clean up listener when component is unmounted
 onUnmounted(() => {
   stopKeyboardListener()
-  console.log('[ModalTable] Component unmounted, listener cleaned up')
 })
 
 // Expose methods for parent components
