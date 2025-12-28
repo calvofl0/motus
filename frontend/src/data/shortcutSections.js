@@ -18,6 +18,7 @@ export const shortcutSections = {
   'file-navigation': {
     id: 'file-navigation',
     title: 'File Navigation',
+    note: 'File pane must be in focus (press F to focus)',
     shortcuts: [
       { keys: ['↑', '↓', '←', '→'], description: 'Navigate files and switch between panes' },
       { keys: ['Enter'], description: 'Open folder or download file' },
@@ -32,6 +33,7 @@ export const shortcutSections = {
   'file-operations': {
     id: 'file-operations',
     title: 'File Operations',
+    note: 'File pane must be in focus (press F to focus)',
     shortcuts: [
       { keys: ['Ctrl', 'Shift', '←'], description: 'Copy selected files to left pane' },
       { keys: ['Ctrl', 'Shift', '→'], description: 'Copy selected files to right pane' },

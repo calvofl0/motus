@@ -1935,6 +1935,30 @@ function handleKeyDown(event) {
     return
   }
 
+  // View Options - work globally (no focus required, but only lastFocusedPane handles them)
+  if (appStore.lastFocusedPane === props.pane) {
+    // Period (.) - Toggle hidden files visibility
+    if (event.key === '.') {
+      event.preventDefault()
+      appStore.toggleHiddenFiles()
+      return
+    }
+
+    // L - Toggle layout (list/grid)
+    if (event.key === 'l' || event.key === 'L') {
+      event.preventDefault()
+      appStore.toggleViewMode()
+      return
+    }
+
+    // P - Toggle relative/absolute paths
+    if (event.key === 'p' || event.key === 'P') {
+      event.preventDefault()
+      appStore.toggleAbsolutePaths()
+      return
+    }
+  }
+
   // File navigation and operations require file pane focus
   if (!hasPaneFocus) return
 
@@ -1965,27 +1989,6 @@ function handleKeyDown(event) {
   if (event.key === 'Backspace' && !isAtRoot.value) {
     event.preventDefault()
     navigateUp()
-    return
-  }
-
-  // Period (.) - Toggle hidden files visibility
-  if (event.key === '.') {
-    event.preventDefault()
-    appStore.toggleHiddenFiles()
-    return
-  }
-
-  // L - Toggle layout (list/grid)
-  if (event.key === 'l' || event.key === 'L') {
-    event.preventDefault()
-    appStore.toggleViewMode()
-    return
-  }
-
-  // P - Toggle relative/absolute paths
-  if (event.key === 'p' || event.key === 'P') {
-    event.preventDefault()
-    appStore.toggleAbsolutePaths()
     return
   }
 

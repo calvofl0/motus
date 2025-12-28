@@ -11,6 +11,7 @@
       <!-- Render each section -->
       <div v-for="section in displayedSections" :key="section.id" class="shortcut-section">
         <h4>{{ section.title }}</h4>
+        <div v-if="section.note" class="section-note">{{ section.note }}</div>
         <div class="shortcut-list">
           <div v-for="(shortcut, index) in section.shortcuts" :key="index" class="shortcut-item">
             <div class="shortcut-keys">
@@ -180,6 +181,17 @@ const modalWidth = computed(() => {
   font-weight: var(--font-weight-semibold);
   border-bottom: 2px solid var(--color-primary);
   padding-bottom: var(--spacing-xs);
+}
+
+.section-note {
+  margin: 0 0 var(--spacing-sm) 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-bg-light);
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  border-radius: var(--radius-sm);
 }
 
 .shortcut-list {
