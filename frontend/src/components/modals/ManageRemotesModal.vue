@@ -138,7 +138,7 @@
                     :ref="el => fieldInputs[index] = el"
                     v-model="formValues[field.key]"
                     :type="isSecretField(field) && !fieldVisibility[field.key] ? 'password' : 'text'"
-                    :placeholder="`Enter ${field.label}`"
+                    :placeholder="isTokenField(field) ? `Enter ${field.label} (if known)` : `Enter ${field.label}`"
                     style="width: 100%; padding: 8px; padding-right: 35px; border: 1px solid #ddd; border-radius: 4px;"
                     @keydown.enter="handleFieldEnter(field.key)"
                   />
@@ -162,14 +162,6 @@
                     </svg>
                   </button>
                 </div>
-                <button
-                  v-if="isTokenField(field) && !formValues[field.key]?.trim()"
-                  @click.prevent="showOAuthHelp"
-                  style="padding: 8px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;"
-                  title="Get OAuth token"
-                >
-                  Get Token
-                </button>
               </div>
             </div>
           </div>
@@ -393,6 +385,9 @@ const isFormValid = computed(() => {
   if (remoteNameError.value) return false
 
   for (const field of selectedTemplate.value.fields || []) {
+    // Allow token fields to be empty (they will be filled via OAuth later)
+    if (isTokenField(field)) continue
+
     if (!formValues.value[field.key]?.trim()) return false
   }
 
