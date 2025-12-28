@@ -81,6 +81,11 @@ const props = defineProps({
   disableDefaultKeyboard: {
     type: Boolean,
     default: false
+  },
+  // Parent modal ref - used to check if parent is the top modal
+  parentModal: {
+    type: Object,
+    default: null
   }
 })
 
@@ -121,6 +126,14 @@ function scrollToSelectedRow() {
 
 // Keyboard navigation
 function handleKeyDown(event) {
+  // Check if parent modal is the top modal (if parentModal ref is provided)
+  if (props.parentModal && props.parentModal.isTopModal) {
+    // If parent modal is not the top modal, don't handle keyboard events
+    if (!props.parentModal.isTopModal.value) {
+      return
+    }
+  }
+
   if (props.disableDefaultKeyboard) {
     // Let parent handle everything
     emit('keydown', event)

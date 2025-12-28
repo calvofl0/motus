@@ -2,6 +2,16 @@
 // Each section can be included in multiple shortcut modals
 
 export const shortcutSections = {
+  'global': {
+    id: 'global',
+    title: 'Global Shortcuts',
+    shortcuts: [
+      { keys: ['F1'], description: 'Show keyboard shortcuts' },
+      { keys: ['Ctrl', 'R'], description: 'Open Remotes Manager' },
+      { keys: ['Ctrl', 'J'], description: 'Open Completed Jobs' }
+    ]
+  },
+
   'file-navigation': {
     id: 'file-navigation',
     title: 'File Navigation',
@@ -12,7 +22,10 @@ export const shortcutSections = {
       { keys: ['Esc'], description: 'Unselect all files' },
       { keys: ['Shift', '←'], description: 'Switch to left pane (or <kbd>←</kbd> in list mode)' },
       { keys: ['Shift', '→'], description: 'Switch to right pane (or <kbd>→</kbd> in list mode)' },
-      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' }
+      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' },
+      { keys: ['N'], description: 'Sort by name and/or toggle sorting order' },
+      { keys: ['S'], description: 'Sort by size and/or toggle sorting order' },
+      { keys: ['D'], description: 'Sort by date and/or toggle sorting order' }
     ]
   },
 
@@ -25,7 +38,18 @@ export const shortcutSections = {
       { keys: ['Ctrl', 'Alt', '←'], description: 'Move selected files to left pane' },
       { keys: ['Ctrl', 'Alt', '→'], description: 'Move selected files to right pane' },
       { keys: ['Ctrl', 'N'], description: 'Create new folder' },
-      { keys: ['Del'], description: 'Delete selected files' }
+      { keys: ['Del'], description: 'Delete selected files' },
+      { keys: ['A'], description: 'Create alias (when single folder is selected)' }
+    ]
+  },
+
+  'view-options': {
+    id: 'view-options',
+    title: 'View Options',
+    shortcuts: [
+      { keys: ['L'], description: 'Toggle layout (list/grid)' },
+      { keys: ['H'], description: 'Toggle hidden files visibility' },
+      { keys: ['P'], description: 'Toggle relative/absolute paths' }
     ]
   },
 
@@ -62,38 +86,19 @@ export const shortcutSections = {
       { keys: ['R'], description: 'Refresh OAuth token (if OAuth remote)' },
       { keys: ['D', 'Delete'], description: 'Delete remote' }
     ]
-  },
-
-  'global': {
-    id: 'global',
-    title: 'Global Shortcuts',
-    shortcuts: [
-      { keys: ['F1'], description: 'Show keyboard shortcuts' },
-      { keys: ['Ctrl', 'R'], description: 'Open Remotes Manager' },
-      { keys: ['Ctrl', 'J'], description: 'Open Completed Jobs' }
-    ]
-  },
-
-  'view-options': {
-    id: 'view-options',
-    title: 'View Options',
-    shortcuts: [
-      { keys: ['Ctrl', 'H'], description: 'Toggle hidden files' },
-      { keys: ['Ctrl', 'P'], description: 'Toggle absolute/relative paths' }
-    ]
   }
 }
 
 // Predefined section sets for different contexts
 export const sectionSets = {
   main: [
+    'global',
     'file-navigation',
     'file-operations',
+    'view-options',
     'common-modal',
     'completed-jobs',
-    'manage-remotes',
-    'global',
-    'view-options'
+    'manage-remotes'
   ],
   completedJobs: [
     'common-modal',

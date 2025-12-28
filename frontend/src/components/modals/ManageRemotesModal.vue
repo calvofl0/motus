@@ -1,6 +1,7 @@
 <template>
   <!-- Main Manage Remotes Modal -->
   <BaseModal
+    ref="modalRef"
     :modelValue="appStore.showManageRemotesModal"
     @update:modelValue="handleMainModalClose"
     size="large"
@@ -24,6 +25,7 @@
           :loading="loading"
           loading-message="Loading remotes..."
           empty-message="No remotes configured"
+          :parentModal="modalRef"
           @row-click="handleRemoteRowClick"
           @keydown="handleCustomKeyDown"
         >
@@ -341,6 +343,7 @@ const currentStep = ref(1)
 const loading = ref(false)
 const remotes = ref([])
 const selectedRemoteIndex = ref(-1) // For keyboard navigation
+const modalRef = ref(null)
 const modalTableRef = ref(null)
 const templates = ref([])
 const templatesAvailable = ref(false)
@@ -1016,14 +1019,10 @@ function handleViewConfigKeyDown(event) {
 
 // Keyboard navigation for Step 1 (remotes list)
 // Custom keyboard shortcuts (beyond basic navigation handled by ModalTable)
+// Note: Modal stack automatically prevents handling when child modals are open
 function handleCustomKeyDown(event) {
   // Only handle on Step 1
   if (currentStep.value !== 1) return
-
-  // Don't handle if any modal is open
-  if (showViewConfigModal.value || showEditConfigModal.value || showOAuthModal.value ||
-      showCustomMethodModal.value || showCustomWizardModal.value || showCustomConfigModal.value ||
-      showShortcutsModal.value) return
 
   // F1 - Show keyboard shortcuts
   if (event.key === 'F1') {
@@ -1110,25 +1109,6 @@ watch(currentStep, (newStep, oldStep) => {
 // Watch step changes to reset selection
 watch(currentStep, () => {
   selectedRemoteIndex.value = -1
-})
-
-// Stop keyboard listener when shortcuts modal opens
-watch(showShortcutsModal, (isOpen) => {
-  if (isOpen) {
-    // Stop keyboard listener while shortcuts modal is open
-    if (modalTableRef.value) {
-      modalTableRef.value.stopKeyboardListener()
-    }
-  } else {
-    // Restart keyboard listener when shortcuts modal closes (if on step 1)
-    if (currentStep.value === 1 && appStore.showManageRemotesModal) {
-      nextTick(() => {
-        if (modalTableRef.value) {
-          modalTableRef.value.startKeyboardListener()
-        }
-      })
-    }
-  }
 })
 
 // Watch view config modal to add/remove keyboard listener

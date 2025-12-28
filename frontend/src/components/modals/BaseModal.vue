@@ -32,6 +32,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useModalStack } from '../../stores/modalStack'
 
 const props = defineProps({
   modelValue: {
@@ -61,6 +62,14 @@ const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
 
 const overlayRef = ref(null)
 const modalBodyRef = ref(null)
+
+// Modal Stack Integration
+// Each modal instance gets a unique ID to track its position in the stack
+const modalId = Symbol('modal')
+const modalStack = useModalStack()
+
+// Check if this modal is the topmost (active) modal
+const isTopModal = computed(() => modalStack.isTopModal(modalId))
 
 // Reactive window width for custom width calculations
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600)
@@ -129,6 +138,9 @@ function handleEnter(event) {
 }
 
 function handleKeyDown(event) {
+  // Only handle events if this modal is the topmost (active) modal
+  if (!isTopModal.value) return
+
   // Handle arrow keys for scrolling
   if (!modalBodyRef.value) return
 
@@ -194,8 +206,12 @@ function findScrollableElement(element) {
 }
 
 // Focus overlay when modal opens to capture keyboard events
+// Also manage modal stack (push/pop)
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
+    // Push this modal onto the stack
+    modalStack.pushModal(modalId)
+
     await nextTick()
     // Reset scroll position to top
     if (modalBodyRef.value) {
@@ -205,6 +221,9 @@ watch(() => props.modelValue, async (isOpen) => {
       // Always focus overlay to capture ESC and other keyboard events
       overlayRef.value.focus()
     }
+  } else {
+    // Pop this modal from the stack
+    modalStack.popModal(modalId)
   }
 })
 
@@ -216,7 +235,8 @@ function focusOverlay() {
 }
 
 defineExpose({
-  focusOverlay
+  focusOverlay,
+  isTopModal
 })
 </script>
 

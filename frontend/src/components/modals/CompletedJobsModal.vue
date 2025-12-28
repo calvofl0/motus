@@ -17,6 +17,7 @@
         :loading="loading"
         loading-message="Loading completed jobs..."
         empty-message="No completed jobs found."
+        :parentModal="modalRef"
         @row-click="handleJobRowClick"
         @keydown="handleCustomKeyDown"
       >
@@ -93,7 +94,6 @@
   <!-- Keyboard Shortcuts Modal -->
   <CompletedJobsShortcutsModal
     v-model="showShortcutsModal"
-    @close="handleShortcutsClose"
   />
 </template>
 
@@ -158,17 +158,6 @@ watch(isOpen, async (newVal) => {
       modalTableRef.value.stopKeyboardListener()
     }
   }
-})
-
-// Stop keyboard listener when shortcuts modal opens, restart when it closes
-watch(showShortcutsModal, (isOpen) => {
-  if (isOpen) {
-    // Stop keyboard listener while shortcuts modal is open
-    if (modalTableRef.value) {
-      modalTableRef.value.stopKeyboardListener()
-    }
-  }
-  // Note: Listener is restarted in handleShortcutsClose()
 })
 
 async function fetchCompletedJobs() {
@@ -253,27 +242,13 @@ async function handlePurgeConfirmClose() {
   }
 }
 
-async function handleShortcutsClose() {
-  // Restore focus to parent modal after shortcuts modal closes
-  await nextTick()
-  if (modalRef.value && modalRef.value.focusOverlay) {
-    modalRef.value.focusOverlay()
-  }
-  // Restart keyboard listener
-  if (modalTableRef.value) {
-    modalTableRef.value.startKeyboardListener()
-  }
-}
-
 function formatOperation(op) {
   return op.charAt(0).toUpperCase() + op.slice(1)
 }
 
 // Custom keyboard shortcuts (beyond basic navigation handled by ModalTable)
+// Note: Modal stack automatically prevents handling when child modals are open
 function handleCustomKeyDown(event) {
-  // Don't handle if child modals are open
-  if (showJobLogModal.value || showPurgeConfirm.value || showShortcutsModal.value) return
-
   // F1 - Show keyboard shortcuts
   if (event.key === 'F1') {
     event.preventDefault()
