@@ -25,7 +25,7 @@
           :loading="loading"
           loading-message="Loading remotes..."
           empty-message="No remotes configured"
-          :parentModal="modalRef"
+          :parentIsTopModal="modalRef?.isTopModal"
           @row-click="handleRemoteRowClick"
           @keydown="handleCustomKeyDown"
         >

@@ -82,9 +82,9 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  // Parent modal ref - used to check if parent is the top modal
-  parentModal: {
-    type: Object,
+  // Parent modal's isTopModal computed ref - used to check if parent is the top modal
+  parentIsTopModal: {
+    type: Object,  // This is a ComputedRef
     default: null
   }
 })
@@ -126,22 +126,21 @@ function scrollToSelectedRow() {
 
 // Keyboard navigation
 function handleKeyDown(event) {
-  // Check if parent modal is the top modal (if parentModal ref is provided)
-  // parentModal is a ref object, so we need .value to get the component instance
-  console.log('[ModalTable] handleKeyDown called:', event.key, '| props.parentModal:', props.parentModal, '| typeof:', typeof props.parentModal)
+  // Check if parent modal is the top modal (if parentIsTopModal ref is provided)
+  console.log('[ModalTable] handleKeyDown called:', event.key, '| parentIsTopModal:', props.parentIsTopModal, '| typeof:', typeof props.parentIsTopModal)
 
-  const parentModalInstance = props.parentModal?.value
-  console.log('[ModalTable] parentModalInstance:', parentModalInstance, '| has isTopModal?:', !!parentModalInstance?.isTopModal)
+  if (props.parentIsTopModal) {
+    const isParentTop = props.parentIsTopModal.value
+    console.log('[ModalTable] Parent isTopModal.value:', isParentTop)
 
-  if (parentModalInstance && parentModalInstance.isTopModal) {
     // If parent modal is not the top modal, don't handle keyboard events
-    if (!parentModalInstance.isTopModal.value) {
-      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key, '| Parent isTop:', parentModalInstance.isTopModal.value)
+    if (!isParentTop) {
+      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key)
       return
     }
-    console.log('[ModalTable] Handling keydown (parent is top):', event.key, '| Parent isTop:', parentModalInstance.isTopModal.value)
+    console.log('[ModalTable] Handling keydown (parent is top):', event.key)
   } else {
-    console.log('[ModalTable] No parentModal ref provided or instance not ready, handling keydown:', event.key)
+    console.log('[ModalTable] No parentIsTopModal ref provided, handling keydown:', event.key)
   }
 
   if (props.disableDefaultKeyboard) {

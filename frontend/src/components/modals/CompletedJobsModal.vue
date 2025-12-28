@@ -17,7 +17,7 @@
         :loading="loading"
         loading-message="Loading completed jobs..."
         empty-message="No completed jobs found."
-        :parentModal="modalRef"
+        :parentIsTopModal="modalRef?.isTopModal"
         @row-click="handleJobRowClick"
         @keydown="handleCustomKeyDown"
       >
