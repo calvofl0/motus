@@ -762,13 +762,10 @@ function selectTemplate(templateName) {
 
 // Handle global modal keyboard shortcuts
 function handleModalKeyDown(event) {
-  // Step 3: Backspace - Go back to template selection
-  if (currentStep.value === 3 && event.key === 'Backspace') {
-    // Only handle if not typing in an input field
-    if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
-      event.preventDefault()
-      showTemplateSelection()
-    }
+  // Step 3: Alt+< - Go back to template selection
+  if (currentStep.value === 3 && event.altKey && event.key === '<') {
+    event.preventDefault()
+    showTemplateSelection()
   }
 }
 
