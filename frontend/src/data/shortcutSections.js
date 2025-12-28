@@ -7,8 +7,8 @@ export const shortcutSections = {
     title: 'Global Shortcuts',
     shortcuts: [
       { keys: ['F1'], description: 'Show keyboard shortcuts' },
-      { keys: ['Ctrl', 'R'], description: 'Open Remotes Manager' },
-      { keys: ['Ctrl', 'J'], description: 'Open Completed Jobs' }
+      { keys: ['R'], description: 'Open Remotes Manager' },
+      { keys: ['J'], description: 'Open Completed Jobs' }
     ]
   },
 
@@ -22,10 +22,7 @@ export const shortcutSections = {
       { keys: ['Esc'], description: 'Unselect all files' },
       { keys: ['Shift', '←'], description: 'Switch to left pane (or <kbd>←</kbd> in list mode)' },
       { keys: ['Shift', '→'], description: 'Switch to right pane (or <kbd>→</kbd> in list mode)' },
-      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' },
-      { keys: ['N'], description: 'Sort by name and/or toggle sorting order' },
-      { keys: ['S'], description: 'Sort by size and/or toggle sorting order' },
-      { keys: ['D'], description: 'Sort by date and/or toggle sorting order' }
+      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' }
     ]
   },
 
@@ -35,9 +32,8 @@ export const shortcutSections = {
     shortcuts: [
       { keys: ['Ctrl', 'Shift', '←'], description: 'Copy selected files to left pane' },
       { keys: ['Ctrl', 'Shift', '→'], description: 'Copy selected files to right pane' },
-      { keys: ['Ctrl', 'Alt', '←'], description: 'Move selected files to left pane' },
-      { keys: ['Ctrl', 'Alt', '→'], description: 'Move selected files to right pane' },
-      { keys: ['Ctrl', 'N'], description: 'Create new folder' },
+      { keys: ['N'], description: 'Create new folder (when 0 or 1 item selected)' },
+      { keys: ['S'], description: 'Sort by name and toggle sorting order' },
       { keys: ['Del'], description: 'Delete selected files' },
       { keys: ['A'], description: 'Create alias (when single folder is selected)' }
     ]
@@ -48,7 +44,7 @@ export const shortcutSections = {
     title: 'View Options',
     shortcuts: [
       { keys: ['L'], description: 'Toggle layout (list/grid)' },
-      { keys: ['H'], description: 'Toggle hidden files visibility' },
+      { keys: ['.'], description: 'Toggle hidden files visibility' },
       { keys: ['P'], description: 'Toggle relative/absolute paths' }
     ]
   },
@@ -84,7 +80,10 @@ export const shortcutSections = {
       { keys: ['Enter'], description: 'View remote configuration' },
       { keys: ['E'], description: 'Edit remote configuration' },
       { keys: ['R'], description: 'Refresh OAuth token (if OAuth remote)' },
-      { keys: ['D', 'Delete'], description: 'Delete remote' }
+      { keys: ['D', 'Delete'], description: 'Delete remote' },
+      { keys: ['+'], description: 'Add Remote (start wizard)' },
+      { keys: ['C'], description: 'Custom Remote (in template selection)' },
+      { keys: ['Backspace'], description: 'Back (in wizard configuration step)' }
     ]
   }
 }
