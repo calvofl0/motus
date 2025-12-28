@@ -1888,6 +1888,43 @@ function handleKeyDown(event) {
     return
   }
 
+  // Period (.) - Toggle hidden files visibility
+  if (event.key === '.') {
+    event.preventDefault()
+    appStore.toggleHiddenFiles()
+    return
+  }
+
+  // L - Toggle layout (list/grid)
+  if (event.key === 'l' || event.key === 'L') {
+    event.preventDefault()
+    appStore.toggleViewMode()
+    return
+  }
+
+  // P - Toggle relative/absolute paths
+  if (event.key === 'p' || event.key === 'P') {
+    event.preventDefault()
+    appStore.toggleAbsolutePaths()
+    return
+  }
+
+  // N - Create new folder (when 0 or 1 item selected)
+  if ((event.key === 'n' || event.key === 'N') && selectedIndexes.length <= 1) {
+    event.preventDefault()
+    if (fileOperations) {
+      fileOperations.openCreateFolderModal(props.pane)
+    }
+    return
+  }
+
+  // S - Sort by name and toggle sorting order
+  if (event.key === 's' || event.key === 'S') {
+    event.preventDefault()
+    setSortBy('name')
+    return
+  }
+
   // When nothing is selected
   if (selectedIndexes.length === 0 && sortedFiles.value.length > 0) {
     if (viewMode.value === 'list') {
