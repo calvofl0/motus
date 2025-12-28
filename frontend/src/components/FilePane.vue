@@ -1088,6 +1088,24 @@ function handleParentContextMenu(event) {
   }
 }
 
+function handleContainerFocus() {
+  // When file pane gains focus, set it as the active pane
+  appStore.setLastFocusedPane(props.pane)
+}
+
+function handleContainerBlur(event) {
+  // When file pane loses focus, unselect all files
+  // Use setTimeout to ensure click actions complete before unselecting
+  setTimeout(() => {
+    // Only unselect if the new focus target is not within this pane
+    const activeElement = document.activeElement
+    const paneElement = fileContainer.value
+    if (paneElement && !paneElement.contains(activeElement)) {
+      appStore.setPaneSelection(props.pane, [])
+    }
+  }, 0)
+}
+
 function handleContainerClick(event) {
   // Deselect if clicking on empty space
   if (event.target.classList.contains('file-grid') ||
@@ -1622,6 +1640,14 @@ function selectLeftPane(indexToSelect = null) {
   if (indexToSelect !== null) {
     appStore.setPaneSelection('left', [indexToSelect])
   }
+
+  // Focus the left pane's file container
+  nextTick(() => {
+    const leftFileContainer = document.querySelector('#left-files')
+    if (leftFileContainer) {
+      leftFileContainer.focus()
+    }
+  })
 }
 
 function selectRightPane(indexToSelect = null) {
@@ -1631,6 +1657,14 @@ function selectRightPane(indexToSelect = null) {
   if (indexToSelect !== null) {
     appStore.setPaneSelection('right', [indexToSelect])
   }
+
+  // Focus the right pane's file container
+  nextTick(() => {
+    const rightFileContainer = document.querySelector('#right-files')
+    if (rightFileContainer) {
+      rightFileContainer.focus()
+    }
+  })
 }
 
 function togglePane() {
@@ -1845,11 +1879,6 @@ function handlePaneSwitch(direction) {
 }
 
 function handleKeyDown(event) {
-  // Only handle if this pane is focused
-  if (appStore.lastFocusedPane !== props.pane) {
-    return
-  }
-
   // Don't handle if typing in input
   if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
     return
@@ -1863,6 +1892,42 @@ function handleKeyDown(event) {
       document.querySelector('.theme-dropdown-menu:not(.hidden)')) {
     return
   }
+
+  // Check if file pane has focus (for file navigation/operations)
+  const activeElement = document.activeElement
+  const paneElement = fileContainer.value
+  const hasPaneFocus = paneElement && (activeElement === paneElement || paneElement.contains(activeElement))
+
+  // Global shortcuts that work on lastFocusedPane (regardless of current focus)
+  // F/f - Focus file container of lastFocusedPane
+  if ((event.key === 'f' || event.key === 'F') && appStore.lastFocusedPane === props.pane) {
+    event.preventDefault()
+    if (fileContainer.value) {
+      fileContainer.value.focus()
+    }
+    return
+  }
+
+  // Alt+R - Focus remote dropdown of lastFocusedPane
+  if (event.altKey && (event.key === 'r' || event.key === 'R') && appStore.lastFocusedPane === props.pane) {
+    event.preventDefault()
+    if (remoteSelect.value) {
+      remoteSelect.value.focus()
+    }
+    return
+  }
+
+  // Alt+L - Focus location input of lastFocusedPane
+  if (event.altKey && (event.key === 'l' || event.key === 'L') && appStore.lastFocusedPane === props.pane) {
+    event.preventDefault()
+    if (locationInput.value) {
+      locationInput.value.focus()
+    }
+    return
+  }
+
+  // File navigation and operations require file pane focus
+  if (!hasPaneFocus) return
 
   const selectedIndexes = paneState.value.selectedIndexes
 
@@ -2148,5 +2213,17 @@ defineExpose({
 .toolbar-row.with-icon select,
 .toolbar-row.with-icon input[type="text"] {
   flex: 1;
+}
+
+/* Focus styles for parent and refresh buttons (when focused via TAB) */
+.parent-btn:focus,
+.refresh-btn:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  transform: scale(1.2) !important;
+}
+
+.parent-btn:focus:disabled {
+  transform: scale(1) !important;
 }
 </style>
