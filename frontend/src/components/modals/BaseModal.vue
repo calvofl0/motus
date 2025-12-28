@@ -141,6 +141,12 @@ function handleKeyDown(event) {
   // Only handle events if this modal is the topmost (active) modal
   if (!isTopModal.value) return
 
+  // Emit keydown event to parent (for custom handling like Backspace navigation)
+  emit('keydown', event)
+
+  // If parent prevented default, don't do anything else
+  if (event.defaultPrevented) return
+
   // Handle arrow keys for scrolling
   if (!modalBodyRef.value) return
 
