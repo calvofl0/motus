@@ -10,7 +10,7 @@
     <div class="pane-toolbar">
       <div class="toolbar-row with-icon">
         <span class="input-icon" title="Storage Source">📦</span>
-        <select v-model="selectedRemote" @change="onRemoteChange" title="Storage Source">
+        <select ref="remoteSelect" v-model="selectedRemote" @change="onRemoteChange" title="Storage Source">
           <option v-if="showLocalFs" value="">{{ localFsName }}</option>
           <option v-for="remote in sortedRemotes" :key="remote.name" :value="remote.name">
             {{ remote.name }}
@@ -20,6 +20,7 @@
       <div class="toolbar-row with-icon">
         <span class="input-icon" :title="pathTooltip">📂</span>
         <input
+          ref="locationInput"
           type="text"
           v-model="inputPath"
           @keypress.enter="browsePath"
@@ -59,7 +60,10 @@
       ref="fileContainer"
       :class="viewMode === 'grid' ? 'file-grid' : 'file-list'"
       :id="`${pane}-files`"
+      tabindex="0"
       @click="handleContainerClick"
+      @focus="handleContainerFocus"
+      @blur="handleContainerBlur"
       @contextmenu="handleContainerContextMenu"
       @dragover="handleDragOver"
       @drop="handleDrop"
@@ -188,6 +192,8 @@ const { handleExternalFileUpload } = useUpload()
 const refreshHover = ref(false)
 const parentHover = ref(false)
 const fileContainer = ref(null)
+const remoteSelect = ref(null)
+const locationInput = ref(null)
 const selectedRemote = ref('')
 const previousRemote = ref('') // Track last working remote
 const currentPath = ref('/')
