@@ -127,13 +127,15 @@ function scrollToSelectedRow() {
 // Keyboard navigation
 function handleKeyDown(event) {
   // Check if parent modal is the top modal (if parentModal ref is provided)
-  if (props.parentModal && props.parentModal.isTopModal) {
+  // parentModal is a ref object, so we need .value to get the component instance
+  const parentModalInstance = props.parentModal?.value
+  if (parentModalInstance && parentModalInstance.isTopModal) {
     // If parent modal is not the top modal, don't handle keyboard events
-    if (!props.parentModal.isTopModal.value) {
-      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key, '| Parent isTop:', props.parentModal.isTopModal.value)
+    if (!parentModalInstance.isTopModal.value) {
+      console.log('[ModalTable] Ignoring keydown (parent not top):', event.key, '| Parent isTop:', parentModalInstance.isTopModal.value)
       return
     }
-    console.log('[ModalTable] Handling keydown (parent is top):', event.key, '| Parent isTop:', props.parentModal.isTopModal.value)
+    console.log('[ModalTable] Handling keydown (parent is top):', event.key, '| Parent isTop:', parentModalInstance.isTopModal.value)
   } else {
     console.log('[ModalTable] No parentModal ref provided, handling keydown:', event.key)
   }
