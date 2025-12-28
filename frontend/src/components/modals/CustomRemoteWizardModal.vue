@@ -2,6 +2,7 @@
   <BaseModal
     :modelValue="modelValue"
     @update:modelValue="$emit('update:modelValue', $event)"
+    @keydown="handleKeyDown"
     size="medium"
   >
     <template #header>
@@ -298,6 +299,21 @@ async function handleNext() {
   } else {
     // Continue with current answer
     await submitAnswer()
+  }
+}
+
+function handleKeyDown(event) {
+  // Alt+< for Back
+  if (event.altKey && event.key === '<') {
+    event.preventDefault()
+    handleBack()
+  }
+  // Alt+> for Next (if can proceed)
+  else if (event.altKey && event.key === '>') {
+    if (canProceed.value) {
+      event.preventDefault()
+      handleNext()
+    }
   }
 }
 

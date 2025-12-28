@@ -585,7 +585,7 @@ async function handleCreateAlias(aliasName) {
 }
 
 // Provide file operations and context menu to child components
-provide('fileOperations', fileOps)
+provide('fileOperations', { ...fileOps, openCreateAliasModal })
 provide('contextMenu', { show: showContextMenu })
 
 // Handle refresh pane events

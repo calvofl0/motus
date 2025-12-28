@@ -762,10 +762,24 @@ function selectTemplate(templateName) {
 
 // Handle global modal keyboard shortcuts
 function handleModalKeyDown(event) {
+  // Step 2: Alt+> - Go to next step (if template selected)
+  if (currentStep.value === 2 && event.altKey && event.key === '>') {
+    if (selectedTemplate.value) {
+      event.preventDefault()
+      showRemoteForm()
+    }
+  }
   // Step 3: Alt+< - Go back to template selection
-  if (currentStep.value === 3 && event.altKey && event.key === '<') {
+  else if (currentStep.value === 3 && event.altKey && event.key === '<') {
     event.preventDefault()
     showTemplateSelection()
+  }
+  // Step 3: Alt+> - Create remote (if form is valid)
+  else if (currentStep.value === 3 && event.altKey && event.key === '>') {
+    if (isFormValid.value) {
+      event.preventDefault()
+      createRemote()
+    }
   }
 }
 

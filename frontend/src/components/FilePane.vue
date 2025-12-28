@@ -1925,6 +1925,18 @@ function handleKeyDown(event) {
     return
   }
 
+  // A - Create alias (when single folder is selected)
+  if ((event.key === 'a' || event.key === 'A') && selectedIndexes.length === 1) {
+    const selectedFile = files.value[selectedIndexes[0]]
+    if (selectedFile && selectedFile.IsDir && selectedFile.Name !== '..') {
+      event.preventDefault()
+      if (fileOperations && fileOperations.openCreateAliasModal) {
+        fileOperations.openCreateAliasModal(props.pane, selectedFile)
+      }
+      return
+    }
+  }
+
   // When nothing is selected
   if (selectedIndexes.length === 0 && sortedFiles.value.length > 0) {
     if (viewMode.value === 'list') {
