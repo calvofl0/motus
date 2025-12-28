@@ -4,6 +4,7 @@
     ref="modalRef"
     :modelValue="appStore.showManageRemotesModal"
     @update:modelValue="handleMainModalClose"
+    @keydown="handleModalKeyDown"
     size="large"
   >
     <template #header>
@@ -759,12 +760,28 @@ function selectTemplate(templateName) {
   }
 }
 
+// Handle global modal keyboard shortcuts
+function handleModalKeyDown(event) {
+  // Step 3: Backspace - Go back to template selection
+  if (currentStep.value === 3 && event.key === 'Backspace') {
+    // Only handle if not typing in an input field
+    if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+      event.preventDefault()
+      showTemplateSelection()
+    }
+  }
+}
+
 // Handle keyboard navigation in template selection
 function handleTemplateKeydown(e) {
   if (e.key === 'Enter' && selectedTemplate.value) {
     // ENTER key with selection -> go to next step
     e.preventDefault()
     showRemoteForm()
+  } else if (e.key === 'c' || e.key === 'C') {
+    // C - Custom Remote
+    e.preventDefault()
+    showCustomRemoteForm()
   } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     // Arrow key navigation
     e.preventDefault()
@@ -1029,6 +1046,14 @@ function handleCustomKeyDown(event) {
     event.preventDefault()
     event.stopPropagation()
     showShortcutsModal.value = true
+    return
+  }
+
+  // + - Add Remote
+  if (event.key === '+' && templatesAvailable.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    startWizard()
     return
   }
 
