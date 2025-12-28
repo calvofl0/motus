@@ -84,7 +84,7 @@ export const shortcutSections = {
       { keys: ['D', 'Delete'], description: 'Delete remote' },
       { keys: ['+'], description: 'Add Remote (start wizard)' },
       { keys: ['C'], description: 'Custom Remote (in template selection)' },
-      { keys: ['Backspace'], description: 'Back (in wizard configuration step)' }
+      { keys: ['Alt', '<'], description: 'Back (in wizard configuration step)' }
     ]
   }
 }
