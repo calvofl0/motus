@@ -58,7 +58,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'close', 'confirm'])
+const emit = defineEmits(['update:modelValue', 'close', 'confirm', 'keydown'])
 
 const overlayRef = ref(null)
 const modalBodyRef = ref(null)
