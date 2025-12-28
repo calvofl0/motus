@@ -179,14 +179,26 @@ function downloadLog() {
   document.body.removeChild(a)
 }
 
-// Handle Ctrl+C to copy log
+// Handle keyboard shortcuts
 function handleKeydown(e) {
-  if (props.show && (e.ctrlKey || e.metaKey) && e.key === 'c') {
+  if (!props.show) return
+
+  // Ctrl+C to copy log
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
     // Only copy if we're focused on the modal, not on an input field
     const activeElement = document.activeElement
     if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
       e.preventDefault()
       copyLog()
+    }
+  }
+  // D/d to download log
+  else if ((e.key === 'd' || e.key === 'D') && props.job?.log_text) {
+    // Only download if we're focused on the modal, not on an input field
+    const activeElement = document.activeElement
+    if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
+      e.preventDefault()
+      downloadLog()
     }
   }
 }

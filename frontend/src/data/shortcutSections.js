@@ -68,7 +68,8 @@ export const shortcutSections = {
       { keys: ['↑', '↓'], description: 'Select job' },
       { keys: ['Enter'], description: 'View job log' },
       { keys: ['D', 'Delete'], description: 'Delete job log' },
-      { keys: ['P'], description: 'Purge all completed jobs' }
+      { keys: ['P'], description: 'Purge all completed jobs' },
+      { keys: ['D'], description: 'Download log (when viewing job log)' }
     ]
   },
 
