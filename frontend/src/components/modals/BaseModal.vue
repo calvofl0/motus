@@ -62,6 +62,7 @@ const emit = defineEmits(['update:modelValue', 'close', 'confirm', 'keydown'])
 
 const overlayRef = ref(null)
 const modalBodyRef = ref(null)
+const previouslyFocusedElement = ref(null)
 
 // Modal Stack Integration
 // Each modal instance gets a unique ID to track its position in the stack
@@ -215,6 +216,9 @@ function findScrollableElement(element) {
 // Also manage modal stack (push/pop)
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
+    // Store the currently focused element before opening modal
+    previouslyFocusedElement.value = document.activeElement
+
     // Push this modal onto the stack
     modalStack.pushModal(modalId)
 
@@ -230,6 +234,17 @@ watch(() => props.modelValue, async (isOpen) => {
   } else {
     // Pop this modal from the stack
     modalStack.popModal(modalId)
+
+    // Restore focus to the previously focused element (if it was opened via keyboard)
+    if (previouslyFocusedElement.value &&
+        previouslyFocusedElement.value !== document.body &&
+        typeof previouslyFocusedElement.value.focus === 'function') {
+      // Use setTimeout to ensure modal is fully removed from DOM
+      setTimeout(() => {
+        previouslyFocusedElement.value.focus()
+        previouslyFocusedElement.value = null
+      }, 0)
+    }
   }
 })
 

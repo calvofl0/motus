@@ -1097,12 +1097,21 @@ function handleContainerBlur(event) {
   // When file pane loses focus, unselect all files
   // Use setTimeout to ensure click actions complete before unselecting
   setTimeout(() => {
-    // Only unselect if the new focus target is not within this pane
     const activeElement = document.activeElement
     const paneElement = fileContainer.value
-    if (paneElement && !paneElement.contains(activeElement)) {
-      appStore.setPaneSelection(props.pane, [])
+
+    // Don't unselect if focus moved to within this pane
+    if (paneElement && paneElement.contains(activeElement)) {
+      return
     }
+
+    // Don't unselect if focus moved to a modal (preserve selection for when modal closes)
+    if (activeElement && activeElement.classList.contains('modal-overlay')) {
+      return
+    }
+
+    // Otherwise, unselect files
+    appStore.setPaneSelection(props.pane, [])
   }, 0)
 }
 

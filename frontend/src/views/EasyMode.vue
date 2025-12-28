@@ -649,15 +649,15 @@ function handleKeyDown(event) {
 
   // Note: Shift+Left/Right for pane switching is handled in FilePane.vue
 
-  // J or Shift+J - Show Completed Jobs
-  if (event.key === 'j' || event.key === 'J') {
+  // J or Shift+J - Show Completed Jobs (but not with Alt/Ctrl/Meta modifiers)
+  if ((event.key === 'j' || event.key === 'J') && !event.altKey && !event.ctrlKey && !event.metaKey) {
     event.preventDefault()
     appStore.openCompletedJobs()
     return
   }
 
-  // R - Open Manage Remotes
-  if (event.key === 'r' || event.key === 'R') {
+  // R - Open Manage Remotes (but not with Alt/Ctrl/Meta modifiers)
+  if ((event.key === 'r' || event.key === 'R') && !event.altKey && !event.ctrlKey && !event.metaKey) {
     event.preventDefault()
     appStore.openManageRemotes()
     return
