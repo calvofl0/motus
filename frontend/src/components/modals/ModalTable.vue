@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 
 const props = defineProps({
   items: {
@@ -128,7 +128,11 @@ function scrollToSelectedRow() {
 function handleKeyDown(event) {
   // Check if parent modal is the top modal (if parentModal ref is provided)
   // parentModal is a ref object, so we need .value to get the component instance
+  console.log('[ModalTable] handleKeyDown called:', event.key, '| props.parentModal:', props.parentModal, '| typeof:', typeof props.parentModal)
+
   const parentModalInstance = props.parentModal?.value
+  console.log('[ModalTable] parentModalInstance:', parentModalInstance, '| has isTopModal?:', !!parentModalInstance?.isTopModal)
+
   if (parentModalInstance && parentModalInstance.isTopModal) {
     // If parent modal is not the top modal, don't handle keyboard events
     if (!parentModalInstance.isTopModal.value) {
@@ -137,7 +141,7 @@ function handleKeyDown(event) {
     }
     console.log('[ModalTable] Handling keydown (parent is top):', event.key, '| Parent isTop:', parentModalInstance.isTopModal.value)
   } else {
-    console.log('[ModalTable] No parentModal ref provided, handling keydown:', event.key)
+    console.log('[ModalTable] No parentModal ref provided or instance not ready, handling keydown:', event.key)
   }
 
   if (props.disableDefaultKeyboard) {
@@ -225,6 +229,12 @@ function stopKeyboardListener() {
     isListening.value = false
   }
 }
+
+// Clean up listener when component is unmounted
+onUnmounted(() => {
+  stopKeyboardListener()
+  console.log('[ModalTable] Component unmounted, listener cleaned up')
+})
 
 // Expose methods for parent components
 defineExpose({
