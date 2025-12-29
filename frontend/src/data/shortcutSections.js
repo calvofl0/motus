@@ -62,7 +62,7 @@ export const shortcutSections = {
       { keys: ['↑', '↓'], description: 'Scroll modal content' },
       { keys: ['PgUp', 'PgDn'], description: 'Scroll by page' },
       { keys: ['Home', 'End'], description: 'Scroll to top/bottom' },
-      { keys: ['Esc'], description: 'Close modal' },
+      { keys: ['Esc', 'Q'], description: 'Close modal' },
       { keys: ['F1'], description: 'Show context-specific keyboard shortcuts' }
     ]
   },
