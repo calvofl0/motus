@@ -24,6 +24,7 @@
           type="text"
           v-model="inputPath"
           @keypress.enter="browsePath"
+          @keydown.esc="handleLocationInputEscape"
           placeholder="Path..."
           :title="pathTooltip"
         />
@@ -687,6 +688,16 @@ async function browsePath() {
     currentPath.value = lastSuccessfulPath
     inputPath.value = lastSuccessfulInputPath
     console.log('Browse path failed, path restored to:', lastSuccessfulPath)
+  }
+}
+
+function handleLocationInputEscape(event) {
+  event.preventDefault()
+  // Restore input path to current working directory
+  syncInputPath()
+  // Select all text in the input field
+  if (locationInput.value) {
+    locationInput.value.select()
   }
 }
 

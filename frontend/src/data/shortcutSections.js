@@ -11,7 +11,8 @@ export const shortcutSections = {
       { keys: ['J'], description: 'Open Completed Jobs' },
       { keys: ['F'], description: 'Focus file pane' },
       { keys: ['Alt', 'R'], description: 'Focus remote dropdown' },
-      { keys: ['Alt', 'L'], description: 'Focus location input' }
+      { keys: ['Alt', 'L'], description: 'Focus location input' },
+      { keys: ['Esc'], description: 'Restore and select path (in location input)' }
     ]
   },
 
