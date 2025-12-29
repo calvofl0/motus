@@ -7,6 +7,7 @@ export const shortcutSections = {
     title: 'Global Shortcuts',
     shortcuts: [
       { keys: ['F1'], description: 'Show keyboard shortcuts' },
+      { keys: ['Q', 'Esc'], description: 'Quit server' },
       { keys: ['R'], description: 'Open Remotes Manager' },
       { keys: ['J'], description: 'Open Completed Jobs' },
       { keys: ['F'], description: 'Focus file pane' },
@@ -62,7 +63,7 @@ export const shortcutSections = {
       { keys: ['↑', '↓'], description: 'Scroll modal content' },
       { keys: ['PgUp', 'PgDn'], description: 'Scroll by page' },
       { keys: ['Home', 'End'], description: 'Scroll to top/bottom' },
-      { keys: ['Esc', 'Q'], description: 'Close modal' },
+      { keys: ['Esc'], description: 'Close modal' },
       { keys: ['F1'], description: 'Show context-specific keyboard shortcuts' }
     ]
   },
