@@ -45,7 +45,7 @@
         </button>
         <button
           class="refresh-btn"
-          @click="loading ? abortRefresh() : refresh()"
+          @click="loading ? abortRefresh() : handleRefreshClick()"
           @mouseover="refreshHover = true"
           @mouseout="refreshHover = false"
           :title="loading ? 'Abort loading' : 'Refresh'"
@@ -435,6 +435,20 @@ async function loadRemotes(retries = 3, delay = 100) {
   }
 }
 
+async function handleRefreshClick() {
+  try {
+    await refresh()
+    // Focus the file pane after successful refresh
+    nextTick(() => {
+      if (fileContainer.value) {
+        fileContainer.value.focus()
+      }
+    })
+  } catch (error) {
+    // Error already handled in refresh()
+  }
+}
+
 async function refresh(preserveSelection = false) {
   loading.value = true
 
@@ -683,6 +697,12 @@ async function browsePath() {
     await refresh()
     // Sync input path with the actual path after successful navigation
     syncInputPath()
+    // Focus the file pane after successful navigation
+    nextTick(() => {
+      if (fileContainer.value) {
+        fileContainer.value.focus()
+      }
+    })
   } catch (error) {
     // Restore to the last successful path on error
     currentPath.value = lastSuccessfulPath
@@ -773,6 +793,12 @@ async function navigateUp() {
     try {
       await refresh()
       syncInputPath()
+      // Focus the file pane after successful navigation
+      nextTick(() => {
+        if (fileContainer.value) {
+          fileContainer.value.focus()
+        }
+      })
     } catch (error) {
       inputPath.value = oldInputPath
       currentPath.value = oldPath
@@ -804,6 +830,12 @@ async function navigateUp() {
     try {
       await refresh()
       syncInputPath()
+      // Focus the file pane after successful navigation
+      nextTick(() => {
+        if (fileContainer.value) {
+          fileContainer.value.focus()
+        }
+      })
     } catch (error) {
       currentPath.value = oldPath
       previousPath.value = oldPath
