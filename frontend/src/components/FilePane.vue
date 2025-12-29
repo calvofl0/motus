@@ -693,6 +693,7 @@ async function browsePath() {
 
 function handleLocationInputEscape(event) {
   event.preventDefault()
+  event.stopPropagation()
   // Restore input path to current working directory
   syncInputPath()
   // Select all text in the input field
