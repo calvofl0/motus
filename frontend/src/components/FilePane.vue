@@ -696,10 +696,12 @@ function handleLocationInputEscape(event) {
   event.stopPropagation()
   // Restore input path to current working directory
   syncInputPath()
-  // Select all text in the input field
-  if (locationInput.value) {
-    locationInput.value.select()
-  }
+  // Select all text in the input field after Vue updates the DOM
+  nextTick(() => {
+    if (locationInput.value) {
+      locationInput.value.select()
+    }
+  })
 }
 
 async function expandHomePath() {
