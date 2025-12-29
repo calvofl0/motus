@@ -7,13 +7,12 @@ export const shortcutSections = {
     title: 'Global Shortcuts',
     shortcuts: [
       { keys: ['F1'], description: 'Show keyboard shortcuts' },
-      { keys: ['Q', 'Esc'], description: 'Quit server' },
-      { keys: ['R'], description: 'Open Remotes Manager' },
-      { keys: ['J'], description: 'Open Completed Jobs' },
       { keys: ['F'], description: 'Focus file pane' },
       { keys: ['Alt', 'R'], description: 'Focus remote dropdown' },
       { keys: ['Alt', 'L'], description: 'Focus location input' },
-      { keys: ['Esc'], description: 'Restore and select path (in location input)' }
+      { keys: ['J'], description: 'Open Completed Jobs' },
+      { keys: ['R'], description: 'Open Remotes Manager' },
+      { keys: ['Q', 'Esc'], description: 'Quit server' }
     ]
   },
 
@@ -23,12 +22,14 @@ export const shortcutSections = {
     note: 'File pane must be in focus (press F to focus)',
     shortcuts: [
       { keys: ['↑', '↓', '←', '→'], description: 'Navigate files and switch between panes' },
+      { keys: ['Shift', '←'], description: 'Switch to left pane (with grid layout)' },
+      { keys: ['Shift', '→'], description: 'Switch to right pane (with grid layout)' },
       { keys: ['Enter'], description: 'Open folder or download file' },
       { keys: ['Backspace'], description: 'Navigate to parent directory' },
       { keys: ['Esc'], description: 'Unselect all files' },
-      { keys: ['Shift', '←'], description: 'Switch to left pane (or <kbd>←</kbd> in list mode)' },
-      { keys: ['Shift', '→'], description: 'Switch to right pane (or <kbd>→</kbd> in list mode)' },
-      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' }
+      { keys: ['S'], description: 'Sort by name and toggle sorting order' },
+      { keys: ['PgUp', 'PgDn'], description: 'Scroll file list' },
+      { keys: ['Home', 'End'], description: 'Scroll to top/bottom' }
     ]
   },
 
@@ -39,10 +40,9 @@ export const shortcutSections = {
     shortcuts: [
       { keys: ['Ctrl', 'Shift', '←'], description: 'Copy selected files to left pane' },
       { keys: ['Ctrl', 'Shift', '→'], description: 'Copy selected files to right pane' },
-      { keys: ['N'], description: 'Create new folder (when 0 or 1 item selected)' },
-      { keys: ['S'], description: 'Sort by name and toggle sorting order' },
       { keys: ['Del'], description: 'Delete selected files' },
-      { keys: ['A'], description: 'Create alias (when single folder is selected)' }
+      { keys: ['A'], description: 'Create alias (when single folder is selected)' },
+      { keys: ['N'], description: 'Create new folder (when 0 or 1 item selected)' }
     ]
   },
 
@@ -60,11 +60,11 @@ export const shortcutSections = {
     id: 'common-modal',
     title: 'Common Modal Shortcuts',
     shortcuts: [
+      { keys: ['F1'], description: 'Show context-specific keyboard shortcuts' },
       { keys: ['↑', '↓'], description: 'Scroll modal content' },
       { keys: ['PgUp', 'PgDn'], description: 'Scroll by page' },
       { keys: ['Home', 'End'], description: 'Scroll to top/bottom' },
-      { keys: ['Esc'], description: 'Close modal' },
-      { keys: ['F1'], description: 'Show context-specific keyboard shortcuts' }
+      { keys: ['Esc'], description: 'Close modal' }
     ]
   },
 
@@ -74,9 +74,9 @@ export const shortcutSections = {
     shortcuts: [
       { keys: ['↑', '↓'], description: 'Select job' },
       { keys: ['Enter'], description: 'View job log' },
+      { keys: ['D'], description: 'Download log (when viewing job log)' },
       { keys: ['D', 'Delete'], description: 'Delete job log' },
-      { keys: ['P'], description: 'Purge all completed jobs' },
-      { keys: ['D'], description: 'Download log (when viewing job log)' }
+      { keys: ['P'], description: 'Purge all completed jobs' }
     ]
   },
 

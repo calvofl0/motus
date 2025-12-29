@@ -327,6 +327,8 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true, to
     // Allow ESC and ENTER to close
     const keyHandler = (e) => {
       if (e.key === 'Escape' || e.key === 'Enter') {
+        e.preventDefault()
+        e.stopPropagation()
         document.removeEventListener('keydown', keyHandler)
         if (document.body.contains(overlay)) {
           const dontShowAgain = checkbox ? checkbox.querySelector('input').checked : false
@@ -335,7 +337,7 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true, to
         }
       }
     }
-    document.addEventListener('keydown', keyHandler)
+    document.addEventListener('keydown', keyHandler, true)
   })
 }
 
