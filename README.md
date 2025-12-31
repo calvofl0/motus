@@ -25,6 +25,7 @@
   - [Environment Variables](#environment-variables)
   - [Configuration File](#configuration-file)
   - [XDG Base Directory Support](#xdg-base-directory-support)
+  - [File & Directory Reference](#file--directory-reference)
   - [Cache Directory Structure](#cache-directory-structure)
   - [Port Allocation](#port-allocation)
   - [Multi-Instance Protection](#multi-instance-protection)
@@ -777,6 +778,160 @@ motus --remote-templates /absolute/path/to/templates.conf
 ```
 
 This makes it easy to keep template files alongside your preferences without specifying full paths.
+
+#### File & Directory Reference
+
+Motus creates and manages several files and directories across different locations. This section provides a complete reference of all files Motus uses, organized by category.
+
+##### Files & Directories by Category
+
+**Configuration Files** (in `config_dir`):
+```
+{config_dir}/preferences.json          # User UI preferences (theme, view mode, show_tour, etc.)
+                                       # Customizable: --preferences-file or MOTUS_PREFERENCES_FILE
+```
+
+**Data Files** (in `data_dir` - XDG mode only):
+```
+{data_dir}/motus.db                    # SQLite database with job history
+                                       # Fixed location: always in data_dir
+```
+
+**Cache Files** (in `cache_dir`):
+```
+{cache_dir}/motus.log                  # Application log file
+                                       # Customizable: --log-file or MOTUS_LOG_FILE
+
+{cache_dir}/download/                  # Temporary ZIP files for downloads
+                                       # Auto-cleaned after download or shutdown
+
+{cache_dir}/upload/                    # Staging area for uploaded files
+                                       # Auto-cleaned after job completion
+
+{cache_dir}/log/                       # Temporary rclone job log files
+                                       # Auto-cleaned after storing in database
+```
+
+**Runtime Files** (in `runtime_dir`):
+```
+{runtime_dir}/motus.pid                # Process ID file (multi-instance detection)
+{runtime_dir}/motus.lock               # Unix socket for instance locking
+{runtime_dir}/connection.json          # Connection info (URL, token, directories)
+```
+
+**rclone Configuration** (not managed by Motus directory structure):
+```
+~/.config/rclone/rclone.conf           # Default rclone config location
+                                       # Customizable: --rclone-config or RCLONE_CONFIG
+```
+
+**Optional Template Files** (customizable location):
+```
+{config_dir}/remote_templates.conf     # Optional: Remote templates for UI
+                                       # Customizable: --remote-templates or MOTUS_REMOTE_TEMPLATES
+
+{config_dir}/extra_remotes.conf        # Optional: Extra remotes to merge at startup
+                                       # Customizable: --extra-remotes or MOTUS_EXTRA_REMOTES
+```
+
+##### Complete Path Overview
+
+**XDG Mode** (default - no `--data-dir` specified):
+```
+~/.config/motus/               # config_dir (XDG_CONFIG_HOME/motus)
+├── preferences.json
+└── [optional: remote_templates.conf, extra_remotes.conf]
+
+~/.local/share/motus/          # data_dir (XDG_DATA_HOME/motus)
+└── motus.db
+
+~/.cache/motus/                # cache_dir (XDG_CACHE_HOME/motus)
+├── motus.log
+├── download/
+├── upload/
+└── log/
+
+/run/user/{uid}/motus/         # runtime_dir (XDG_RUNTIME_DIR/motus)
+├── motus.pid
+├── motus.lock
+└── connection.json
+
+~/.config/rclone/              # rclone config (rclone default)
+└── rclone.conf
+```
+
+**Legacy Mode** (`--data-dir` specified):
+```
+{data_dir}/                    # All-in-one directory
+├── motus.db                   # data
+├── motus.pid                  # runtime
+├── motus.lock                 # runtime
+├── connection.json            # runtime
+├── preferences.json           # config
+├── cache/                     # cache_dir (can be overridden)
+│   ├── motus.log
+│   ├── download/
+│   ├── upload/
+│   └── log/
+└── [optional: remote_templates.conf, extra_remotes.conf]
+
+~/.config/rclone/              # rclone config (rclone default)
+└── rclone.conf
+```
+
+##### Customization Examples
+
+**Customize individual paths while keeping XDG structure:**
+```bash
+# Use SSD for cache (fast I/O), keep everything else in XDG locations
+motus --cache-dir /mnt/fast-ssd/motus-cache
+
+# Use custom rclone config, keep Motus files in XDG locations
+motus --rclone-config /etc/rclone/team-config.conf
+
+# Custom preferences location (e.g., shared via NFS)
+motus --preferences-file /shared/motus/my-prefs.json
+```
+
+**Complete custom layout:**
+```bash
+# Every path customized (useful for containerized/restricted environments)
+motus \
+  --data-dir /app/data \
+  --config-dir /app/config \
+  --cache-dir /tmp/motus-cache \
+  --runtime-dir /var/run/motus \
+  --rclone-config /app/config/rclone.conf \
+  --preferences-file /app/config/ui-prefs.json \
+  --log-file /var/log/motus/app.log
+```
+
+**Team/shared configuration:**
+```bash
+# Share templates and extra remotes, personal preferences
+motus \
+  --remote-templates /shared/team/templates.conf \
+  --extra-remotes /shared/team/common-remotes.conf \
+  --preferences-file ~/.config/motus/my-preferences.json
+```
+
+##### Priority Rules
+
+For each path, Motus follows this priority order:
+
+1. **CLI argument** (highest priority)
+2. **Environment variable** (MOTUS_* or RCLONE_CONFIG)
+3. **Config file setting** (specified with `--config`)
+4. **XDG environment variable** (XDG_CONFIG_HOME, etc.) - if in XDG mode
+5. **Default value** (lowest priority)
+
+Example for preferences file:
+```
+--preferences-file /custom/prefs.json          # 1. CLI (highest)
+MOTUS_PREFERENCES_FILE=/env/prefs.json         # 2. Env var
+config.yml: preferences_file: /cfg/prefs.json  # 3. Config file
+{config_dir}/preferences.json                  # 4./5. Default (XDG or data_dir)
+```
 
 ### Cache Directory Structure
 
