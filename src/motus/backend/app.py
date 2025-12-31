@@ -883,7 +883,7 @@ def register_routes(app: Flask, config: Config):
     @token_required
     def get_preferences():
         """Get user preferences"""
-        prefs_file = os.path.join(config.config_dir, 'preferences.json')
+        prefs_file = config.preferences_file
 
         if os.path.exists(prefs_file):
             try:
@@ -909,7 +909,7 @@ def register_routes(app: Flask, config: Config):
         """Save user preferences"""
         try:
             data = request.get_json()
-            prefs_file = os.path.join(config.config_dir, 'preferences.json')
+            prefs_file = config.preferences_file
 
             with open(prefs_file, 'w') as f:
                 json.dump(data, f, indent=2)

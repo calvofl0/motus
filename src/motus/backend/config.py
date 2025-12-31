@@ -258,6 +258,13 @@ class Config:
         # Database path (in data directory)
         self.database_path = os.path.join(self.data_dir, 'motus.db')
 
+        # Preferences file path (in config directory)
+        self.preferences_file = self._get_config(
+            'preferences_file',
+            env_var='MOTUS_PREFERENCES_FILE',
+            default=os.path.join(self.config_dir, 'preferences.json')
+        )
+
         # Log level
         self.log_level = self._get_config(
             'log_level',

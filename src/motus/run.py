@@ -499,9 +499,19 @@ def main():
         help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
     parser.add_argument(
+        '--config-dir',
+        type=str,
+        help='Config directory (default: {data_dir} or ~/.config/motus in XDG mode, or MOTUS_CONFIG_DIR env var)'
+    )
+    parser.add_argument(
         '--cache-dir',
         type=str,
         help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_DIR env var)'
+    )
+    parser.add_argument(
+        '--runtime-dir',
+        type=str,
+        help='Runtime directory for PID/socket files (default: {data_dir} or /run/user/{uid}/motus in XDG mode, or MOTUS_RUNTIME_DIR env var)'
     )
     parser.add_argument(
         '-c', '--config',
@@ -541,6 +551,11 @@ def main():
         help='Start in Expert mode instead of Easy mode (default: Easy, or MOTUS_DEFAULT_MODE env var)'
     )
     parser.add_argument(
+        '--rclone-config',
+        type=str,
+        help='Path to rclone config file (default: rclone default, or RCLONE_CONFIG env var)'
+    )
+    parser.add_argument(
         '--remote-templates',
         type=str,
         help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
@@ -549,6 +564,11 @@ def main():
         '-r', '--extra-remotes',
         type=str,
         help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_EXTRA_REMOTES env var)'
+    )
+    parser.add_argument(
+        '--preferences-file',
+        type=str,
+        help='Path to preferences file (default: {config_dir}/preferences.json, or MOTUS_PREFERENCES_FILE env var)'
     )
     parser.add_argument(
         '-s', '--startup-remote',
@@ -645,6 +665,9 @@ def main():
         os.makedirs(config.download_cache_dir, exist_ok=True)
         os.makedirs(config.upload_cache_dir, exist_ok=True)
         os.makedirs(config.log_cache_dir, exist_ok=True)
+    if args.config_dir:
+        config.config_dir = args.config_dir
+        os.makedirs(config.config_dir, exist_ok=True)
     if args.cache_dir:
         config.cache_dir = args.cache_dir
         config.log_file = os.path.join(config.cache_dir, 'motus.log')
@@ -656,6 +679,9 @@ def main():
         os.makedirs(config.download_cache_dir, exist_ok=True)
         os.makedirs(config.upload_cache_dir, exist_ok=True)
         os.makedirs(config.log_cache_dir, exist_ok=True)
+    if args.runtime_dir:
+        config.runtime_dir = args.runtime_dir
+        os.makedirs(config.runtime_dir, exist_ok=True)
     if args.log_level:
         config.log_level = args.log_level
     elif args.verbose == 1:
@@ -670,6 +696,8 @@ def main():
         config.default_mode = 'expert'
         # Enforce --allow-expert-mode when starting in expert mode
         config.allow_expert_mode = True
+    if args.rclone_config:
+        config.rclone_config_file = args.rclone_config
     if args.remote_templates:
         # Resolve relative paths against config_dir
         if not os.path.isabs(args.remote_templates):
@@ -682,6 +710,12 @@ def main():
             config.extra_remotes_file = os.path.join(config.config_dir, args.extra_remotes)
         else:
             config.extra_remotes_file = args.extra_remotes
+    if args.preferences_file:
+        # Resolve relative paths against config_dir
+        if not os.path.isabs(args.preferences_file):
+            config.preferences_file = os.path.join(config.config_dir, args.preferences_file)
+        else:
+            config.preferences_file = args.preferences_file
     if args.startup_remote:
         config.startup_remote = args.startup_remote
     if args.local_fs is not None:  # Allow empty string to disable
