@@ -478,152 +478,170 @@ def main():
         description='Motus et bouche cousue — A Web-based File Transfer Interface',
         allow_abbrev=False  # Require full argument names (no abbreviations)
     )
-    parser.add_argument(
+
+    # Server Options
+    server_group = parser.add_argument_group('Server Options')
+    server_group.add_argument(
         '-p', '--port',
         type=int,
         help='Port to run on (default: 8888, or MOTUS_PORT env var)'
     )
-    parser.add_argument(
+    server_group.add_argument(
         '--host',
         type=str,
         help='Host to bind to (default: 127.0.0.1, or MOTUS_HOST env var)'
     )
-    parser.add_argument(
+    server_group.add_argument(
         '--token',
         type=str,
-        help='Access token (default: auto-generated, or MOTUS_TOKEN env var)'
+        help='Access token for authentication (default: auto-generated, or MOTUS_TOKEN env var)'
     )
-    parser.add_argument(
+    server_group.add_argument(
+        '--no-browser',
+        action='store_true',
+        help='Do not open browser automatically on startup'
+    )
+    server_group.add_argument(
+        '--allow-cors',
+        action='store_true',
+        help='Enable CORS headers (for development only)'
+    )
+
+    # Paths & Files
+    paths_group = parser.add_argument_group('Paths & Files')
+    paths_group.add_argument(
         '-d', '--data-dir',
         type=str,
-        help='Data directory (default: ~/.motus, or MOTUS_DATA_DIR env var)'
+        help='Data directory for database (default: ~/.motus, or MOTUS_DATA_DIR env var)'
     )
-    parser.add_argument(
+    paths_group.add_argument(
         '--config-dir',
         type=str,
         help='Config directory (default: {data_dir} or ~/.config/motus in XDG mode, or MOTUS_CONFIG_DIR env var)'
     )
-    parser.add_argument(
+    paths_group.add_argument(
         '--cache-dir',
         type=str,
-        help='Cache directory for temporary files (default: {data_dir}/cache, or MOTUS_CACHE_DIR env var)'
+        help='Cache directory for temporary files (default: {data_dir}/cache or ~/.cache/motus in XDG mode, or MOTUS_CACHE_DIR env var)'
     )
-    parser.add_argument(
+    paths_group.add_argument(
         '--runtime-dir',
         type=str,
         help='Runtime directory for PID/socket files (default: {data_dir} or /run/user/{uid}/motus in XDG mode, or MOTUS_RUNTIME_DIR env var)'
     )
-    parser.add_argument(
+    paths_group.add_argument(
         '-c', '--config',
         type=str,
-        help='Path to config file (YAML)'
+        help='Path to config file (YAML format)'
     )
-    parser.add_argument(
+    paths_group.add_argument(
+        '--rclone-config',
+        type=str,
+        help='Path to rclone config file (default: rclone default location, or RCLONE_CONFIG env var)'
+    )
+    paths_group.add_argument(
+        '--preferences-file',
+        type=str,
+        help='Path to user preferences file (default: {config_dir}/preferences.json, or MOTUS_PREFERENCES_FILE env var)'
+    )
+
+    # Logging
+    logging_group = parser.add_argument_group('Logging')
+    logging_group.add_argument(
         '--log-level',
         type=str,
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
         help='Log level (default: WARNING, or MOTUS_LOG_LEVEL env var)'
     )
-    parser.add_argument(
+    logging_group.add_argument(
         '--log-file',
         type=str,
         help='Path to log file (default: {cache_dir}/motus.log, or MOTUS_LOG_FILE env var)'
     )
-    parser.add_argument(
+    logging_group.add_argument(
         '-v', '--verbose',
         action='count',
         default=0,
         help='Increase verbosity: -v for INFO, -vv for DEBUG (--log-level takes precedence)'
     )
-    parser.add_argument(
-        '--no-browser',
-        action='store_true',
-        help='Do not open browser automatically'
-    )
-    parser.add_argument(
-        '--allow-cors',
-        action='store_true',
-        help='Enable CORS (for development)'
-    )
-    parser.add_argument(
+
+    # UI Behavior
+    ui_group = parser.add_argument_group('UI Behavior')
+    ui_group.add_argument(
         '--expert-mode',
         action='store_true',
-        help='Start in Expert mode instead of Easy mode (default: Easy, or MOTUS_DEFAULT_MODE env var)'
+        help='Start in Expert mode instead of Easy mode (default: Easy mode, or MOTUS_DEFAULT_MODE env var)'
     )
-    parser.add_argument(
-        '--rclone-config',
-        type=str,
-        help='Path to rclone config file (default: rclone default, or RCLONE_CONFIG env var)'
-    )
-    parser.add_argument(
-        '--remote-templates',
-        type=str,
-        help='Path to remote templates file (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
-    )
-    parser.add_argument(
-        '-r', '--extra-remotes',
-        type=str,
-        help='Path to rclone config file with remotes to add at startup (existing remotes not overwritten, MOTUS_EXTRA_REMOTES env var)'
-    )
-    parser.add_argument(
-        '--preferences-file',
-        type=str,
-        help='Path to preferences file (default: {config_dir}/preferences.json, or MOTUS_PREFERENCES_FILE env var)'
-    )
-    parser.add_argument(
-        '-s', '--startup-remote',
-        type=str,
-        help='Default remote to show on both panes at startup (default: none, or MOTUS_STARTUP_REMOTE env var)'
-    )
-    parser.add_argument(
-        '-l', '--local-fs',
-        type=str,
-        help='Name for local filesystem remote (default: "Local Filesystem", or MOTUS_LOCAL_FS env var)'
-    )
-    parser.add_argument(
-        '-H', '--hide-local-fs',
-        action='store_true',
-        help='Hide local filesystem from remote dropdown (can be overridden by --absolute-paths or when no startup-remote, or MOTUS_HIDE_LOCAL_FS env var)'
-    )
-    parser.add_argument(
-        '--absolute-paths',
-        action='store_true',
-        help='Show absolute filesystem paths for local aliases with auto-switching (implies visible local-fs, or MOTUS_ABSOLUTE_PATHS env var)'
-    )
-    parser.add_argument(
-        '--max-idle-time',
-        type=int,
-        help='Auto-quit after N seconds of inactivity (0=disabled, default: 0, or MOTUS_MAX_IDLE_TIME env var)'
-    )
-    parser.add_argument(
-        '--auto-cleanup-db',
-        action='store_true',
-        help='Auto-cleanup database at startup if no failed/interrupted jobs (default: false, or MOTUS_AUTO_CLEANUP_DB env var)'
-    )
-    parser.add_argument(
-        '--max-upload-size',
-        type=str,
-        help='Maximum total upload size per operation (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_UPLOAD_SIZE env var)'
-    )
-    parser.add_argument(
-        '--max-uncompressed-download-size',
-        type=str,
-        help='Maximum uncompressed download size before zipping (e.g., 50M, 1G, default: 100M, or MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE env var)'
-    )
-    parser.add_argument(
-        '-m', '--max-download-size',
-        type=str,
-        help='Maximum total download size allowed (e.g., 50M, 1G, 0=unlimited, default: 0, or MOTUS_MAX_DOWNLOAD_SIZE env var)'
-    )
-    parser.add_argument(
+    ui_group.add_argument(
         '-e', '--allow-expert-mode',
         action='store_true',
-        help='Show Expert/Easy Mode toggle in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
+        help='Show Expert/Easy Mode toggle button in UI (default: hidden, or MOTUS_ALLOW_EXPERT_MODE env var)'
     )
-    parser.add_argument(
+    ui_group.add_argument(
         '--no-tour',
         action='store_true',
-        help='Disable guided tour auto-start (tour still accessible via Help menu, or MOTUS_NO_TOUR env var)'
+        help='Disable guided tour auto-start on first launch (tour still accessible via Help menu, or MOTUS_NO_TOUR env var)'
+    )
+    ui_group.add_argument(
+        '-s', '--startup-remote',
+        type=str,
+        help='Default remote to show in both panes at startup (default: none, or MOTUS_STARTUP_REMOTE env var)'
+    )
+    ui_group.add_argument(
+        '-l', '--local-fs',
+        type=str,
+        help='Display name for local filesystem remote (default: "Local Filesystem", or MOTUS_LOCAL_FS env var)'
+    )
+    ui_group.add_argument(
+        '-H', '--hide-local-fs',
+        action='store_true',
+        help='Hide local filesystem from remote dropdown (overridden by --absolute-paths or when no --startup-remote, or MOTUS_HIDE_LOCAL_FS env var)'
+    )
+    ui_group.add_argument(
+        '--absolute-paths',
+        action='store_true',
+        help='Show absolute filesystem paths for local aliases (implies visible local-fs, or MOTUS_ABSOLUTE_PATHS env var)'
+    )
+
+    # Rclone Integration
+    rclone_group = parser.add_argument_group('Rclone Integration')
+    rclone_group.add_argument(
+        '--remote-templates',
+        type=str,
+        help='Path to remote templates file for quick remote setup (default: none, or MOTUS_REMOTE_TEMPLATES env var)'
+    )
+    rclone_group.add_argument(
+        '-r', '--extra-remotes',
+        type=str,
+        help='Path to extra rclone config file with remotes to merge at startup (existing remotes not overwritten, or MOTUS_EXTRA_REMOTES env var)'
+    )
+
+    # Limits & Cleanup
+    limits_group = parser.add_argument_group('Limits & Cleanup')
+    limits_group.add_argument(
+        '--max-upload-size',
+        type=str,
+        help='Maximum total upload size per operation, e.g., 50M, 1G (0=unlimited, default: 0, or MOTUS_MAX_UPLOAD_SIZE env var)'
+    )
+    limits_group.add_argument(
+        '-m', '--max-download-size',
+        type=str,
+        help='Maximum total download size allowed, e.g., 50M, 1G (0=unlimited, default: 0, or MOTUS_MAX_DOWNLOAD_SIZE env var)'
+    )
+    limits_group.add_argument(
+        '--max-uncompressed-download-size',
+        type=str,
+        help='Maximum uncompressed download size before auto-zipping, e.g., 50M, 1G (default: 100M, or MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE env var)'
+    )
+    limits_group.add_argument(
+        '--max-idle-time',
+        type=int,
+        help='Auto-shutdown after N seconds of user inactivity, 0 to disable (default: 0, or MOTUS_MAX_IDLE_TIME env var)'
+    )
+    limits_group.add_argument(
+        '--auto-cleanup-db',
+        action='store_true',
+        help='Auto-cleanup completed jobs from database at startup if no failed/interrupted jobs exist (default: false, or MOTUS_AUTO_CLEANUP_DB env var)'
     )
 
     args = parser.parse_args()
@@ -720,6 +738,8 @@ def main():
         config.startup_remote = args.startup_remote
     if args.local_fs is not None:  # Allow empty string to disable
         config.local_fs = args.local_fs
+    if args.hide_local_fs:
+        config.hide_local_fs = True
     if args.absolute_paths:
         config.absolute_paths = True
     if args.max_idle_time is not None:
