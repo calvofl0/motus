@@ -72,7 +72,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { apiCall } from '../services/api'
-import { savePreferences } from '../services/preferences'
 import { startGuidedTour } from '../services/guidedTour'
 
 const appStore = useAppStore()
@@ -200,15 +199,11 @@ function toggleThemeMenu(e) {
   }
 }
 
-function setTheme(themeName) {
+async function setTheme(themeName) {
   appStore.theme = themeName
   appStore.applyTheme()
-  savePreferences(apiCall, {
-    view_mode: appStore.viewMode,
-    show_hidden_files: appStore.showHiddenFiles,
-    theme: themeName,
-    absolute_paths: appStore.absolutePathsMode
-  })
+  // Use centralized preference setter to preserve all preferences
+  await appStore.setPreference('theme', themeName)
   showThemeMenu.value = false
 }
 
