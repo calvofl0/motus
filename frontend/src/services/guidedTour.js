@@ -329,7 +329,7 @@ export function showTourExitDialog(noTourConfig, currentShowTourValue = true, to
       if (e.key === 'Escape' || e.key === 'Enter') {
         e.preventDefault()
         e.stopPropagation()
-        document.removeEventListener('keydown', keyHandler)
+        document.removeEventListener('keydown', keyHandler, true)  // Must match addEventListener capture: true
         if (document.body.contains(overlay)) {
           const dontShowAgain = checkbox ? checkbox.querySelector('input').checked : false
           document.body.removeChild(overlay)
