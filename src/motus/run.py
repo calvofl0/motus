@@ -194,13 +194,36 @@ def check_via_socket(config: Config) -> dict:
 
         except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
             # Socket exists but can't connect = stale socket from crash
+            # This is definitive - no need for PID fallback
             logging.debug(f"Stale lock socket detected: {e}")
+
+            # Clean up all stale files
             try:
                 lock_socket_path.unlink()
                 logging.debug("Removed stale lock socket")
             except Exception as unlink_err:
                 logging.warning(f"Could not remove stale lock socket: {unlink_err}")
-            return None
+
+            # Also clean up PID file if exists
+            pid_file = runtime_dir / 'motus.pid'
+            if pid_file.exists():
+                try:
+                    pid_file.unlink()
+                    logging.debug("Removed stale PID file")
+                except Exception as pid_err:
+                    logging.warning(f"Could not remove stale PID file: {pid_err}")
+
+            # Also clean up connection file if exists
+            if connection_file.exists():
+                try:
+                    connection_file.unlink()
+                    logging.debug("Removed stale connection file")
+                except Exception as conn_err:
+                    logging.warning(f"Could not remove stale connection file: {conn_err}")
+
+            # Return empty dict (not None) to signal: socket check completed, no instance running
+            # This prevents fallback to PID checking since socket was authoritative
+            return {}
         except Exception as e:
             logging.warning(f"Unexpected error checking lock socket: {e}")
             return None
