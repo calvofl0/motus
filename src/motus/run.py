@@ -27,6 +27,15 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 from motus.backend.config import Config, parse_size
 from motus.backend.app import create_app, get_instance_status, setup_logging
 
+# Detect terminal encoding and set UTF-8 symbols with ASCII fallbacks
+# This happens once at module import to avoid repeated checks
+_IS_UTF8 = sys.stdout.encoding and 'utf' in sys.stdout.encoding.lower()
+SYMBOLS = {
+    'em_dash': '—' if _IS_UTF8 else '-',
+    'warning': '⚠️' if _IS_UTF8 else '!',
+    'checkmark': '✓' if _IS_UTF8 else '*',
+}
+
 # Global lock socket for instance detection
 _lock_socket = None
 _get_backend_status = None  # Callback to get backend status (set after app creation)
@@ -70,7 +79,7 @@ def find_available_port(host: str, start_port: int, max_retries: int = 100) -> i
 def print_banner(config: Config, original_port: int = None):
     """Print startup banner with access information"""
     print("\n" + "=" * 70)
-    print("  Motus et bouche cousue — A Web-based File Transfer Interface")
+    print(f"  Motus et bouche cousue {SYMBOLS['em_dash']} A Web-based File Transfer Interface")
     print("=" * 70)
     print()
 
@@ -498,7 +507,7 @@ def write_connection_info(config: Config):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Motus et bouche cousue — A Web-based File Transfer Interface',
+        description=f'Motus et bouche cousue {SYMBOLS["em_dash"]} A Web-based File Transfer Interface',
         allow_abbrev=False  # Require full argument names (no abbreviations)
     )
 

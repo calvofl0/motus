@@ -28,6 +28,12 @@ from .api.stream import stream_bp, init_stream
 from .api.remotes import remotes_bp, init_remote_management
 from .api.upload import upload_bp, init_upload, cleanup_cache
 
+# Detect terminal encoding and set UTF-8 symbols with ASCII fallbacks
+_IS_UTF8 = sys.stderr.encoding and 'utf' in sys.stderr.encoding.lower()
+SYMBOLS = {
+    'warning': '⚠️' if _IS_UTF8 else '!',
+    'checkmark': '✓' if _IS_UTF8 else '*',
+}
 
 # Global variables for idle timer and frontend tracking
 _registered_frontends = {}  # {frontend_id: last_heartbeat_time}
@@ -251,7 +257,7 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
 
         # Check if this is a second Ctrl-C within confirmation window
         if _sigint_time is not None and (now - _sigint_time) <= SIGINT_CONFIRMATION_WINDOW:
-            print("\n\n⚠️  Second Ctrl-C received - forcing immediate shutdown!", file=sys.stderr, flush=True)
+            print(f"\n\n{SYMBOLS['warning']}  Second Ctrl-C received - forcing immediate shutdown!", file=sys.stderr, flush=True)
             logging.warning("Second SIGINT received within confirmation window - forcing immediate shutdown")
 
             # Stop idle timer if running
@@ -271,18 +277,18 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
         if running_jobs:
             # Backend activity detected - require confirmation
             _sigint_time = now
-            print(f"\n\n⚠️  WARNING: {len(running_jobs)} job(s) currently running!", file=sys.stderr, flush=True)
-            print(f"⚠️  Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force shutdown", file=sys.stderr, flush=True)
-            print(f"⚠️  Or wait {SIGINT_CONFIRMATION_WINDOW} seconds to cancel\n", file=sys.stderr, flush=True)
+            print(f"\n\n{SYMBOLS['warning']}  WARNING: {len(running_jobs)} job(s) currently running!", file=sys.stderr, flush=True)
+            print(f"{SYMBOLS['warning']}  Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force shutdown", file=sys.stderr, flush=True)
+            print(f"{SYMBOLS['warning']}  Or wait {SIGINT_CONFIRMATION_WINDOW} seconds to cancel\n", file=sys.stderr, flush=True)
             logging.warning(f"SIGINT received with {len(running_jobs)} running jobs - waiting for confirmation")
             # Return without doing anything - wait for second Ctrl-C
             return
 
         # No running jobs - graceful shutdown with frontend notification
         _sigint_time = now
-        print("\n\n✓ No running jobs - initiating graceful shutdown...", file=sys.stderr, flush=True)
-        print(f"✓ Frontends will be notified and show shutdown page", file=sys.stderr, flush=True)
-        print(f"✓ Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force immediate shutdown\n", file=sys.stderr, flush=True)
+        print(f"\n\n{SYMBOLS['checkmark']} No running jobs - initiating graceful shutdown...", file=sys.stderr, flush=True)
+        print(f"{SYMBOLS['checkmark']} Frontends will be notified and show shutdown page", file=sys.stderr, flush=True)
+        print(f"{SYMBOLS['checkmark']} Press Ctrl-C again within {SIGINT_CONFIRMATION_WINDOW} seconds to force immediate shutdown\n", file=sys.stderr, flush=True)
         logging.info("SIGINT received with no running jobs - initiating graceful shutdown")
 
         # Stop idle timer if running
