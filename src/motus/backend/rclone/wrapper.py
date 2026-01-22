@@ -111,7 +111,7 @@ class RcloneWrapper:
                 [self.rclone_path, 'version'],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10  # Increased timeout for slow/uncached filesystems
             )
             if result.returncode != 0:
                 raise RcloneNotFoundError(
@@ -133,7 +133,7 @@ class RcloneWrapper:
                 [self.rclone_path, 'config', 'file'],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10  # Increased timeout for slow/uncached filesystems
             )
             if result.returncode == 0:
                 # Output format: "Configuration file is stored at:\n/path/to/rclone.conf"
