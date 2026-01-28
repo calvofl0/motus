@@ -417,7 +417,7 @@ function watchJobForDownload(jobId) {
   let eventHandled = false
 
   // Function to trigger the download
-  const triggerDownload = (job) => {
+  const triggerDownload = async (job) => {
     if (eventHandled) return // Prevent duplicate handling
     eventHandled = true
 
@@ -428,14 +428,46 @@ function watchJobForDownload(jobId) {
 
     const downloadToken = job.download_token
     if (downloadToken) {
-      const downloadUrl = getApiUrl(`/api/files/download/zip/${downloadToken}`) + `?token=${appStore.authToken}`
-      window.location.href = downloadUrl
+      try {
+        const downloadUrl = getApiUrl(`/api/files/download/zip/${downloadToken}`) + `?token=${appStore.authToken}`
 
-      downloadOutput.value = {
-        type: 'success',
-        message: '✓ ZIP created, download starting...'
+        // Use programmatic download to avoid triggering beforeunload
+        const response = await fetch(downloadUrl)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        // Get filename from job or response headers
+        let filename = job.zip_filename || 'download.zip'
+        const contentDisposition = response.headers.get('Content-Disposition')
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?(.+)"?/)
+          if (filenameMatch) filename = filenameMatch[1]
+        }
+
+        // Convert to blob and trigger download
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        downloadOutput.value = {
+          type: 'success',
+          message: '✓ ZIP created, download starting...'
+        }
+        downloadPath.value = ''
+      } catch (error) {
+        console.error('ZIP download failed:', error)
+        downloadOutput.value = {
+          type: 'error',
+          message: `Download failed: ${error.message}`
+        }
       }
-      downloadPath.value = ''
     } else {
       downloadOutput.value = {
         type: 'error',
