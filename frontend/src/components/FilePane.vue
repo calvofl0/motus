@@ -1151,8 +1151,10 @@ function handleContainerBlur(event) {
       return
     }
 
-    // Don't unselect if focus moved to a modal (preserve selection for when modal closes)
-    if (activeElement && activeElement.classList.contains('modal-overlay')) {
+    // Don't unselect if user is actively working with the selection
+    // Check for open modals or context menus (whitelist approach)
+    if (document.querySelector('.modal-overlay') ||
+        document.querySelector('.context-menu')) {
       return
     }
 
