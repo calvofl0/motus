@@ -63,6 +63,39 @@ let heartbeatInterval = null
 // Connection loss tracking
 const connectionLost = ref(false)
 
+// Modal focus restoration - MutationObserver to detect when modals close
+let modalObserver = null
+let previousModalCount = 0
+
+function setupModalFocusRestoration() {
+  // Watch for .modal-overlay elements being added/removed from DOM
+  modalObserver = new MutationObserver(() => {
+    const currentModalCount = document.querySelectorAll('.modal-overlay').length
+
+    // When all modals close (count goes from >0 to 0), restore focus to file pane
+    if (previousModalCount > 0 && currentModalCount === 0) {
+      nextTick(() => {
+        const paneId = appStore.lastFocusedPane === 'left' ? 'left-files' : 'right-files'
+        const paneElement = document.getElementById(paneId)
+        if (paneElement) {
+          paneElement.focus()
+        }
+      })
+    }
+
+    previousModalCount = currentModalCount
+  })
+
+  // Observe the entire document for added/removed nodes
+  modalObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  })
+
+  // Initialize count
+  previousModalCount = document.querySelectorAll('.modal-overlay').length
+}
+
 // Idle timeout tracking
 let maxIdleTime = 0 // seconds, 0 = disabled
 let lastActivityTime = Date.now()
@@ -108,6 +141,9 @@ onMounted(async () => {
 
   // Setup beforeunload handler to unregister on tab close/refresh
   window.addEventListener('beforeunload', handleBeforeUnload)
+
+  // Setup modal focus restoration (restores focus to file pane when modals close)
+  setupModalFocusRestoration()
 })
 
 async function checkInterruptedJobs() {
@@ -370,6 +406,12 @@ onUnmounted(() => {
   })
 
   window.removeEventListener('beforeunload', handleBeforeUnload)
+
+  // Disconnect modal observer
+  if (modalObserver) {
+    modalObserver.disconnect()
+    modalObserver = null
+  }
 
   // Unregister frontend on component unmount (shouldn't happen in normal operation)
   unregisterFrontend()

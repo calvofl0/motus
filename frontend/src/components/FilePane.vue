@@ -1140,27 +1140,14 @@ function handleContainerFocus() {
 }
 
 function handleContainerBlur(event) {
-  // When file pane loses focus, unselect all files
-  // Use setTimeout to ensure click actions complete before unselecting
-  setTimeout(() => {
-    const activeElement = document.activeElement
-    const paneElement = fileContainer.value
-
-    // Don't unselect if focus moved to within this pane
-    if (paneElement && paneElement.contains(activeElement)) {
-      return
-    }
-
-    // Don't unselect if user is actively working with the selection
-    // Check for open modals or context menus (whitelist approach)
-    if (document.querySelector('.modal-overlay') ||
-        document.querySelector('.context-menu')) {
-      return
-    }
-
-    // Otherwise, unselect files
-    appStore.setPaneSelection(props.pane, [])
-  }, 0)
+  // Intentionally empty - selection is NOT cleared on blur.
+  //
+  // Rationale: Clearing selection on blur breaks mouse workflows (clicking
+  // transfer buttons, menus, etc. outside the pane triggers blur before the
+  // click handler runs). Selection management is handled by:
+  // - Pane switching: selectLeftPane/selectRightPane clear the opposite pane
+  // - ESC key: explicitly clears selection
+  // - Clicking empty space: clears selection via handleContainerClick
 }
 
 function handleContainerClick(event) {
@@ -2239,10 +2226,18 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
+// Focus the file container
+function focus() {
+  if (fileContainer.value) {
+    fileContainer.value.focus()
+  }
+}
+
 // Expose methods to parent
 defineExpose({
   refresh,
-  setSortBy
+  setSortBy,
+  focus
 })
 </script>
 
