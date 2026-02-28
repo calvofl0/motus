@@ -218,7 +218,8 @@ const modalWidth = computed(() => {
   padding: 2px 6px;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-lighter);
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -239,7 +240,8 @@ const modalWidth = computed(() => {
   padding: 2px 6px;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-lighter);
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
