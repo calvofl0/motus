@@ -105,6 +105,11 @@ cd motus
 
 # Install with pip (builds Vue frontend automatically)
 pip install .
+
+# Recommended: also install the optional S3 extra for fast S3 listing
+# (replaces rclone lsjson with direct boto3 calls — significantly faster
+# on some providers such as Scality)
+pip install '.[s3]'
 ```
 
 The pip installation will automatically:
