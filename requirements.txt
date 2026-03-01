@@ -3,6 +3,8 @@
 #   pip install .
 # For development dependencies:
 #   pip install .[dev]
+# For faster S3 listing (strongly recommended):
+#   pip install .[s3]
 
 # Direct dependencies (kept in sync with pyproject.toml)
 Flask>=2.3.0,<3.0.0
@@ -10,3 +12,7 @@ flask-cors>=4.0.0
 PyYAML>=6.0
 psutil>=5.9.0
 requests>=2.31.0
+
+# Optional: boto3 for fast S3 listing (pip install .[s3])
+# Without it, S3 listing falls back to rclone (significantly slower for large directories)
+# boto3>=1.26.0

@@ -17,6 +17,18 @@ from .exceptions import RcloneException, RcloneNotFoundError
 from .job_queue import JobQueue
 from .rclone_config import RcloneConfig
 
+# boto3 is an optional dependency for fast S3 listing.
+# Without it, S3 listing falls back to rclone lsjson (correct but significantly slower
+# on some S3-compatible providers such as Scality).
+try:
+    import boto3
+    from botocore.config import Config as BotocoreConfig
+    _BOTO3_AVAILABLE = True
+except ImportError:
+    _BOTO3_AVAILABLE = False
+
+_boto3_warning_issued = False  # Log the absence warning only once per process
+
 # Cross-platform null device
 DEVNULL = 'NUL' if sys.platform == 'win32' else '/dev/null'
 
@@ -81,6 +93,126 @@ class RcloneWrapper:
             readonly_config_file=self.readonly_config_file,
             cache_dir=self.cache_dir
         )
+
+        # Warn once if boto3 is absent (after logging is configured)
+        global _boto3_warning_issued
+        if not _BOTO3_AVAILABLE and not _boto3_warning_issued:
+            _boto3_warning_issued = True
+            logging.warning(
+                "boto3 is not installed. S3 listing will fall back to rclone, which can be "
+                "significantly slower on some providers (e.g. Scality). "
+                "Install with: pip install 'motus[s3]'  or  pip install boto3"
+            )
+
+    # ------------------------------------------------------------------
+    # boto3-based S3 listing (fast path)
+    # ------------------------------------------------------------------
+
+    def _build_s3_client(self, config: Dict):
+        """
+        Build a boto3 S3 client from an rclone remote config dict.
+
+        Credential key mapping (rclone → boto3):
+            access_key_id       → aws_access_key_id
+            secret_access_key   → aws_secret_access_key
+            session_token       → aws_session_token
+            region              → region_name
+            endpoint            → endpoint_url
+
+        When env_auth is true, credentials are omitted so boto3 discovers
+        them automatically from environment variables or IAM role metadata.
+
+        For remotes with a custom endpoint (non-AWS providers such as Scality,
+        Wasabi, MinIO), path-style addressing is forced because virtual-hosted-
+        style URLs do not work with arbitrary hostnames.
+        """
+        kwargs = {}
+
+        env_auth = str(config.get('env_auth', 'false')).lower() == 'true'
+        if not env_auth:
+            if config.get('access_key_id'):
+                kwargs['aws_access_key_id'] = config['access_key_id']
+            if config.get('secret_access_key'):
+                kwargs['aws_secret_access_key'] = config['secret_access_key']
+            if config.get('session_token'):
+                kwargs['aws_session_token'] = config['session_token']
+
+        if config.get('region'):
+            kwargs['region_name'] = config['region']
+
+        if config.get('endpoint'):
+            kwargs['endpoint_url'] = config['endpoint']
+            # Force path-style for non-AWS endpoints
+            kwargs['config'] = BotocoreConfig(s3={'addressing_style': 'path'})
+
+        return boto3.client('s3', **kwargs)
+
+    def _ls_s3_boto3(self, config: Dict, path: str) -> List[Dict]:
+        """
+        List S3 objects at path using boto3 list_objects_v2.
+
+        Uses a Delimiter='/' so only immediate children are returned (shallow
+        listing), mirroring the behaviour of rclone lsjson without --recursive.
+
+        Returns a list of dicts with the same keys that rclone lsjson produces:
+        Name, Path, Size, IsDir, ModTime.
+        """
+        client = self._build_s3_client(config)
+
+        # Normalise: strip leading slash rclone sometimes includes
+        clean = path.lstrip('/')
+
+        # Empty path → list buckets
+        if not clean:
+            response = client.list_buckets()
+            return [
+                {
+                    'Path': b['Name'],
+                    'Name': b['Name'],
+                    'Size': 0,
+                    'IsDir': True,
+                    'ModTime': b['CreationDate'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
+                }
+                for b in response.get('Buckets', [])
+            ]
+
+        # Split into bucket and prefix
+        parts = clean.split('/', 1)
+        bucket = parts[0]
+        prefix = (parts[1].rstrip('/') + '/') if len(parts) > 1 and parts[1] else ''
+
+        results = []
+        paginator = client.get_paginator('list_objects_v2')
+
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/'):
+            # Virtual directories (CommonPrefixes)
+            for cp in page.get('CommonPrefixes', []):
+                dir_key = cp['Prefix']               # e.g. "folder/sub/"
+                name = dir_key[len(prefix):].rstrip('/')
+                if name:
+                    results.append({
+                        'Path': name,
+                        'Name': name,
+                        'Size': 0,
+                        'IsDir': True,
+                        'ModTime': '0001-01-01T00:00:00.000000000Z',
+                    })
+
+            # Objects (files)
+            for obj in page.get('Contents', []):
+                name = obj['Key'][len(prefix):]
+                # Skip a zero-length "directory placeholder" object
+                if not name:
+                    continue
+                results.append({
+                    'Path': name,
+                    'Name': name,
+                    'Size': obj['Size'],
+                    'IsDir': False,
+                    'ModTime': obj['LastModified'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
+                })
+
+        return results
 
     def initialize_job_counter(self, db):
         """
@@ -323,6 +455,25 @@ class RcloneWrapper:
 
         # Check if path uses remote syntax (remote_name:/path)
         remote_name, clean_path = self._parse_path(path)
+
+        # Fast path: use boto3 directly for S3 remotes (named remotes only).
+        # Resolves alias chains so e.g. an alias pointing to an S3 remote also benefits.
+        # Falls back to rclone on any error so behaviour is never worse than before.
+        if remote_name and _BOTO3_AVAILABLE:
+            try:
+                self.rclone_config.reload()
+                actual_remote, actual_path = self.rclone_config.resolve_alias_chain(
+                    remote_name, clean_path
+                )
+                if actual_remote:
+                    actual_config = self.rclone_config.get_remote(actual_remote)
+                    if actual_config and actual_config.get('type') == 's3':
+                        logging.debug(f"ls {path}: using boto3 fast path")
+                        return self._ls_s3_boto3(actual_config, actual_path)
+            except Exception as e:
+                logging.warning(
+                    f"boto3 S3 listing failed for '{path}', falling back to rclone: {e}"
+                )
 
         if remote_name:
             # Use named remote from rclone config
