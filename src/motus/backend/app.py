@@ -5,6 +5,7 @@ Single-user rclone GUI with token authentication
 import json
 import logging
 import os
+import queue
 import shutil
 import signal
 import sys
@@ -36,7 +37,7 @@ SYMBOLS = {
 }
 
 # Global variables for idle timer and frontend tracking
-_registered_frontends = {}  # {frontend_id: last_heartbeat_time}
+_registered_frontends = {}  # {frontend_id: {'heartbeat': float, 'queue': queue.Queue}}
 _frontends_lock = threading.Lock()
 _startup_time = None
 _idle_timer_thread = None
@@ -54,6 +55,15 @@ GRACE_PERIOD = 10
 # Ctrl-C (SIGINT) tracking for confirmation
 _sigint_time = None  # Time when first SIGINT was received
 SIGINT_CONFIRMATION_WINDOW = 3  # Seconds to wait for second Ctrl-C
+
+
+def _broadcast_shutdown():
+    """Set the shutdown flag and push a shutdown event to all connected frontend SSE streams."""
+    global _shutting_down
+    _shutting_down = True
+    with _frontends_lock:
+        for frontend_data in _registered_frontends.values():
+            frontend_data['queue'].put({'type': 'shutdown'})
 
 
 def safe_remove(path):
@@ -294,8 +304,8 @@ def setup_signal_handlers(rclone: RcloneWrapper, db: Database, config: Config):
         # Stop idle timer if running
         stop_idle_timer()
 
-        # Set shutdown flag so frontends are notified via heartbeat
-        _shutting_down = True
+        # Set shutdown flag and push event to all frontend SSE streams
+        _broadcast_shutdown()
 
         # Shutdown in background thread (same as /api/shutdown)
         def shutdown_delayed():
@@ -428,7 +438,7 @@ def idle_timer_worker(max_idle_time: int, rclone: RcloneWrapper, db: Database, c
 
                 # Check if all frontends are offline (no recent heartbeats)
                 now = time.time()
-                most_recent_heartbeat = max(_registered_frontends.values()) if _registered_frontends else 0
+                most_recent_heartbeat = max(v['heartbeat'] for v in _registered_frontends.values()) if _registered_frontends else 0
                 time_since_last_heartbeat = now - most_recent_heartbeat
 
                 if time_since_last_heartbeat >= max_idle_time:
@@ -731,7 +741,7 @@ def create_app(config: Config = None):
     # Initialize API modules with dependencies
     init_files(rclone, db)
     init_jobs(rclone, db)
-    init_stream(rclone, db)
+    init_stream(rclone, db, _registered_frontends, _frontends_lock)
     # Use rclone's user config file and readonly config for two-tier system
     init_remote_management(
         rclone.rclone_config.user_config_file,  # User's master config
@@ -944,7 +954,7 @@ def register_routes(app: Flask, config: Config):
         frontend_id = str(uuid.uuid4())
 
         with _frontends_lock:
-            _registered_frontends[frontend_id] = time.time()
+            _registered_frontends[frontend_id] = {'heartbeat': time.time(), 'queue': queue.Queue()}
 
             # If counter increased from 0, cancel grace period (refresh scenario)
             if len(_registered_frontends) == 1:
@@ -976,7 +986,7 @@ def register_routes(app: Flask, config: Config):
                 # Frontend was unregistered or never registered
                 return jsonify({'error': 'frontend_id not registered'}), 404
 
-            _registered_frontends[frontend_id] = time.time()
+            _registered_frontends[frontend_id]['heartbeat'] = time.time()
 
         return jsonify({'status': 'ok', 'shutting_down': _shutting_down})
 
@@ -1063,9 +1073,9 @@ def register_routes(app: Flask, config: Config):
 
         running_jobs_count = len(app.rclone.get_running_jobs())
 
-        # Set shutdown flag so frontends are notified via heartbeat
-        _shutting_down = True
-        logging.info("Shutdown initiated - all frontends will be notified via heartbeat")
+        # Set shutdown flag and push event to all frontend SSE streams
+        _broadcast_shutdown()
+        logging.info("Shutdown initiated - all frontends will be notified via SSE and heartbeat")
 
         # Shutdown in background thread to allow response to be sent
         def shutdown_delayed():

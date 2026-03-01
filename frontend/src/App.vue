@@ -59,6 +59,7 @@ const interruptedJobs = ref([])
 // Frontend registration
 let frontendId = null
 let heartbeatInterval = null
+let sessionEventSource = null
 
 // Connection loss tracking
 const connectionLost = ref(false)
@@ -113,6 +114,40 @@ function stopAllTimers() {
   if (idleCheckInterval) {
     clearInterval(idleCheckInterval)
     idleCheckInterval = null
+  }
+
+  // Close multiplexed SSE stream
+  closeSessionEventStream()
+}
+
+function openSessionEventStream() {
+  if (!frontendId) return
+  const baseUrl = getApiUrl('/api/stream/events')
+  const url = `${baseUrl}?token=${appStore.authToken}&frontend_id=${frontendId}`
+  sessionEventSource = new EventSource(url)
+
+  sessionEventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'shutdown') {
+        console.log('[EventStream] Shutdown event received')
+        showShutdownPage()
+      }
+    } catch (e) {
+      console.error('[EventStream] Parse error:', e)
+    }
+  }
+
+  sessionEventSource.onerror = () => {
+    // SSE disconnected — heartbeat will handle liveness detection
+    console.warn('[EventStream] Connection lost')
+  }
+}
+
+function closeSessionEventStream() {
+  if (sessionEventSource) {
+    sessionEventSource.close()
+    sessionEventSource = null
   }
 }
 
@@ -203,6 +238,9 @@ async function registerFrontend() {
 
     // Start heartbeat interval (every 5 seconds)
     heartbeatInterval = setInterval(sendHeartbeat, 5000)
+
+    // Open multiplexed SSE stream for server-push events (shutdown, future: listing updates)
+    openSessionEventStream()
   } catch (error) {
     console.error('[Frontend] Registration failed:', error)
 
