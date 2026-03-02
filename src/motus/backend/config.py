@@ -491,15 +491,17 @@ class Config:
             default=3600
         ) or 3600)
 
-        # S3 listing chunk size — number of objects fetched per request when
-        # using the boto3 fast path.  Subsequent chunks are fetched in the
-        # background as the user scrolls (see frontend prefetch logic).
-        # S3 pages are always 1000 objects, so this effectively controls how
-        # many S3 pages are fetched before returning to the client.
-        # Default: 10000 (10 pages).  Set to 0 to disable chunking (fetch all).
-        self.s3_listing_chunk_size = int(self._get_config(
-            's3_listing_chunk_size',
-            env_var='MOTUS_S3_LISTING_CHUNK_SIZE',
+        # S3 listing buffer size — total number of objects to load automatically
+        # after the first page is displayed.  Each S3 API call fetches up to 1 000
+        # objects (the S3 API hard limit); this value controls how many of those
+        # 1 000-object pages are fetched and shown before pausing.  Sorting is
+        # unavailable while the buffer is being filled.  When the user scrolls
+        # past 80 % of the loaded list, the same amount is fetched again.
+        # Set to 0 to disable chunking (fetch everything in one go).
+        # Default: 10 000 (10 S3 pages).
+        self.s3_listing_buffer_size = int(self._get_config(
+            's3_listing_buffer_size',
+            env_var='MOTUS_S3_LISTING_BUFFER_SIZE',
             default=10000
         ) or 0)
 

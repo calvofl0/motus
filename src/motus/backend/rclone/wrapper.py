@@ -29,6 +29,9 @@ except ImportError:
 
 _boto3_warning_issued = False  # Log the absence warning only once per process
 
+# S3 hard limit per list_objects_v2 call — not configurable by the user.
+_S3_PAGE_SIZE = 1000
+
 # Cross-platform null device
 DEVNULL = 'NUL' if sys.platform == 'win32' else '/dev/null'
 

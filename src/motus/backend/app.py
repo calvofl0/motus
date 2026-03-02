@@ -893,7 +893,7 @@ def register_routes(app: Flask, config: Config):
             'local_fs': config.local_fs,
             'hide_local_fs': config.hide_local_fs,
             'absolute_paths': config.absolute_paths,
-            's3_listing_chunk_size': config.s3_listing_chunk_size,
+            's3_listing_buffer_size': config.s3_listing_buffer_size,
         })
 
     @app.route('/api/preferences', methods=['GET'])

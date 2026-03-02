@@ -113,21 +113,37 @@
         <table v-else>
           <thead>
             <tr>
-              <th class="col-name" @click="setSortBy('name')">
+              <th
+                class="col-name"
+                :class="{ 'sort-unavailable': nextContinuationToken }"
+                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                @click="setSortBy('name')"
+              >
                 Name
-                <span v-if="sortBy === 'name'" class="sort-indicator">
+                <span v-if="sortBy === 'name' && !nextContinuationToken" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
+                <span v-else-if="backgroundFetching" class="sort-loading-indicator" title="Loading…">⟳</span>
               </th>
-              <th class="col-size" @click="setSortBy('size')">
+              <th
+                class="col-size"
+                :class="{ 'sort-unavailable': nextContinuationToken }"
+                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                @click="setSortBy('size')"
+              >
                 Size
-                <span v-if="sortBy === 'size'" class="sort-indicator">
+                <span v-if="sortBy === 'size' && !nextContinuationToken" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
               </th>
-              <th class="col-date" @click="setSortBy('date')">
+              <th
+                class="col-date"
+                :class="{ 'sort-unavailable': nextContinuationToken }"
+                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                @click="setSortBy('date')"
+              >
                 Date
-                <span v-if="sortBy === 'date'" class="sort-indicator">
+                <span v-if="sortBy === 'date' && !nextContinuationToken" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
               </th>
@@ -219,8 +235,12 @@ const sortAsc = ref(true)
 const abortController = ref(null) // For aborting fetch requests
 
 // Pagination state (S3 background prefetch)
-const nextContinuationToken = ref(null) // null = listing is complete
-const backgroundFetching = ref(false)   // true while prefetch request is in flight
+const nextContinuationToken = ref(null)     // null = listing is complete
+const backgroundFetching = ref(false)       // true while prefetch loop is running
+const prefetchAbortController = ref(null)   // cancels in-flight prefetch on navigation
+
+// Buffer size from server config (0 = fetch everything in one go)
+const s3ListingBufferSize = computed(() => appStore.s3ListingBufferSize)
 
 // Use store values for remote configuration (allows dynamic updates)
 const startupRemote = computed(() => appStore.startupRemote)
@@ -273,6 +293,17 @@ const pathTooltip = computed(() => {
 const paneState = computed(() => props.pane === 'left' ? appStore.leftPane : appStore.rightPane)
 const viewMode = computed(() => appStore.viewMode)
 const showHiddenFiles = computed(() => appStore.showHiddenFiles)
+
+// Build the full path string for the current pane location (used by refresh + fillBuffer)
+function buildCurrentFullPath() {
+  if (absolutePathsMode.value && currentAliasBasePath.value) {
+    return currentAliasBasePath.value + currentPath.value
+  } else if (selectedRemote.value) {
+    return `${selectedRemote.value}:${currentPath.value}`
+  } else {
+    return currentPath.value
+  }
+}
 
 // Sync input path with current path (called after successful navigation)
 function syncInputPath() {
@@ -466,6 +497,12 @@ async function handleRefreshClick() {
 async function refresh(preserveSelection = false) {
   loading.value = true
 
+  // Cancel any in-flight prefetch before resetting state
+  if (prefetchAbortController.value) {
+    prefetchAbortController.value.abort()
+    prefetchAbortController.value = null
+  }
+
   // Reset pagination state for the new listing
   nextContinuationToken.value = null
   backgroundFetching.value = false
@@ -479,18 +516,7 @@ async function refresh(preserveSelection = false) {
     : []
 
   try {
-    // Construct path for API call
-    let fullPath
-    if (absolutePathsMode.value && currentAliasBasePath.value) {
-      // In absolute paths mode with an alias - use absolute path
-      fullPath = currentAliasBasePath.value + currentPath.value
-    } else if (selectedRemote.value) {
-      // Normal remote - use remote:path format
-      fullPath = `${selectedRemote.value}:${currentPath.value}`
-    } else {
-      // Local filesystem - use path as-is
-      fullPath = currentPath.value
-    }
+    const fullPath = buildCurrentFullPath()
 
     const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
     files.value = data.files || []
@@ -516,6 +542,11 @@ async function refresh(preserveSelection = false) {
       appStore.setPaneSelection(props.pane, newSelection)
     } else {
       appStore.setPaneSelection(props.pane, [])
+    }
+
+    // If there are more items and chunking is enabled, auto-fill the buffer
+    if (nextContinuationToken.value && s3ListingBufferSize.value > 0) {
+      fillBuffer() // intentionally not awaited — runs in background
     }
   } catch (error) {
     // Check if error is due to abort
@@ -555,39 +586,46 @@ function abortRefresh() {
   }
 }
 
-async function fetchMore() {
+// Fetch pages from S3 until s3ListingBufferSize more items have been appended,
+// or the listing ends.  Runs entirely in the background; aborted automatically
+// when the user navigates (refresh() replaces prefetchAbortController).
+async function fillBuffer() {
   if (!nextContinuationToken.value || backgroundFetching.value) return
 
+  const ctrl = new AbortController()
+  prefetchAbortController.value = ctrl
   backgroundFetching.value = true
+
+  const bufferSize = s3ListingBufferSize.value || Infinity
+  let fetched = 0
+
   try {
-    let fullPath
-    if (absolutePathsMode.value && currentAliasBasePath.value) {
-      fullPath = currentAliasBasePath.value + currentPath.value
-    } else if (selectedRemote.value) {
-      fullPath = `${selectedRemote.value}:${currentPath.value}`
-    } else {
-      fullPath = currentPath.value
+    while (nextContinuationToken.value && fetched < bufferSize) {
+      const data = await apiCall('/api/files/ls', 'POST', {
+        path: buildCurrentFullPath(),
+        continuation_token: nextContinuationToken.value,
+      }, ctrl.signal)
+
+      const newFiles = data.files || []
+      fetched += newFiles.length
+      files.value = [...files.value, ...newFiles]
+      nextContinuationToken.value = data.next_continuation_token || null
+      appStore.setPaneFiles(props.pane, files.value)
     }
-
-    const data = await apiCall('/api/files/ls', 'POST', {
-      path: fullPath,
-      continuation_token: nextContinuationToken.value,
-    })
-
-    const newFiles = data.files || []
-    files.value = [...files.value, ...newFiles]
-    nextContinuationToken.value = data.next_continuation_token || null
-    appStore.setPaneFiles(props.pane, files.value)
   } catch (error) {
     if (error.name !== 'AbortError') {
-      console.error('Failed to fetch more files:', error)
+      console.error('Failed to prefetch files:', error)
     }
   } finally {
     backgroundFetching.value = false
+    if (prefetchAbortController.value === ctrl) {
+      prefetchAbortController.value = null
+    }
   }
 }
 
 function handleContainerScroll() {
+  // Only trigger when the buffer is exhausted (not mid-fetch) and more items exist
   if (!nextContinuationToken.value || backgroundFetching.value) return
 
   const el = fileContainer.value
@@ -597,7 +635,7 @@ function handleContainerScroll() {
   const total = el.scrollHeight
 
   if (total > 0 && scrolled / total >= 0.8) {
-    fetchMore()
+    fillBuffer()
   }
 }
 
@@ -804,6 +842,9 @@ async function expandHomePath() {
 }
 
 function setSortBy(field, asc = null) {
+  // Sorting is only reliable once all items are loaded
+  if (nextContinuationToken.value) return
+
   if (asc !== null) {
     // Explicit sort direction from context menu
     sortBy.value = field
@@ -2298,6 +2339,11 @@ onUnmounted(() => {
   if (fileContainer.value) {
     fileContainer.value.removeEventListener('scroll', handleContainerScroll)
   }
+
+  // Cancel any in-flight prefetch
+  if (prefetchAbortController.value) {
+    prefetchAbortController.value.abort()
+  }
 })
 
 // Focus the file container
@@ -2367,9 +2413,16 @@ defineExpose({
   width: 100%;
 }
 
-.loading-more-spinner {
+.loading-more-spinner,
+.sort-loading-indicator {
   display: inline-block;
   animation: spin 1s linear infinite;
+}
+
+/* Sort column headers while listing is incomplete */
+.sort-unavailable {
+  cursor: default;
+  opacity: 0.5;
 }
 
 @keyframes spin {

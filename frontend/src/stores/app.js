@@ -12,6 +12,7 @@ export const useAppStore = defineStore('app', () => {
   const theme = ref('auto') // 'light', 'dark', or 'auto'
   const lastFocusedPane = ref('left')
   const maxUploadSize = ref(0)
+  const s3ListingBufferSize = ref(10000) // From config; 0 = fetch all at once
   const showManageRemotesModal = ref(false)
   const showCompletedJobsModal = ref(false)
   const absolutePathsMode = ref(false) // Loaded from config
@@ -119,6 +120,7 @@ export const useAppStore = defineStore('app', () => {
       const config = await apiCall('/api/config')
       currentMode.value = config.default_mode || 'easy'
       maxUploadSize.value = config.max_upload_size || 0
+      s3ListingBufferSize.value = config.s3_listing_buffer_size ?? 10000
       configAbsolutePaths = config.absolute_paths || false
       allowExpertMode.value = config.allow_expert_mode || false
     } catch (e) {
@@ -486,6 +488,7 @@ export const useAppStore = defineStore('app', () => {
     theme,
     lastFocusedPane,
     maxUploadSize,
+    s3ListingBufferSize,
     showManageRemotesModal,
     showCompletedJobsModal,
     absolutePathsMode,

@@ -9,7 +9,7 @@ import secrets
 from flask import Blueprint, request, jsonify, send_file, current_app, after_this_request
 
 from ..auth import token_required
-from ..rclone.wrapper import RcloneWrapper
+from ..rclone.wrapper import RcloneWrapper, _S3_PAGE_SIZE
 from ..rclone.exceptions import RcloneException
 from ..models import Database
 
@@ -83,7 +83,8 @@ def list_files():
                      + (" (continuation)" if continuation_token else ""))
 
         config = current_app.motus_config
-        max_items = config.s3_listing_chunk_size or None
+        # Use the S3 hard page limit unless chunking is disabled (buffer_size == 0).
+        max_items = _S3_PAGE_SIZE if config.s3_listing_buffer_size else None
 
         listed_files, next_token = rclone.ls_paged(
             path, remote_config,
