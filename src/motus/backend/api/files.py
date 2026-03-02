@@ -77,14 +77,24 @@ def list_files():
 
         path = data['path']
         remote_config = data.get('remote_config')
+        continuation_token = data.get('continuation_token')
 
-        logging.info(f"Listing files at {path}")
+        logging.info(f"Listing files at {path}"
+                     + (" (continuation)" if continuation_token else ""))
 
-        files = rclone.ls(path, remote_config)
+        config = current_app.motus_config
+        max_items = config.s3_listing_chunk_size or None
+
+        listed_files, next_token = rclone.ls_paged(
+            path, remote_config,
+            max_items=max_items,
+            continuation_token=continuation_token,
+        )
 
         return jsonify({
-            'files': files,
+            'files': listed_files,
             'path': path,
+            'next_continuation_token': next_token,
         })
 
     except RcloneException as e:

@@ -147,22 +147,34 @@ class RcloneWrapper:
 
         return boto3.client('s3', **kwargs)
 
-    def _ls_s3_boto3(self, config: Dict, path: str) -> List[Dict]:
+    def _ls_s3_boto3(self, config: Dict, path: str,
+                     max_items: int = None,
+                     continuation_token: str = None) -> tuple:
         """
         List S3 objects at path using boto3 list_objects_v2.
 
         Uses a Delimiter='/' so only immediate children are returned (shallow
         listing), mirroring the behaviour of rclone lsjson without --recursive.
 
-        Returns a list of dicts with the same keys that rclone lsjson produces:
-        Name, Path, Size, IsDir, ModTime.
+        Args:
+            config: rclone remote config dict
+            path: path within the remote (may start with /)
+            max_items: stop after accumulating this many items and return a
+                continuation token so the caller can resume.  None means fetch
+                everything (original behaviour).
+            continuation_token: opaque S3 token from a previous call; resumes
+                listing from where that call left off.
+
+        Returns:
+            (items, next_continuation_token) where next_continuation_token is
+            None when the listing is complete (no more items to fetch).
         """
         client = self._build_s3_client(config)
 
         # Normalise: strip leading slash rclone sometimes includes
         clean = path.lstrip('/')
 
-        # Empty path → list buckets
+        # Empty path → list buckets (always complete, no pagination needed)
         if not clean:
             response = client.list_buckets()
             return [
@@ -174,7 +186,7 @@ class RcloneWrapper:
                     'ModTime': b['CreationDate'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
                 }
                 for b in response.get('Buckets', [])
-            ]
+            ], None
 
         # Split into bucket and prefix
         parts = clean.split('/', 1)
@@ -182,11 +194,16 @@ class RcloneWrapper:
         prefix = (parts[1].rstrip('/') + '/') if len(parts) > 1 and parts[1] else ''
 
         results = []
-        paginator = client.get_paginator('list_objects_v2')
+        kwargs = {'Bucket': bucket, 'Prefix': prefix, 'Delimiter': '/'}
+        if continuation_token:
+            kwargs['ContinuationToken'] = continuation_token
 
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/'):
+        next_token = None
+        while True:
+            response = client.list_objects_v2(**kwargs)
+
             # Virtual directories (CommonPrefixes)
-            for cp in page.get('CommonPrefixes', []):
+            for cp in response.get('CommonPrefixes', []):
                 dir_key = cp['Prefix']               # e.g. "folder/sub/"
                 name = dir_key[len(prefix):].rstrip('/')
                 if name:
@@ -199,7 +216,7 @@ class RcloneWrapper:
                     })
 
             # Objects (files)
-            for obj in page.get('Contents', []):
+            for obj in response.get('Contents', []):
                 name = obj['Key'][len(prefix):]
                 # Skip a zero-length "directory placeholder" object
                 if not name:
@@ -212,7 +229,16 @@ class RcloneWrapper:
                     'ModTime': obj['LastModified'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
                 })
 
-        return results
+            if response.get('IsTruncated'):
+                if max_items and len(results) >= max_items:
+                    # Return what we have; hand the S3 token back to the caller
+                    next_token = response.get('NextContinuationToken')
+                    break
+                kwargs['ContinuationToken'] = response['NextContinuationToken']
+            else:
+                break
+
+        return results, next_token
 
     def initialize_job_counter(self, db):
         """
@@ -469,7 +495,8 @@ class RcloneWrapper:
                     actual_config = self.rclone_config.get_remote(actual_remote)
                     if actual_config and actual_config.get('type') == 's3':
                         logging.debug(f"ls {path}: using boto3 fast path")
-                        return self._ls_s3_boto3(actual_config, actual_path)
+                        items, _ = self._ls_s3_boto3(actual_config, actual_path)
+                        return items
             except Exception as e:
                 logging.warning(
                     f"boto3 S3 listing failed for '{path}', falling back to rclone: {e}"
@@ -506,6 +533,53 @@ class RcloneWrapper:
             raise RcloneException(f"Failed to list {path}: {e}")
         except json.JSONDecodeError as e:
             raise RcloneException(f"Failed to parse rclone output: {e}")
+
+    def ls_paged(self, path: str, remote_config: Optional[Dict] = None,
+                 max_items: int = None,
+                 continuation_token: str = None) -> tuple:
+        """
+        Paginated listing for S3 remotes (boto3 fast path only).
+
+        For S3 paths with boto3 available, returns up to max_items entries and
+        a continuation token that can be passed back to resume the listing.
+        For all other remotes (or when boto3 is unavailable) the full listing is
+        returned immediately and next_continuation_token is always None.
+
+        Args:
+            path: Path to list (same syntax as ls())
+            remote_config: Optional remote config dict (legacy support)
+            max_items: Maximum number of items to return per call.  None or 0
+                means fetch all (same as ls()).
+            continuation_token: Opaque token from a previous ls_paged() call.
+
+        Returns:
+            (files, next_continuation_token)
+        """
+        remote_name, clean_path = self._parse_path(path)
+
+        if remote_name and _BOTO3_AVAILABLE:
+            try:
+                self.rclone_config.reload()
+                actual_remote, actual_path = self.rclone_config.resolve_alias_chain(
+                    remote_name, clean_path
+                )
+                if actual_remote:
+                    actual_config = self.rclone_config.get_remote(actual_remote)
+                    if actual_config and actual_config.get('type') == 's3':
+                        logging.debug(f"ls_paged {path}: using boto3 fast path "
+                                      f"(max_items={max_items}, token={'...' if continuation_token else None})")
+                        return self._ls_s3_boto3(
+                            actual_config, actual_path,
+                            max_items=max_items or None,
+                            continuation_token=continuation_token,
+                        )
+            except Exception as e:
+                logging.warning(
+                    f"boto3 S3 paginated listing failed for '{path}', falling back to rclone: {e}"
+                )
+
+        # Fallback: full listing, no pagination
+        return self.ls(path, remote_config), None
 
     def mkdir(self, path: str, remote_config: Optional[Dict] = None):
         """

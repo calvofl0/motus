@@ -491,6 +491,18 @@ class Config:
             default=3600
         ) or 3600)
 
+        # S3 listing chunk size — number of objects fetched per request when
+        # using the boto3 fast path.  Subsequent chunks are fetched in the
+        # background as the user scrolls (see frontend prefetch logic).
+        # S3 pages are always 1000 objects, so this effectively controls how
+        # many S3 pages are fetched before returning to the client.
+        # Default: 10000 (10 pages).  Set to 0 to disable chunking (fetch all).
+        self.s3_listing_chunk_size = int(self._get_config(
+            's3_listing_chunk_size',
+            env_var='MOTUS_S3_LISTING_CHUNK_SIZE',
+            default=10000
+        ) or 0)
+
         # Specific cache subdirectories (computed from cache_dir)
         self.download_cache_dir = os.path.join(self.cache_dir, 'download')
         self.upload_cache_dir = os.path.join(self.cache_dir, 'upload')

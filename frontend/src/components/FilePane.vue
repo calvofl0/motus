@@ -96,6 +96,11 @@
         <div v-if="sortedFiles.length === 0" class="empty-state">
           No files
         </div>
+
+        <!-- Background prefetch indicator (grid view) -->
+        <div v-if="backgroundFetching" class="loading-more loading-more-grid">
+          <span class="loading-more-spinner">⟳</span> Loading more…
+        </div>
       </template>
 
       <!-- List View -->
@@ -151,6 +156,11 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Background prefetch indicator (list view) -->
+        <div v-if="backgroundFetching" class="loading-more">
+          <span class="loading-more-spinner">⟳</span> Loading more…
+        </div>
       </template>
     </div>
   </div>
@@ -207,6 +217,10 @@ const loading = ref(false)
 const sortBy = ref('name')
 const sortAsc = ref(true)
 const abortController = ref(null) // For aborting fetch requests
+
+// Pagination state (S3 background prefetch)
+const nextContinuationToken = ref(null) // null = listing is complete
+const backgroundFetching = ref(false)   // true while prefetch request is in flight
 
 // Use store values for remote configuration (allows dynamic updates)
 const startupRemote = computed(() => appStore.startupRemote)
@@ -452,6 +466,10 @@ async function handleRefreshClick() {
 async function refresh(preserveSelection = false) {
   loading.value = true
 
+  // Reset pagination state for the new listing
+  nextContinuationToken.value = null
+  backgroundFetching.value = false
+
   // Create abort controller for this refresh
   abortController.value = new AbortController()
 
@@ -476,6 +494,7 @@ async function refresh(preserveSelection = false) {
 
     const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
     files.value = data.files || []
+    nextContinuationToken.value = data.next_continuation_token || null
 
     // Update store
     appStore.setPaneFiles(props.pane, files.value)
@@ -533,6 +552,52 @@ function abortRefresh() {
     loading.value = false
 
     console.log('Refresh aborted, restored to previous path:', previousPath.value)
+  }
+}
+
+async function fetchMore() {
+  if (!nextContinuationToken.value || backgroundFetching.value) return
+
+  backgroundFetching.value = true
+  try {
+    let fullPath
+    if (absolutePathsMode.value && currentAliasBasePath.value) {
+      fullPath = currentAliasBasePath.value + currentPath.value
+    } else if (selectedRemote.value) {
+      fullPath = `${selectedRemote.value}:${currentPath.value}`
+    } else {
+      fullPath = currentPath.value
+    }
+
+    const data = await apiCall('/api/files/ls', 'POST', {
+      path: fullPath,
+      continuation_token: nextContinuationToken.value,
+    })
+
+    const newFiles = data.files || []
+    files.value = [...files.value, ...newFiles]
+    nextContinuationToken.value = data.next_continuation_token || null
+    appStore.setPaneFiles(props.pane, files.value)
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error('Failed to fetch more files:', error)
+    }
+  } finally {
+    backgroundFetching.value = false
+  }
+}
+
+function handleContainerScroll() {
+  if (!nextContinuationToken.value || backgroundFetching.value) return
+
+  const el = fileContainer.value
+  if (!el) return
+
+  const scrolled = el.scrollTop + el.clientHeight
+  const total = el.scrollHeight
+
+  if (total > 0 && scrolled / total >= 0.8) {
+    fetchMore()
   }
 }
 
@@ -1597,6 +1662,11 @@ onMounted(async () => {
 
   // Listen for keyboard events
   window.addEventListener('keydown', handleKeyDown)
+
+  // Scroll-based S3 prefetch
+  if (fileContainer.value) {
+    fileContainer.value.addEventListener('scroll', handleContainerScroll)
+  }
 })
 
 // Watch for changes to currentAliasBasePath to sync with store
@@ -2224,6 +2294,10 @@ onUnmounted(() => {
   window.removeEventListener('absolute-paths-mode-changed', handleAbsolutePathsModeChanged)
   window.removeEventListener('local-fs-disabling', handleLocalFsDisabling)
   window.removeEventListener('keydown', handleKeyDown)
+
+  if (fileContainer.value) {
+    fileContainer.value.removeEventListener('scroll', handleContainerScroll)
+  }
 })
 
 // Focus the file container
@@ -2280,5 +2354,26 @@ defineExpose({
 
 .parent-btn:focus:disabled {
   transform: scale(1) !important;
+}
+
+.loading-more {
+  padding: 8px 12px;
+  color: var(--color-text-muted, #888);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.loading-more-grid {
+  width: 100%;
+}
+
+.loading-more-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 </style>
