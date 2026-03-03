@@ -48,7 +48,7 @@ def _oldest_fetched_at(row: dict) -> Optional[str]:
     return min(valid) if valid else None
 
 
-def _row_to_response(row: dict | None, at_s3_root: bool = False) -> dict:
+def _row_to_response(row: Optional[dict], at_s3_root: bool = False) -> dict:
     if at_s3_root:
         return {'at_s3_root': True}
 
