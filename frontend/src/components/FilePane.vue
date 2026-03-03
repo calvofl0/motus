@@ -16,6 +16,7 @@
             {{ remote.name }}
           </option>
         </select>
+        <DiskUsageDisplay :remote="selectedRemote" :path="currentPath" />
       </div>
       <div class="toolbar-row with-icon">
         <span class="input-icon" :title="pathTooltip">📂</span>
@@ -199,6 +200,7 @@ import { useUpload } from '../composables/useUpload'
 import { formatFileSize } from '../services/helpers'
 import { sortRemotes } from '../utils/remoteSorting'
 import DownloadConfirmModal from './modals/DownloadConfirmModal.vue'
+import DiskUsageDisplay from './DiskUsageDisplay.vue'
 
 const props = defineProps({
   pane: {

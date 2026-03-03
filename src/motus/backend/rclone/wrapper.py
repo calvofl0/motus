@@ -939,6 +939,33 @@ class RcloneWrapper:
             logging.error(f"Failed to get size for {path}: {e}")
             return {'bytes': 0, 'count': 0}
 
+    def about(self, remote: str) -> Dict:
+        """
+        Query usage information for a remote via ``rclone about``.
+
+        Args:
+            remote: Remote name (without trailing colon, e.g. ``'my_s3'``).
+
+        Returns:
+            dict with any subset of ``{'total', 'used', 'free', 'trashed', 'other'}``
+            in bytes.  Empty dict if the backend does not support ``about``.
+        """
+        config_arg = self.rclone_config.config_file or DEVNULL
+        command = [
+            self.rclone_path,
+            '--config', config_arg,
+            'about',
+            f'{remote}:',
+            '--json',
+        ]
+        self._log_command(command, {})
+        try:
+            output = self._execute(command, {})
+            return json.loads(output)
+        except Exception as e:
+            logging.debug(f'rclone about {remote}: not supported or failed: {e}')
+            return {}
+
     def download_to_temp(self, path: str, remote_config: Optional[Dict] = None) -> str:
         """
         Download a remote file to a temporary location

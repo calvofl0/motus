@@ -94,23 +94,23 @@ def parse_size(size_str: str) -> int:
 
 def format_size(size_bytes: int) -> str:
     """
-    Format bytes to human-readable size
+    Format bytes to human-readable size (base-1024, KiB/MiB/GiB/TiB labels).
 
     Args:
         size_bytes: Size in bytes
 
     Returns:
-        str: Human-readable size (e.g., "50 MB", "1.5 GB")
+        str: Human-readable size (e.g., "50 MiB", "1.5 GiB")
     """
     if size_bytes == 0:
         return "unlimited"
 
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+    for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB']:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}" if size_bytes % 1 else f"{int(size_bytes)} {unit}"
         size_bytes /= 1024.0
 
-    return f"{size_bytes:.1f} PB"
+    return f"{size_bytes:.1f} PiB"
 
 
 class Config:
@@ -490,6 +490,23 @@ class Config:
             env_var='MOTUS_DOWNLOAD_CACHE_MAX_AGE',
             default=3600
         ) or 3600)
+
+        # Path to an external executable that outputs disk-usage/quota data for
+        # specific locations.  Runs once at startup and on user-triggered refresh.
+        # Its output takes precedence over df / rclone about / rclone size.
+        # See documentation for the expected output format.
+        raw_script = self._get_config(
+            'disk_usage_script',
+            env_var='MOTUS_DISK_USAGE_SCRIPT',
+            default=None,
+        )
+        self.disk_usage_script = raw_script or None
+        if self.disk_usage_script and not os.path.isfile(self.disk_usage_script):
+            logging.warning(
+                'MOTUS_DISK_USAGE_SCRIPT %r not found or not a file — ignored',
+                self.disk_usage_script,
+            )
+            self.disk_usage_script = None
 
         # S3 listing buffer size — total number of objects to load automatically
         # after the first page is displayed.  Each S3 API call fetches up to 1 000

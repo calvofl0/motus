@@ -28,6 +28,8 @@ from .api.jobs import jobs_bp, init_jobs
 from .api.stream import stream_bp, init_stream
 from .api.remotes import remotes_bp, init_remote_management
 from .api.upload import upload_bp, init_upload, cleanup_cache
+from .api.disk_usage import disk_usage_bp
+from .disk_usage import startup_populate
 
 # Detect terminal encoding and set UTF-8 symbols with ASCII fallbacks
 _IS_UTF8 = sys.stderr.encoding and 'utf' in sys.stderr.encoding.lower()
@@ -830,11 +832,18 @@ def create_app(config: Config = None):
     app.register_blueprint(stream_bp)
     app.register_blueprint(remotes_bp)
     app.register_blueprint(upload_bp)
+    app.register_blueprint(disk_usage_bp)
 
     # Store instances in app context
     app.rclone = rclone
     app.db = db
     app.motus_config = config
+
+    # Populate disk-usage cache on startup (df + optional override script).
+    try:
+        startup_populate(config, db)
+    except Exception as exc:
+        logging.warning('disk_usage startup_populate failed: %s', exc)
 
     # Setup signal handlers for graceful shutdown
     setup_signal_handlers(rclone, db, config)

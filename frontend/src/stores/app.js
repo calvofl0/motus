@@ -14,6 +14,12 @@ export const useAppStore = defineStore('app', () => {
   const maxUploadSize = ref(0)
   const s3ListingBufferSize = ref(10000) // From config; 0 = fetch all at once
   const showManageRemotesModal = ref(false)
+
+  // Disk usage cache.
+  // Key: `${remote}\x00${path}` (raw pane state — backend resolves aliases).
+  // Value: { space_used_bytes, quota_bytes, object_count, fetched_at, is_computing, at_s3_root }
+  const diskUsageCache = ref({})
+  let _diskUsagePollTimer = null
   const showCompletedJobsModal = ref(false)
   const absolutePathsMode = ref(false) // Loaded from config
   const allowExpertMode = ref(false) // Whether expert mode toggle is allowed (from config)
@@ -479,6 +485,72 @@ export const useAppStore = defineStore('app', () => {
     }
   })
 
+  // ── Disk usage ───────────────────────────────────────────────────────────
+
+  function _diskUsageKey(remote, path) {
+    return `${remote}\x00${path}`
+  }
+
+  async function fetchDiskUsage(remote, path) {
+    try {
+      const params = new URLSearchParams({ remote, path })
+      const data = await apiCall(`/api/disk-usage?${params}`)
+      const key = _diskUsageKey(remote, path)
+      diskUsageCache.value = { ...diskUsageCache.value, [key]: data }
+      _startDiskUsagePollIfNeeded()
+    } catch (e) {
+      // Silently ignore — disk usage is non-critical.
+    }
+  }
+
+  async function refreshDiskUsage(remote, path) {
+    try {
+      const data = await apiCall('/api/disk-usage/refresh', 'POST', { remote, path })
+      const key = _diskUsageKey(remote, path)
+      diskUsageCache.value = { ...diskUsageCache.value, [key]: data }
+      _startDiskUsagePollIfNeeded()
+    } catch (e) {
+      // Silently ignore.
+    }
+  }
+
+  async function cancelDiskUsageFetch(remote, path) {
+    try {
+      await apiCall('/api/disk-usage/cancel', 'POST', { remote, path })
+      const key = _diskUsageKey(remote, path)
+      const existing = diskUsageCache.value[key]
+      if (existing) {
+        diskUsageCache.value = {
+          ...diskUsageCache.value,
+          [key]: { ...existing, is_computing: false },
+        }
+      }
+    } catch (e) {
+      // Silently ignore.
+    }
+  }
+
+  function getDiskUsage(remote, path) {
+    return diskUsageCache.value[_diskUsageKey(remote, path)] ?? null
+  }
+
+  function _startDiskUsagePollIfNeeded() {
+    if (_diskUsagePollTimer) return
+    _diskUsagePollTimer = setInterval(async () => {
+      const computing = Object.entries(diskUsageCache.value)
+        .filter(([, v]) => v?.is_computing)
+      if (!computing.length) {
+        clearInterval(_diskUsagePollTimer)
+        _diskUsagePollTimer = null
+        return
+      }
+      for (const [key] of computing) {
+        const [remote, path] = key.split('\x00')
+        await fetchDiskUsage(remote, path)
+      }
+    }, 2000)
+  }
+
   return {
     // State
     currentMode,
@@ -489,6 +561,7 @@ export const useAppStore = defineStore('app', () => {
     lastFocusedPane,
     maxUploadSize,
     s3ListingBufferSize,
+    diskUsageCache,
     showManageRemotesModal,
     showCompletedJobsModal,
     absolutePathsMode,
@@ -533,6 +606,10 @@ export const useAppStore = defineStore('app', () => {
     openManageRemotes,
     closeManageRemotes,
     openCompletedJobs,
-    closeCompletedJobs
+    closeCompletedJobs,
+    fetchDiskUsage,
+    refreshDiskUsage,
+    cancelDiskUsageFetch,
+    getDiskUsage,
   }
 })

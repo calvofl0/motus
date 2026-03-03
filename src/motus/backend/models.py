@@ -68,6 +68,19 @@ class Database:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+            # Disk usage cache table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS disk_usage (
+                    location           TEXT PRIMARY KEY,
+                    space_used_bytes   INTEGER,
+                    quota_bytes        INTEGER,
+                    object_count       INTEGER,
+                    script_fetched_at  TEXT,
+                    metric_fetched_at  TEXT,
+                    is_computing       INTEGER DEFAULT 0
+                )
+            ''')
+
             conn.commit()
 
     @contextmanager
@@ -383,6 +396,102 @@ class Database:
             cursor.execute('DELETE FROM jobs')
             conn.commit()
             return cursor.rowcount, deleted_job_ids
+
+    # ── Disk usage cache ──────────────────────────────────────────────────────
+
+    def upsert_disk_usage_from_df(
+        self,
+        location: str,
+        space_used_bytes: Optional[int],
+        quota_bytes: Optional[int],
+        object_count: Optional[int],
+        fetched_at: str,
+    ):
+        """Full overwrite of metric fields (df source); preserves script_fetched_at."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO disk_usage
+                    (location, space_used_bytes, quota_bytes, object_count,
+                     metric_fetched_at, is_computing)
+                VALUES (?, ?, ?, ?, ?, 0)
+                ON CONFLICT(location) DO UPDATE SET
+                    space_used_bytes  = excluded.space_used_bytes,
+                    quota_bytes       = excluded.quota_bytes,
+                    object_count      = excluded.object_count,
+                    metric_fetched_at = excluded.metric_fetched_at
+            ''', (location, space_used_bytes, quota_bytes, object_count, fetched_at))
+            conn.commit()
+
+    def upsert_disk_usage_from_script(
+        self,
+        location: str,
+        space_used_bytes: Optional[int],
+        quota_bytes: Optional[int],
+        object_count: Optional[int],
+        fetched_at: str,
+    ):
+        """Full overwrite of all value fields (script source); preserves metric_fetched_at."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO disk_usage
+                    (location, space_used_bytes, quota_bytes, object_count,
+                     script_fetched_at, is_computing)
+                VALUES (?, ?, ?, ?, ?, 0)
+                ON CONFLICT(location) DO UPDATE SET
+                    space_used_bytes = excluded.space_used_bytes,
+                    quota_bytes      = excluded.quota_bytes,
+                    object_count     = excluded.object_count,
+                    script_fetched_at = excluded.script_fetched_at
+            ''', (location, space_used_bytes, quota_bytes, object_count, fetched_at))
+            conn.commit()
+
+    def upsert_disk_usage_from_rclone(
+        self,
+        location: str,
+        space_used_bytes: Optional[int],
+        quota_bytes: Optional[int],
+        object_count: Optional[int],
+        fetched_at: str,
+    ):
+        """Fill in only NULL fields (rclone about/size source); never overwrites existing values."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO disk_usage
+                    (location, space_used_bytes, quota_bytes, object_count,
+                     metric_fetched_at, is_computing)
+                VALUES (?, ?, ?, ?, ?, 0)
+                ON CONFLICT(location) DO UPDATE SET
+                    space_used_bytes  = COALESCE(disk_usage.space_used_bytes,  excluded.space_used_bytes),
+                    quota_bytes       = COALESCE(disk_usage.quota_bytes,       excluded.quota_bytes),
+                    object_count      = COALESCE(disk_usage.object_count,      excluded.object_count),
+                    metric_fetched_at = excluded.metric_fetched_at
+            ''', (location, space_used_bytes, quota_bytes, object_count, fetched_at))
+            conn.commit()
+
+    def get_disk_usage(self, location: str) -> Optional[Dict]:
+        """Return the row for an exact location key, or None."""
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                'SELECT * FROM disk_usage WHERE location = ?', (location,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def list_disk_usage(self) -> List[Dict]:
+        """Return all disk_usage rows (used for prefix-matching lookups)."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM disk_usage')
+            return [dict(r) for r in cursor.fetchall()]
+
+    def set_computing(self, location: str, is_computing: bool):
+        """Create or update the is_computing flag for a location."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO disk_usage (location, is_computing)
+                VALUES (?, ?)
+                ON CONFLICT(location) DO UPDATE SET is_computing = excluded.is_computing
+            ''', (location, 1 if is_computing else 0))
+            conn.commit()
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:
         """Convert sqlite Row to dict"""
