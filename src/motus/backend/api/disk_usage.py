@@ -72,23 +72,29 @@ def _row_to_response(row: Optional[dict], at_s3_root: bool = False) -> dict:
     }
 
 
-def _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db):
+def _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db,
+                         force: bool = False):
     """
-    If there is any missing field for a non-local location, start a background
-    rclone about + rclone size fetch (unless one is already running).
+    Start a background rclone about + rclone size fetch for non-local locations.
+
+    When force=False (default, used on first load) the fetch is skipped if all
+    expected fields are already present in the cache.
+    When force=True (explicit user refresh) the fetch always runs so that the
+    metric_fetched_at timestamp and cached values are updated.
     """
     if storage_type not in ('s3', 'other'):
         return
 
-    rows = db.list_disk_usage()
-    best = find_best_match(canonical_key, rows)
-    needs_fetch = (
-        best is None
-        or best.get('space_used_bytes') is None
-        or (storage_type == 's3' and best.get('object_count') is None)
-    )
-    if not needs_fetch:
-        return
+    if not force:
+        rows = db.list_disk_usage()
+        best = find_best_match(canonical_key, rows)
+        needs_fetch = (
+            best is None
+            or best.get('space_used_bytes') is None
+            or (storage_type == 's3' and best.get('object_count') is None)
+        )
+        if not needs_fetch:
+            return
 
     # Determine the rclone target (bucket root for S3, path for other).
     try:
@@ -183,8 +189,9 @@ def refresh_disk_usage():
                 fetched_at=entry.get('fetched_at') or now,
             )
 
-    # 3. For non-local locations: start background rclone fetch if needed.
-    _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db)
+    # 3. For non-local locations: always re-fetch (explicit user refresh).
+    _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db,
+                        force=True)
 
     # Return the current (possibly stale) cached value immediately.
     rows = db.list_disk_usage()
