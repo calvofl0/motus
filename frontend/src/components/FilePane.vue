@@ -168,7 +168,7 @@
                 <span class="file-icon-small">{{ file.IsDir ? '📁' : '📄' }}</span>
                 <span>{{ file.Name }}</span>
               </td>
-              <td class="file-size-col">{{ file._isParent ? '' : (file.IsDir ? '' : formatSize(file.Size)) }}</td>
+              <td class="file-size-col">{{ file._isParent ? '' : (file.IsDir ? '' : formatFileSize(file.Size)) }}</td>
               <td class="file-date-col">{{ file._isParent ? '' : formatDate(file.ModTime) }}</td>
             </tr>
           </tbody>
@@ -450,13 +450,6 @@ function sortFiles(filesList, field, ascending) {
   return sorted
 }
 
-function formatSize(bytes) {
-  if (bytes === 0 || bytes === undefined) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
