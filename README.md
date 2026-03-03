@@ -584,6 +584,8 @@ export MOTUS_AUTO_CLEANUP_DB=true
 export MOTUS_MAX_UPLOAD_SIZE=1G
 export MOTUS_MAX_DOWNLOAD_SIZE=5G                        # Maximum download size allowed (0=unlimited)
 export MOTUS_MAX_UNCOMPRESSED_DOWNLOAD_SIZE=100M         # ZIP threshold for downloads
+export MOTUS_DISK_USAGE_SCRIPT=/path/to/usage-script.sh  # Override script for disk-usage/quota data
+export MOTUS_S3_LISTING_BUFFER_SIZE=10000                # S3 objects to prefetch automatically (0=no limit)
 
 motus
 ```
@@ -1004,16 +1006,18 @@ The percentage is colour-coded from green (low) to red (high). Hovering over the
 
 An external script can supply or override usage data for any set of paths.
 
-**Configuration**:
+**Configuration** (any of the three, highest priority wins):
 
 ```yaml
-disk_usage_script: /path/to/usage-script.sh
+disk_usage_script: /path/to/usage-script.sh   # config file
 ```
 
-Or via environment variable:
+```bash
+export MOTUS_DISK_USAGE_SCRIPT=/path/to/usage-script.sh   # environment variable
+```
 
 ```bash
-export MOTUS_DISK_USAGE_SCRIPT=/path/to/usage-script.sh
+motus --disk-usage-script /path/to/usage-script.sh        # command-line argument
 ```
 
 The script is executed at startup and every time the user clicks **↻**. Its standard output must contain one line per location:
@@ -1053,11 +1057,15 @@ S3 buckets can contain millions of objects. Motus fetches results in pages of 1 
 - Set to `0` to disable chunking (fetches everything in one request — may be slow for very large buckets).
 
 ```yaml
-s3_listing_buffer_size: 10000   # default
+s3_listing_buffer_size: 10000   # default; config file
 ```
 
 ```bash
-export MOTUS_S3_LISTING_BUFFER_SIZE=5000
+export MOTUS_S3_LISTING_BUFFER_SIZE=5000   # environment variable
+```
+
+```bash
+motus --s3-listing-buffer-size 5000        # command-line argument
 ```
 
 ## Building the Frontend

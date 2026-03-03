@@ -133,12 +133,17 @@ def get_disk_usage():
     """
     remote = request.args.get('remote', '')
     path   = request.args.get('path', '/')
-    rclone, db, _config = _get_context()
+    rclone, db, config = _get_context()
 
     canonical_key, storage_type = resolve_canonical(remote, path, rclone.rclone_config)
+    logger.debug('disk_usage GET: remote=%r path=%r → canonical=%r type=%r',
+                 remote, path, canonical_key, storage_type)
 
     if storage_type == 's3_at_root':
         return jsonify(_row_to_response(None, at_s3_root=True))
+
+    # For non-local locations: trigger a background rclone fetch if data is absent.
+    _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db)
 
     rows = db.list_disk_usage()
     best = find_best_match(canonical_key, rows)

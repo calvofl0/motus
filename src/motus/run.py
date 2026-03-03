@@ -648,6 +648,19 @@ def main():
         help='Path to extra rclone config file with remotes to merge at startup (existing remotes not overwritten, or MOTUS_EXTRA_REMOTES env var)'
     )
 
+    # Disk Usage
+    disk_group = parser.add_argument_group('Disk Usage')
+    disk_group.add_argument(
+        '--disk-usage-script',
+        type=str,
+        help='Path to executable that outputs disk-usage/quota data; takes precedence over df/rclone (or MOTUS_DISK_USAGE_SCRIPT env var)'
+    )
+    disk_group.add_argument(
+        '--s3-listing-buffer-size',
+        type=int,
+        help='Number of S3 objects to prefetch after first page (0=fetch all at once, default: 10000, or MOTUS_S3_LISTING_BUFFER_SIZE env var)'
+    )
+
     # Limits & Cleanup
     limits_group = parser.add_argument_group('Limits & Cleanup')
     limits_group.add_argument(
@@ -800,6 +813,10 @@ def main():
         config.allow_expert_mode = True
     if args.no_tour:
         config.no_tour = True
+    if args.disk_usage_script:
+        config.disk_usage_script = args.disk_usage_script
+    if args.s3_listing_buffer_size is not None:
+        config.s3_listing_buffer_size = args.s3_listing_buffer_size
 
     # Configure logging EARLY, before any logging calls
     # This must happen before check_existing_instance() and create_lock_socket()
