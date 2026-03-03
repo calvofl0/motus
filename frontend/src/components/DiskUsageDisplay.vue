@@ -1,5 +1,5 @@
 <template>
-  <div class="disk-usage-display" v-if="!hidden">
+  <div class="disk-usage-display">
     <!-- S3 root: no bucket selected, refresh not meaningful -->
     <template v-if="atS3Root">
       <span class="disk-usage-values disk-usage-na" title="Open a bucket to view disk usage">
@@ -16,8 +16,8 @@
       >
         <span class="disk-usage-label">Usage:</span>
         {{ formattedUsage }}<span v-if="percentage !== null" class="disk-usage-pct"> ({{ percentage }}%)</span>
-        <span v-if="formattedQuota !== '—'" class="disk-usage-quota-sep"> · </span>
-        <span v-if="formattedQuota !== '—'" class="disk-usage-quota">
+        <span v-if="hasQuota" class="disk-usage-quota-sep"> · </span>
+        <span v-if="hasQuota" class="disk-usage-quota">
           <span class="disk-usage-label">Quota:</span> {{ formattedQuota }}
         </span>
       </span>
@@ -36,7 +36,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore } from '../stores/app'
-import { formatDiskSize } from '../services/helpers'
+import { formatDiskSize, formatDateTime } from '../services/helpers'
 
 const props = defineProps({
   remote: { type: String, default: '' },
@@ -51,7 +51,6 @@ const data = computed(() => appStore.getDiskUsage(props.remote, props.path))
 
 const atS3Root   = computed(() => data.value?.at_s3_root === true)
 const isFetching = computed(() => data.value?.is_computing === true)
-const hidden     = computed(() => false) // always show; placeholder for future hide logic
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -60,10 +59,9 @@ const formattedUsage = computed(() => {
   return (b !== null && b !== undefined) ? formatDiskSize(b) : '—'
 })
 
-const formattedQuota = computed(() => {
-  const b = data.value?.quota_bytes
-  return (b !== null && b !== undefined) ? formatDiskSize(b) : '—'
-})
+const hasQuota = computed(() => data.value?.quota_bytes != null)
+
+const formattedQuota = computed(() => formatDiskSize(data.value?.quota_bytes))
 
 const percentage = computed(() => {
   const used  = data.value?.space_used_bytes
@@ -84,28 +82,6 @@ const refreshTooltip = computed(() => {
   return `Last fetched: ${formatDateTime(ts)}`
 })
 
-// ── Timestamp formatting (UTC → local timezone) ───────────────────────────────
-
-function getUserTimezone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
-  }
-}
-
-function formatDateTime(isoString) {
-  if (!isoString) return 'never'
-  const date = new Date(isoString)
-  const tz = getUserTimezone()
-  const weekday  = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: tz }).format(date)
-  const datePart = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: tz }).format(date)
-  const timePart = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: tz }).format(date)
-  const tzName   = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short', timeZone: tz })
-    .formatToParts(date).find(p => p.type === 'timeZoneName')?.value || 'UTC'
-  return `${weekday} ${datePart} ${timePart} ${tzName}`
-}
-
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 async function loadCurrent() {
@@ -118,9 +94,6 @@ async function handleRefresh() {
 
 // When the pane navigates to a different location, cancel any in-flight fetch
 // for the previous location and load the new one.
-let prevRemote = props.remote
-let prevPath   = props.path
-
 watch(
   () => [props.remote, props.path],
   async ([newRemote, newPath], [oldRemote, oldPath]) => {
@@ -128,8 +101,6 @@ watch(
     if (oldRemote !== newRemote || oldPath !== newPath) {
       await appStore.cancelDiskUsageFetch(oldRemote, oldPath)
     }
-    prevRemote = newRemote
-    prevPath   = newPath
     await loadCurrent()
   },
 )
@@ -138,7 +109,7 @@ onMounted(() => { loadCurrent() })
 
 onUnmounted(() => {
   // Cancel any in-flight fetch when the pane is destroyed.
-  appStore.cancelDiskUsageFetch(prevRemote, prevPath)
+  appStore.cancelDiskUsageFetch(props.remote, props.path)
 })
 </script>
 

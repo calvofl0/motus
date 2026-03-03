@@ -325,7 +325,7 @@ def _background_fetch(
         cmd = base + ['about', about_target, '--json']
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         _register_proc(canonical_key, proc)
-        stdout, _ = proc.communicate()
+        stdout, stderr = proc.communicate()
         _unregister_proc(canonical_key, proc)
 
         if proc.returncode == 0:
@@ -335,13 +335,15 @@ def _background_fetch(
                 quota      = data.get('total')
             except Exception:
                 pass
+        else:
+            logger.debug('rclone about failed for %s: %s', canonical_key, stderr.decode(errors='replace').strip()[:300])
 
         # 2. rclone size (bucket/path root) — only if space_used still unknown.
         if space_used is None:
             cmd = base + ['size', rclone_target, '--json']
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             _register_proc(canonical_key, proc)
-            stdout, _ = proc.communicate()
+            stdout, stderr = proc.communicate()
             _unregister_proc(canonical_key, proc)
 
             if proc.returncode == 0:
@@ -351,6 +353,8 @@ def _background_fetch(
                     count      = data.get('count')
                 except Exception:
                     pass
+            else:
+                logger.debug('rclone size failed for %s: %s', canonical_key, stderr.decode(errors='replace').strip()[:300])
 
         if space_used is not None or quota is not None or count is not None:
             db.upsert_disk_usage_from_rclone(

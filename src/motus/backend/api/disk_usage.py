@@ -7,10 +7,11 @@ POST /api/disk-usage/cancel    – abort an in-flight rclone about/size fetch
 """
 
 import logging
-from datetime import datetime, timezone
+from typing import Optional
 from flask import Blueprint, jsonify, request, current_app
 
 from ..disk_usage import (
+    _utcnow,
     resolve_canonical,
     s3_bucket_root,
     find_best_match,
@@ -25,10 +26,6 @@ logger = logging.getLogger(__name__)
 disk_usage_bp = Blueprint('disk_usage', __name__)
 
 
-def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _get_context():
     """Return frequently-used objects from the app context."""
     return (
@@ -38,7 +35,7 @@ def _get_context():
     )
 
 
-def _oldest_fetched_at(row: dict) -> str | None:
+def _oldest_fetched_at(row: dict) -> Optional[str]:
     """
     Return the minimum (oldest) of script_fetched_at and metric_fetched_at,
     or None if neither is set.

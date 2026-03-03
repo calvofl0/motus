@@ -544,10 +544,10 @@ export const useAppStore = defineStore('app', () => {
         _diskUsagePollTimer = null
         return
       }
-      for (const [key] of computing) {
+      await Promise.all(computing.map(([key]) => {
         const [remote, path] = key.split('\x00')
-        await fetchDiskUsage(remote, path)
-      }
+        return fetchDiskUsage(remote, path)
+      }))
     }, 2000)
   }
 

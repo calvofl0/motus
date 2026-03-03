@@ -61,6 +61,7 @@
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useClipboard } from '../../composables/useClipboard'
+import { getUserTimezone } from '../../services/helpers'
 
 const props = defineProps({
   show: Boolean,
@@ -86,15 +87,6 @@ watch(() => props.show, async (newVal) => {
     }, 50)
   }
 })
-
-// Get user's timezone or fallback to UTC
-function getUserTimezone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
-  }
-}
 
 // Format date time for display in standard format: "Tue 23 Dec 23:33:17 CET 2025"
 function formatDateTime(isoString) {

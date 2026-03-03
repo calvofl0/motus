@@ -105,6 +105,7 @@ import ModalTable from './ModalTable.vue'
 import JobLogModal from './JobLogModal.vue'
 import ConfirmModal from './ConfirmModal.vue'
 import CompletedJobsShortcutsModal from './CompletedJobsShortcutsModal.vue'
+import { getUserTimezone } from '../../services/helpers'
 
 const props = defineProps({
   modelValue: {
@@ -328,15 +329,6 @@ function truncatePath(path) {
   }
 
   return `${remote}${dirPath}${filename}`
-}
-
-// Get user's timezone or fallback to UTC
-function getUserTimezone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
-  }
 }
 
 function formatRelativeTime(isoString) {
