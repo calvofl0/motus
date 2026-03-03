@@ -29,6 +29,8 @@
   - [Cache Directory Structure](#cache-directory-structure)
   - [Port Allocation](#port-allocation)
   - [Multi-Instance Protection](#multi-instance-protection)
+- [Disk Usage Display](#disk-usage-display)
+  - [Disk Usage Override Script](#disk-usage-override-script)
 - [Building the Frontend](#building-the-frontend)
 - [API Documentation](#api-documentation)
 - [Development](#development)
@@ -623,6 +625,10 @@ max_upload_size: "1G"                           # 1GB (also accepts bytes: 10737
 max_download_size: "5G"                         # 5GB (also accepts bytes: 5368709120, or 0 for unlimited)
 max_uncompressed_download_size: "100M"          # 100MB (also accepts bytes: 104857600)
 download_cache_max_age: 3600                    # ZIP file retention (seconds, default: 1 hour)
+
+# Disk usage
+disk_usage_script: /path/to/usage-script.sh    # External script for disk-usage/quota data (see below)
+s3_listing_buffer_size: 10000                   # S3 objects to prefetch automatically (0 = no limit)
 ```
 
 **Auto-Cleanup Database**: The `auto_cleanup_db` option automatically deletes **completed jobs only** (failed/interrupted jobs are always preserved). Supports flexible time formats:
@@ -974,6 +980,84 @@ motus --data-dir /tmp/motus-data
 # To run multiple instances, use different data directories
 motus --data-dir /tmp/motus-1
 motus --data-dir /tmp/motus-2
+```
+
+## Disk Usage Display
+
+Each file-pane shows a compact **Usage** bar in its header with the storage consumed, optional quota, and fill percentage:
+
+```
+Usage: 42.3 GiB / 100 GiB (42%)   ↻
+```
+
+The percentage is colour-coded from green (low) to red (high). Hovering over the value shows the number of objects (files/inodes) when the information is available. Clicking **↻** triggers an explicit refresh.
+
+### Data sources (lowest → highest precedence)
+
+| Source | When used |
+|--------|-----------|
+| `df -P` / `df -P --inodes` | Local filesystems – runs at startup and on refresh |
+| `rclone about` / `rclone size` | S3 and other rclone remotes – background fetch on first visit and on manual refresh |
+| Override script (`disk_usage_script`) | Any location – runs at startup and on refresh; overwrites both df and rclone data |
+
+### Disk Usage Override Script
+
+An external script can supply or override usage data for any set of paths.
+
+**Configuration**:
+
+```yaml
+disk_usage_script: /path/to/usage-script.sh
+```
+
+Or via environment variable:
+
+```bash
+export MOTUS_DISK_USAGE_SCRIPT=/path/to/usage-script.sh
+```
+
+The script is executed at startup and every time the user clicks **↻**. Its standard output must contain one line per location:
+
+```
+<path> <used> <quota> <count> [<timestamp>]
+```
+
+| Field | Description |
+|-------|-------------|
+| `<path>` | Absolute local path (`/home/user`) or S3 canonical URL (`https://s3.amazonaws.com/my-bucket`). Paths with spaces may be quoted with `"`. |
+| `<used>` | Space used, in **1 024-byte blocks** (same unit as `df`). Use `undef` or `-` if unknown. |
+| `<quota>` | Total quota/capacity, in **1 024-byte blocks**. Use `undef` or `-` if unknown. |
+| `<count>` | Number of objects/files. Use `undef` or `-` if unknown. |
+| `<timestamp>` | *(Optional)* ISO-8601 retrieval time of the data, e.g. `2026-03-03T21:29:28+00:00`. Use `undef` or omit when the script fetches live. When provided, this timestamp is used as the "Last fetched" time instead of the script-run time, so stale cached data is presented with its actual age. |
+
+Lines starting with `#` are ignored.
+
+**Example output**:
+
+```
+# Local home directory
+/home/flavio  47185920  209715200  84231  2026-03-03T10:00:00+00:00
+
+# S3 bucket (live — no timestamp)
+https://s3.amazonaws.com/my-bucket  25165824  104857600  89012
+
+# Unknown quota/count
+/mnt/archive  31457280  undef  undef
+```
+
+### S3 Listing Buffer (`s3_listing_buffer_size`)
+
+S3 buckets can contain millions of objects. Motus fetches results in pages of 1 000 (the S3 API hard limit) and by default loads up to **10 000 objects** (10 pages) before pausing. As the user scrolls past 80 % of the loaded list the next batch is fetched automatically.
+
+- Sorting is unavailable while the buffer is being filled.
+- Set to `0` to disable chunking (fetches everything in one request — may be slow for very large buckets).
+
+```yaml
+s3_listing_buffer_size: 10000   # default
+```
+
+```bash
+export MOTUS_S3_LISTING_BUFFER_SIZE=5000
 ```
 
 ## Building the Frontend
