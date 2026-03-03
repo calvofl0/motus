@@ -63,6 +63,9 @@ def resolve_canonical(remote: str, path: str, rclone_config) -> tuple[Optional[s
         resolved_remote, resolved_path = remote, path
 
     if not resolved_remote:
+        # Ensure the path is absolute so it can be matched against df mount points.
+        if resolved_path and not resolved_path.startswith('/'):
+            resolved_path = '/' + resolved_path
         return resolved_path or '/', 'local'
 
     cfg = rclone_config.get_remote(resolved_remote) or {}
