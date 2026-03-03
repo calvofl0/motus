@@ -632,8 +632,12 @@ class RcloneConfig:
         # If it's not in the list of configured remotes, it's a local path
         configured_remotes = self.list_remotes()
         if target_remote not in configured_remotes:
-            # Target is a local path, not another remote - end of chain
-            return target_remote, combined_path
+            # target_remote is a local filesystem path prefix; merge with subpath
+            if combined_path:
+                local_path = target_remote.rstrip('/') + '/' + combined_path.lstrip('/')
+            else:
+                local_path = target_remote
+            return '', local_path
 
         # Target is another remote - recursively resolve it
         return self.resolve_alias_chain(target_remote, combined_path, visited)

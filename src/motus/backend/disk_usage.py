@@ -30,6 +30,7 @@ _S3_TYPES = frozenset({
 _lock = threading.Lock()
 _active_procs: dict[str, list[subprocess.Popen]] = {}
 _active_threads: dict[str, threading.Thread] = {}
+_cancel_flags: set[str] = set()   # keys whose fetch should be aborted ASAP
 
 
 def _utcnow() -> str:
@@ -172,11 +173,46 @@ def _to_count(s: str) -> Optional[int]:
         return None
 
 
+def _parse_script_timestamp(s: str) -> Optional[str]:
+    """
+    Parse an ISO-8601 timestamp token from the script's optional 5th column.
+    Returns the timestamp string (clamped to now if in the future), or None for
+    'undef' / '-' / '' (meaning the data was fetched live / no timestamp given).
+    """
+    if s.lower() in ('undef', '-', ''):
+        return None
+    try:
+        t = datetime.fromisoformat(s)
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if t > now:
+            return now.isoformat()
+        return s
+    except (ValueError, TypeError):
+        return None
+
+
+def _looks_like_timestamp(s: str) -> bool:
+    """Return True if s could be the optional timestamp column (ISO datetime or undef marker)."""
+    if s.lower() in ('undef', '-'):
+        return True
+    try:
+        datetime.fromisoformat(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 def parse_script_output(text: str) -> list[dict]:
     """
     Parse the script's stdout.  Each non-comment line has the form:
-        <path> <space_used_1024blocks> <quota_1024blocks> <count>
-    Returns list of dicts: {location, space_used_bytes, quota_bytes, object_count}.
+        <path> <space_used_1024blocks> <quota_1024blocks> <count> [<timestamp|undef>]
+    The optional 5th column is an ISO-8601 retrieval timestamp (or 'undef'/'-'
+    meaning the data is live).  When present it is used as fetched_at instead
+    of the current time.
+    Returns list of dicts: {location, space_used_bytes, quota_bytes, object_count,
+                             fetched_at (None = use current time)}.
     """
     results = []
     for raw in text.splitlines():
@@ -187,14 +223,21 @@ def parse_script_output(text: str) -> list[dict]:
         if len(tokens) < 4:
             logger.warning('disk_usage script: malformed line %r', line)
             continue
-        # Last 3 tokens are the metrics; everything before is the path.
-        path = ' '.join(tokens[:-3])
-        used_str, quota_str, count_str = tokens[-3], tokens[-2], tokens[-1]
+        # Detect optional 5th column: last token is a timestamp or explicit undef marker.
+        if len(tokens) >= 5 and _looks_like_timestamp(tokens[-1]):
+            path = ' '.join(tokens[:-4])
+            used_str, quota_str, count_str = tokens[-4], tokens[-3], tokens[-2]
+            fetched_at = _parse_script_timestamp(tokens[-1])
+        else:
+            path = ' '.join(tokens[:-3])
+            used_str, quota_str, count_str = tokens[-3], tokens[-2], tokens[-1]
+            fetched_at = None
         results.append({
-            'location':        path,
+            'location':         path,
             'space_used_bytes': _blocks_to_bytes(used_str),
             'quota_bytes':      _blocks_to_bytes(quota_str),
             'object_count':     _to_count(count_str),
+            'fetched_at':       fetched_at,
         })
     return results
 
@@ -294,6 +337,7 @@ def _unregister_proc(key: str, proc: subprocess.Popen):
 def cancel_fetch(canonical_key: str):
     """Terminate all active subprocesses for the given canonical key."""
     with _lock:
+        _cancel_flags.add(canonical_key)
         procs = list(_active_procs.get(canonical_key, []))
     for proc in procs:
         try:
@@ -321,6 +365,9 @@ def _background_fetch(
         base = _rclone_base_cmd(rclone_path, config_file)
 
         # 1. rclone about (at the remote root — fast API call).
+        with _lock:
+            if canonical_key in _cancel_flags:
+                return
         about_target = f'{resolved_remote}:'
         cmd = base + ['about', about_target, '--json']
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -340,6 +387,9 @@ def _background_fetch(
 
         # 2. rclone size (bucket/path root) — only if space_used still unknown.
         if space_used is None:
+            with _lock:
+                if canonical_key in _cancel_flags:
+                    return
             cmd = base + ['size', rclone_target, '--json']
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             _register_proc(canonical_key, proc)
@@ -371,6 +421,7 @@ def _background_fetch(
         db.set_computing(canonical_key, False)
         with _lock:
             _active_threads.pop(canonical_key, None)
+            _cancel_flags.discard(canonical_key)
 
 
 def start_background_fetch(
@@ -389,6 +440,7 @@ def start_background_fetch(
         existing = _active_threads.get(canonical_key)
         if existing and existing.is_alive():
             return   # already in flight
+        _cancel_flags.discard(canonical_key)   # clear any stale cancellation
 
     db.set_computing(canonical_key, True)
 
@@ -434,5 +486,5 @@ def startup_populate(config, db):
                 space_used_bytes=entry['space_used_bytes'],
                 quota_bytes=entry['quota_bytes'],
                 object_count=entry['object_count'],
-                fetched_at=now,
+                fetched_at=entry.get('fetched_at') or now,
             )

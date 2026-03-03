@@ -180,7 +180,7 @@ def refresh_disk_usage():
                 space_used_bytes=entry['space_used_bytes'],
                 quota_bytes=entry['quota_bytes'],
                 object_count=entry['object_count'],
-                fetched_at=now,
+                fetched_at=entry.get('fetched_at') or now,
             )
 
     # 3. For non-local locations: start background rclone fetch if needed.

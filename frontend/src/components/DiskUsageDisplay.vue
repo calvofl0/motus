@@ -15,11 +15,7 @@
         :title="objectCountTooltip"
       >
         <span class="disk-usage-label">Usage:</span>
-        {{ formattedUsage }}<span v-if="percentage !== null" class="disk-usage-pct"> ({{ percentage }}%)</span>
-        <span v-if="hasQuota" class="disk-usage-quota-sep"> · </span>
-        <span v-if="hasQuota" class="disk-usage-quota">
-          <span class="disk-usage-label">Quota:</span> {{ formattedQuota }}
-        </span>
+        {{ formattedUsage }}<template v-if="hasQuota"> / {{ formattedQuota }}</template><span v-if="percentage !== null" class="disk-usage-pct" :style="pctStyle"> ({{ percentage }}%)</span>
       </span>
       <button
         class="disk-usage-refresh"
@@ -72,8 +68,15 @@ const percentage = computed(() => {
 
 const objectCountTooltip = computed(() => {
   const n = data.value?.object_count
-  if (n === null || n === undefined) return ''
+  if (!n) return ''
   return n.toLocaleString() + (n === 1 ? ' object' : ' objects')
+})
+
+const pctStyle = computed(() => {
+  const pct = percentage.value
+  if (pct === null) return {}
+  const hue = Math.max(0, Math.round(120 * (1 - Math.min(pct, 100) / 100)))
+  return { color: `hsl(${hue}, 65%, 55%)` }
 })
 
 const refreshTooltip = computed(() => {
@@ -141,13 +144,6 @@ onUnmounted(() => {
   margin-right: 1px;
 }
 
-.disk-usage-pct {
-  opacity: 0.75;
-}
-
-.disk-usage-quota-sep {
-  opacity: 0.4;
-}
 
 .disk-usage-refresh {
   background: none;
