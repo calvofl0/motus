@@ -471,6 +471,8 @@ def startup_populate(config, db):
 
     # 1. df — covers all local filesystems immediately.
     local_stats = fetch_all_local_stats()
+    logger.info('startup_populate: df found %d mount points: %s',
+                len(local_stats), sorted(local_stats.keys()))
     for mount, stats in local_stats.items():
         db.upsert_disk_usage_from_df(
             location=mount,

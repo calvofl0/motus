@@ -173,6 +173,8 @@ def refresh_disk_usage():
 
     # 1. Always refresh all local mount points via df (fast).
     local_stats = fetch_all_local_stats()
+    logger.info('disk_usage refresh: df found %d mount points: %s',
+                len(local_stats), sorted(local_stats.keys()))
     for mount, stats in local_stats.items():
         db.upsert_disk_usage_from_df(
             location=mount,
@@ -201,6 +203,10 @@ def refresh_disk_usage():
     # Return the current (possibly stale) cached value immediately.
     rows = db.list_disk_usage()
     best = find_best_match(canonical_key, rows)
+    logger.info('disk_usage refresh: remote=%r path=%r → canonical=%r type=%r '
+                'db_rows=%d best_location=%r',
+                remote, path, canonical_key, storage_type,
+                len(rows), best['location'] if best else None)
     return jsonify(_row_to_response(best))
 
 
