@@ -610,11 +610,12 @@ class RcloneWrapper:
                             dirs_only=dirs_only,
                             files_only=files_only,
                         )
-                        # For a dirs_only call the listing is NOT complete unless
-                        # this was the S3 root (bucket enumeration), which always
-                        # returns everything at once with no file objects to follow.
-                        is_s3_root = not actual_path.lstrip('/')
-                        listing_complete = not dirs_only or is_s3_root
+                        # dirs_only on S3: token is None but the listing is NOT
+                        # complete – files must be fetched in a separate call.
+                        # At the S3 root the files call returns [] (no objects
+                        # exist at root level), so the loop ends cleanly with no
+                        # special-casing needed here.
+                        listing_complete = not dirs_only
                         return items, token, listing_complete
             except Exception as e:
                 logging.warning(
