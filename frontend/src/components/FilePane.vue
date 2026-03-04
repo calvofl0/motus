@@ -116,35 +116,35 @@
             <tr>
               <th
                 class="col-name"
-                :class="{ 'sort-unavailable': nextContinuationToken }"
-                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                :class="{ 'sort-unavailable': listingIncomplete }"
+                :title="backgroundFetching ? 'Loading…' : listingIncomplete ? 'Scroll to the bottom to load all items and enable sorting' : ''"
                 @click="setSortBy('name')"
               >
                 Name
-                <span v-if="sortBy === 'name' && !nextContinuationToken" class="sort-indicator">
+                <span v-if="sortBy === 'name' && !listingIncomplete" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
                 <span v-else-if="backgroundFetching" class="sort-loading-indicator" title="Loading…">⟳</span>
               </th>
               <th
                 class="col-size"
-                :class="{ 'sort-unavailable': nextContinuationToken }"
-                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                :class="{ 'sort-unavailable': listingIncomplete }"
+                :title="backgroundFetching ? 'Loading…' : listingIncomplete ? 'Scroll to the bottom to load all items and enable sorting' : ''"
                 @click="setSortBy('size')"
               >
                 Size
-                <span v-if="sortBy === 'size' && !nextContinuationToken" class="sort-indicator">
+                <span v-if="sortBy === 'size' && !listingIncomplete" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
               </th>
               <th
                 class="col-date"
-                :class="{ 'sort-unavailable': nextContinuationToken }"
-                :title="backgroundFetching ? 'Loading…' : nextContinuationToken ? 'Scroll to the bottom to load all items and enable sorting' : ''"
+                :class="{ 'sort-unavailable': listingIncomplete }"
+                :title="backgroundFetching ? 'Loading…' : listingIncomplete ? 'Scroll to the bottom to load all items and enable sorting' : ''"
                 @click="setSortBy('date')"
               >
                 Date
-                <span v-if="sortBy === 'date' && !nextContinuationToken" class="sort-indicator">
+                <span v-if="sortBy === 'date' && !listingIncomplete" class="sort-indicator">
                   {{ sortAsc ? '▲' : '▼' }}
                 </span>
               </th>
@@ -237,9 +237,13 @@ const sortAsc = ref(true)
 const abortController = ref(null) // For aborting fetch requests
 
 // Pagination state (S3 background prefetch)
-const nextContinuationToken = ref(null)     // null = listing is complete
+const nextContinuationToken = ref(null)     // null = no more pages in current phase
+const filesPhaseActive = ref(false)         // true during the files step of a 2-step listing
 const backgroundFetching = ref(false)       // true while prefetch loop is running
 const prefetchAbortController = ref(null)   // cancels in-flight prefetch on navigation
+
+// True while the listing is not yet complete (sort headers disabled, spinner shown)
+const listingIncomplete = computed(() => filesPhaseActive.value || !!nextContinuationToken.value)
 
 // Buffer size from server config (0 = fetch everything in one go)
 const s3ListingBufferSize = computed(() => appStore.s3ListingBufferSize)
@@ -500,6 +504,7 @@ async function refresh(preserveSelection = false) {
 
   // Reset pagination state for the new listing
   nextContinuationToken.value = null
+  filesPhaseActive.value = false
   backgroundFetching.value = false
 
   // Create abort controller for this refresh
@@ -513,7 +518,21 @@ async function refresh(preserveSelection = false) {
   try {
     const fullPath = buildCurrentFullPath()
 
-    const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
+    const useTwoStep = s3ListingBufferSize.value > 0
+
+    let data
+    if (useTwoStep) {
+      // Step 1: fetch all directories immediately so the UI can display them
+      // before a single file has been listed.  The backend exhausts all S3
+      // pages collecting only CommonPrefixes; for non-S3 paths it returns the
+      // full listing (listing_complete=true) so no second step is needed.
+      data = await apiCall('/api/files/ls', 'POST',
+        { path: fullPath, mode: 'dirs' },
+        abortController.value.signal)
+    } else {
+      data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
+    }
+
     files.value = data.files || []
     nextContinuationToken.value = data.next_continuation_token || null
 
@@ -539,8 +558,13 @@ async function refresh(preserveSelection = false) {
       appStore.setPaneSelection(props.pane, [])
     }
 
-    // If there are more items and chunking is enabled, auto-fill the buffer
-    if (nextContinuationToken.value && s3ListingBufferSize.value > 0) {
+    if (useTwoStep && !data.listing_complete) {
+      // Step 2: stream files in the background.  Directories are already shown;
+      // files will be appended progressively as S3 pages arrive.
+      filesPhaseActive.value = true
+      fillBuffer() // intentionally not awaited — runs in background
+    } else if (!useTwoStep && nextContinuationToken.value) {
+      // Classic single-step pagination (chunking enabled, first page returned a token)
       fillBuffer() // intentionally not awaited — runs in background
     }
   } catch (error) {
@@ -584,8 +608,16 @@ function abortRefresh() {
 // Fetch pages from S3 until s3ListingBufferSize more items have been appended,
 // or the listing ends.  Runs entirely in the background; aborted automatically
 // when the user navigates (refresh() replaces prefetchAbortController).
+//
+// When filesPhaseActive is true (two-step dirs-first listing), requests are
+// sent with mode:'files' so the backend skips CommonPrefixes (already shown).
+// The first call of that phase has no continuation token (fresh S3 listing).
 async function fillBuffer() {
-  if (!nextContinuationToken.value || backgroundFetching.value) return
+  const inFilesPhase = filesPhaseActive.value
+  // In files phase the first call starts with no token (fresh from S3 page 1).
+  // In classic mode we need an existing token to know where to resume.
+  if (!inFilesPhase && !nextContinuationToken.value) return
+  if (backgroundFetching.value) return
 
   const ctrl = new AbortController()
   prefetchAbortController.value = ctrl
@@ -595,11 +627,22 @@ async function fillBuffer() {
   let fetched = 0
 
   try {
-    while (nextContinuationToken.value && fetched < bufferSize) {
-      const data = await apiCall('/api/files/ls', 'POST', {
-        path: buildCurrentFullPath(),
-        continuation_token: nextContinuationToken.value,
-      }, ctrl.signal)
+    // Loop continues while there is a token OR we just entered the files phase
+    // (first call has no token yet).
+    let firstCall = inFilesPhase
+    while ((firstCall || nextContinuationToken.value) && fetched < bufferSize) {
+      firstCall = false
+      const payload = { path: buildCurrentFullPath() }
+      if (inFilesPhase) {
+        payload.mode = 'files'
+        if (nextContinuationToken.value) {
+          payload.continuation_token = nextContinuationToken.value
+        }
+      } else {
+        payload.continuation_token = nextContinuationToken.value
+      }
+
+      const data = await apiCall('/api/files/ls', 'POST', payload, ctrl.signal)
 
       const newFiles = data.files || []
       fetched += newFiles.length
@@ -612,6 +655,10 @@ async function fillBuffer() {
       console.error('Failed to prefetch files:', error)
     }
   } finally {
+    // Files phase ends when there are no more tokens
+    if (inFilesPhase && !nextContinuationToken.value) {
+      filesPhaseActive.value = false
+    }
     backgroundFetching.value = false
     if (prefetchAbortController.value === ctrl) {
       prefetchAbortController.value = null
@@ -621,7 +668,7 @@ async function fillBuffer() {
 
 function handleContainerScroll() {
   // Only trigger when the buffer is exhausted (not mid-fetch) and more items exist
-  if (!nextContinuationToken.value || backgroundFetching.value) return
+  if (!listingIncomplete.value || backgroundFetching.value) return
 
   const el = fileContainer.value
   if (!el) return

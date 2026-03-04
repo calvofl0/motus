@@ -152,7 +152,9 @@ class RcloneWrapper:
 
     def _ls_s3_boto3(self, config: Dict, path: str,
                      max_items: int = None,
-                     continuation_token: str = None) -> tuple:
+                     continuation_token: str = None,
+                     dirs_only: bool = False,
+                     files_only: bool = False) -> tuple:
         """
         List S3 objects at path using boto3 list_objects_v2.
 
@@ -164,9 +166,14 @@ class RcloneWrapper:
             path: path within the remote (may start with /)
             max_items: stop after accumulating this many items and return a
                 continuation token so the caller can resume.  None means fetch
-                everything (original behaviour).
+                everything (original behaviour).  Ignored when dirs_only=True.
             continuation_token: opaque S3 token from a previous call; resumes
                 listing from where that call left off.
+            dirs_only: exhaust all S3 pages collecting only CommonPrefixes
+                (virtual directories).  Returned token is always None; files
+                must be fetched separately via files_only=True.
+            files_only: skip CommonPrefixes, return only object entries.  Used
+                for the second phase of the two-step dirs-first listing.
 
         Returns:
             (items, next_continuation_token) where next_continuation_token is
@@ -196,6 +203,30 @@ class RcloneWrapper:
         bucket = parts[0]
         prefix = (parts[1].rstrip('/') + '/') if len(parts) > 1 and parts[1] else ''
 
+        if dirs_only:
+            # Exhaust all S3 pages collecting only virtual directories
+            # (CommonPrefixes).  No max_items limit – we must guarantee the
+            # complete list so the UI can display all folders immediately.
+            results = []
+            kwargs = {'Bucket': bucket, 'Prefix': prefix, 'Delimiter': '/'}
+            while True:
+                resp = client.list_objects_v2(**kwargs)
+                for cp in resp.get('CommonPrefixes', []):
+                    name = cp['Prefix'][len(prefix):].rstrip('/')
+                    if name:
+                        results.append({
+                            'Path':    name,
+                            'Name':    name,
+                            'Size':    0,
+                            'IsDir':   True,
+                            'ModTime': '0001-01-01T00:00:00.000000000Z',
+                        })
+                if resp.get('IsTruncated'):
+                    kwargs['ContinuationToken'] = resp['NextContinuationToken']
+                else:
+                    break
+            return results, None
+
         results = []
         kwargs = {'Bucket': bucket, 'Prefix': prefix, 'Delimiter': '/'}
         if continuation_token:
@@ -205,18 +236,20 @@ class RcloneWrapper:
         while True:
             response = client.list_objects_v2(**kwargs)
 
-            # Virtual directories (CommonPrefixes)
-            for cp in response.get('CommonPrefixes', []):
-                dir_key = cp['Prefix']               # e.g. "folder/sub/"
-                name = dir_key[len(prefix):].rstrip('/')
-                if name:
-                    results.append({
-                        'Path': name,
-                        'Name': name,
-                        'Size': 0,
-                        'IsDir': True,
-                        'ModTime': '0001-01-01T00:00:00.000000000Z',
-                    })
+            # Virtual directories (CommonPrefixes) – skipped in files_only mode
+            # because they were already returned by the dirs-first sweep.
+            if not files_only:
+                for cp in response.get('CommonPrefixes', []):
+                    dir_key = cp['Prefix']               # e.g. "folder/sub/"
+                    name = dir_key[len(prefix):].rstrip('/')
+                    if name:
+                        results.append({
+                            'Path': name,
+                            'Name': name,
+                            'Size': 0,
+                            'IsDir': True,
+                            'ModTime': '0001-01-01T00:00:00.000000000Z',
+                        })
 
             # Objects (files)
             for obj in response.get('Contents', []):
@@ -539,7 +572,9 @@ class RcloneWrapper:
 
     def ls_paged(self, path: str, remote_config: Optional[Dict] = None,
                  max_items: int = None,
-                 continuation_token: str = None) -> tuple:
+                 continuation_token: str = None,
+                 dirs_only: bool = False,
+                 files_only: bool = False) -> tuple:
         """
         Paginated listing for S3 remotes (boto3 fast path only).
 
@@ -552,11 +587,20 @@ class RcloneWrapper:
             path: Path to list (same syntax as ls())
             remote_config: Optional remote config dict (legacy support)
             max_items: Maximum number of items to return per call.  None or 0
-                means fetch all (same as ls()).
+                means fetch all (same as ls()).  Ignored when dirs_only=True.
             continuation_token: Opaque token from a previous ls_paged() call.
+            dirs_only: Return only virtual directories; exhausts all S3 pages
+                in a single call.  listing_complete will be False so the caller
+                knows it must follow up with files_only=True to get the files.
+            files_only: Return only file objects (skip virtual directories).
+                Used for the second phase of the two-step dirs-first listing.
 
         Returns:
-            (files, next_continuation_token)
+            (files, next_continuation_token, listing_complete)
+            listing_complete is False only when dirs_only=True was used on an
+            S3 path – in that case files still need to be fetched separately.
+            It is True in all other cases (including non-S3 fallback, which
+            always returns a complete listing in a single call).
         """
         remote_name, clean_path = self._parse_path(path)
 
@@ -570,19 +614,31 @@ class RcloneWrapper:
                     actual_config = self.rclone_config.get_remote(actual_remote)
                     if actual_config and actual_config.get('type') == 's3':
                         logging.debug(f"ls_paged {path}: using boto3 fast path "
-                                      f"(max_items={max_items}, token={'...' if continuation_token else None})")
-                        return self._ls_s3_boto3(
+                                      f"(max_items={max_items}, token={'...' if continuation_token else None}, "
+                                      f"dirs_only={dirs_only}, files_only={files_only})")
+                        items, token = self._ls_s3_boto3(
                             actual_config, actual_path,
                             max_items=max_items or None,
                             continuation_token=continuation_token,
+                            dirs_only=dirs_only,
+                            files_only=files_only,
                         )
+                        # dirs_only on S3: token is None but the listing is NOT
+                        # complete – files must be fetched in a separate call.
+                        listing_complete = not dirs_only
+                        return items, token, listing_complete
             except Exception as e:
                 logging.warning(
                     f"boto3 S3 paginated listing failed for '{path}', falling back to rclone: {e}"
                 )
 
-        # Fallback: full listing, no pagination
-        return self.ls(path, remote_config), None
+        # Non-S3 fallback: full listing returned in one shot → always complete.
+        # For dirs_only: return everything so sortFiles can put dirs first in
+        # the UI without a second network round-trip.
+        all_files = self.ls(path, remote_config)
+        if files_only:
+            return [f for f in all_files if not f.get('IsDir')], None, True
+        return all_files, None, True
 
     def mkdir(self, path: str, remote_config: Optional[Dict] = None):
         """

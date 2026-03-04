@@ -78,24 +78,33 @@ def list_files():
         path = data['path']
         remote_config = data.get('remote_config')
         continuation_token = data.get('continuation_token')
+        mode = data.get('mode')  # 'dirs' | 'files' | None (default)
+
+        dirs_only = mode == 'dirs'
+        files_only = mode == 'files'
 
         logging.info(f"Listing files at {path}"
+                     + (f" [{mode}]" if mode else "")
                      + (" (continuation)" if continuation_token else ""))
 
         config = current_app.motus_config
-        # Use the S3 hard page limit unless chunking is disabled (buffer_size == 0).
-        max_items = _S3_PAGE_SIZE if config.s3_listing_buffer_size else None
+        # dirs_only exhausts all pages in one shot – no item cap.
+        # files_only / default: use the S3 hard page limit unless chunking is disabled.
+        max_items = None if dirs_only else (_S3_PAGE_SIZE if config.s3_listing_buffer_size else None)
 
-        listed_files, next_token = rclone.ls_paged(
+        listed_files, next_token, listing_complete = rclone.ls_paged(
             path, remote_config,
             max_items=max_items,
             continuation_token=continuation_token,
+            dirs_only=dirs_only,
+            files_only=files_only,
         )
 
         return jsonify({
             'files': listed_files,
             'path': path,
             'next_continuation_token': next_token,
+            'listing_complete': listing_complete,
         })
 
     except RcloneException as e:
