@@ -16,6 +16,7 @@ from ..disk_usage import (
     s3_bucket_root,
     find_best_match,
     fetch_all_local_stats,
+    fetch_local_stats_for_path,
     run_script,
     start_background_fetch,
     cancel_fetch,
@@ -142,11 +143,31 @@ def get_disk_usage():
     if storage_type == 's3_at_root':
         return jsonify(_row_to_response(None, at_s3_root=True))
 
-    # For non-local locations: trigger a background rclone fetch if data is absent.
-    _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db)
-
     rows = db.list_disk_usage()
     best = find_best_match(canonical_key, rows)
+
+    if storage_type == 'local':
+        # For local paths (including aliases to local dirs): if there is no
+        # cached data for this specific path yet, run df on the resolved path
+        # to populate the right mount point entry.  This is more reliable than
+        # the startup global scan + prefix-matching, which can miss alias paths.
+        if best is None or best.get('space_used_bytes') is None:
+            now = _utcnow()
+            local_stats = fetch_local_stats_for_path(canonical_key)
+            for mount, stats in local_stats.items():
+                db.upsert_disk_usage_from_df(
+                    location=mount,
+                    space_used_bytes=stats.get('space_used_bytes'),
+                    quota_bytes=stats.get('quota_bytes'),
+                    object_count=stats.get('object_count'),
+                    fetched_at=now,
+                )
+            rows = db.list_disk_usage()
+            best = find_best_match(canonical_key, rows)
+    else:
+        # For non-local locations: trigger a background rclone fetch if data is absent.
+        _maybe_start_rclone(canonical_key, storage_type, remote, path, rclone, config, db)
+
     return jsonify(_row_to_response(best))
 
 
@@ -171,8 +192,14 @@ def refresh_disk_usage():
 
     now = _utcnow()
 
-    # 1. Always refresh all local mount points via df (fast).
-    local_stats = fetch_all_local_stats()
+    # 1. Refresh local mount-point data via df.
+    #    For local paths (including aliases) run df on the specific resolved path
+    #    so we get the right mount point even if global startup scan missed it.
+    #    For non-local types, still refresh all mounts (cheap, keeps cache warm).
+    if storage_type == 'local':
+        local_stats = fetch_local_stats_for_path(canonical_key)
+    else:
+        local_stats = fetch_all_local_stats()
     logger.info('disk_usage refresh: df found %d mount points: %s',
                 len(local_stats), sorted(local_stats.keys()))
     for mount, stats in local_stats.items():

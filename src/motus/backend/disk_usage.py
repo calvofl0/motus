@@ -277,17 +277,37 @@ def _run_df(extra_args: list[str]) -> str:
         return ''
 
 
-def fetch_all_local_stats() -> dict[str, dict]:
+def _parse_df_output(text: str, key_col: int = 2) -> dict[str, dict]:
     """
-    Run ``df -P`` and ``df -P --inodes`` globally (no path argument).
+    Parse ``df -P`` or ``df -P --inodes`` output.
 
-    Returns a dict keyed by mount point:
-        {'/nas': {'space_used_bytes': N, 'quota_bytes': M, 'object_count': K}, ...}
+    ``key_col`` selects the value field from each data line:
+        2 → used blocks / used inodes (index in 0-based split)
+
+    Returns a dict keyed by mount point (column 5) with a single value key
+    'v' mapped to the int from ``key_col``.  Non-parseable lines are skipped.
+    """
+    result: dict[str, int] = {}
+    for line in text.splitlines()[1:]:   # skip header
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+        try:
+            result[parts[5]] = int(parts[key_col])
+        except (ValueError, IndexError):
+            continue
+    return result
+
+
+def _df_stats_from_text(blocks_text: str, inodes_text: str) -> dict[str, dict]:
+    """
+    Combine block and inode df output into a mount-point → stats dict.
+
+    Returns: {mount: {'space_used_bytes': N, 'quota_bytes': M, 'object_count': K}}
     """
     result: dict[str, dict] = {}
 
-    # Block-level stats.
-    for line in _run_df([]).splitlines()[1:]:
+    for line in blocks_text.splitlines()[1:]:
         parts = line.split()
         if len(parts) < 6:
             continue
@@ -299,8 +319,7 @@ def fetch_all_local_stats() -> dict[str, dict]:
         except (ValueError, IndexError):
             continue
 
-    # Inode stats.
-    for line in _run_df(['--inodes']).splitlines()[1:]:
+    for line in inodes_text.splitlines()[1:]:
         parts = line.split()
         if len(parts) < 6:
             continue
@@ -312,6 +331,34 @@ def fetch_all_local_stats() -> dict[str, dict]:
             continue
 
     return result
+
+
+def fetch_all_local_stats() -> dict[str, dict]:
+    """
+    Run ``df -P`` and ``df -P --inodes`` globally (no path argument).
+
+    Returns a dict keyed by mount point:
+        {'/nas': {'space_used_bytes': N, 'quota_bytes': M, 'object_count': K}, ...}
+    """
+    return _df_stats_from_text(_run_df([]), _run_df(['--inodes']))
+
+
+def fetch_local_stats_for_path(local_path: str) -> dict[str, dict]:
+    """
+    Run ``df -P`` and ``df -P --inodes`` for a *specific* local filesystem path.
+
+    This is more reliable than the global scan + prefix-match approach when the
+    path is reached through an alias (the global scan may not populate all mount
+    points the alias chain resolves to).
+
+    Returns a single-entry dict keyed by the actual mount point that contains
+    ``local_path``, e.g. {'/home': {'space_used_bytes': N, ...}}.
+    Returns {} if df fails or the path doesn't exist on the local filesystem.
+    """
+    return _df_stats_from_text(
+        _run_df([local_path]),
+        _run_df(['--inodes', local_path]),
+    )
 
 
 # ── Background rclone about + size ───────────────────────────────────────────
