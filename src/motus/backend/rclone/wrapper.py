@@ -186,8 +186,12 @@ class RcloneWrapper:
         # Normalise: strip leading slash rclone sometimes includes
         clean = path.lstrip('/')
 
-        # Empty path → list buckets (always complete, no pagination needed)
+        # Empty path → list buckets (always complete, no pagination needed).
+        # All S3 root entries are directories (buckets); there are no file
+        # objects here, so files_only should return nothing.
         if not clean:
+            if files_only:
+                return [], None   # no file objects at S3 root
             response = client.list_buckets()
             return [
                 {
@@ -606,9 +610,11 @@ class RcloneWrapper:
                             dirs_only=dirs_only,
                             files_only=files_only,
                         )
-                        # dirs_only on S3: token is None but the listing is NOT
-                        # complete – files must be fetched in a separate call.
-                        listing_complete = not dirs_only
+                        # For a dirs_only call the listing is NOT complete unless
+                        # this was the S3 root (bucket enumeration), which always
+                        # returns everything at once with no file objects to follow.
+                        is_s3_root = not actual_path.lstrip('/')
+                        listing_complete = not dirs_only or is_s3_root
                         return items, token, listing_complete
             except Exception as e:
                 logging.warning(
