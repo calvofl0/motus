@@ -122,16 +122,33 @@ def s3_bucket_root(remote: str, path: str, rclone_config) -> tuple[Optional[str]
 def find_best_match(canonical: str, rows: list[dict]) -> Optional[dict]:
     """
     Return the DB row whose ``location`` is the longest ancestor prefix of
-    ``canonical``.  A prefix is valid if it equals ``canonical`` exactly or if
-    the next character in ``canonical`` after the prefix is ``/``.
+    ``canonical`` that also has actual metric data (space_used_bytes set).
+
+    Falls back to the longest matching row regardless of data presence, so that
+    ``is_computing`` spinner rows are still returned while a fetch is in flight.
+
+    Rationale: stale null rows (e.g. left behind from a previous is_computing=1
+    entry at the exact canonical path) would otherwise shadow a freshly-written
+    shorter mount-point row, since find_best_match uses longest-match semantics.
+    Preferring rows with real data avoids this self-healing issue without
+    requiring DB cleanup.
     """
-    best, best_len = None, -1
+    canonical_stripped = canonical.rstrip('/')
+    best_data, best_data_len = None, -1   # best row that has space_used_bytes
+    best_any, best_any_len   = None, -1   # best row regardless of data
+
     for row in rows:
         loc = row['location'].rstrip('/')
-        if canonical == loc or canonical.startswith(loc + '/'):
-            if len(loc) > best_len:
-                best, best_len = row, len(loc)
-    return best
+        if canonical_stripped == loc or canonical_stripped.startswith(loc + '/'):
+            length = len(loc)
+            if length > best_any_len:
+                best_any, best_any_len = row, length
+            if row.get('space_used_bytes') is not None and length > best_data_len:
+                best_data, best_data_len = row, length
+
+    # Prefer the row that actually has data; fall back to any match (e.g.
+    # is_computing spinner while a remote fetch is in progress).
+    return best_data if best_data is not None else best_any
 
 
 # ── Script parsing ────────────────────────────────────────────────────────────
