@@ -238,12 +238,15 @@ const abortController = ref(null) // For aborting fetch requests
 
 // Pagination state (S3 background prefetch)
 const nextContinuationToken = ref(null)     // null = no more pages in current phase
-const filesPhaseActive = ref(false)         // true during the files step of a 2-step listing
+const dirsPhaseActive = ref(false)          // true while streaming dirs (step 1 of 2-step listing)
+const filesPhaseActive = ref(false)         // true while streaming files (step 2)
 const backgroundFetching = ref(false)       // true while prefetch loop is running
 const prefetchAbortController = ref(null)   // cancels in-flight prefetch on navigation
 
 // True while the listing is not yet complete (sort headers disabled, spinner shown)
-const listingIncomplete = computed(() => filesPhaseActive.value || !!nextContinuationToken.value)
+const listingIncomplete = computed(() =>
+  dirsPhaseActive.value || filesPhaseActive.value || !!nextContinuationToken.value
+)
 
 // Buffer size from server config (0 = fetch everything in one go)
 const s3ListingBufferSize = computed(() => appStore.s3ListingBufferSize)
@@ -504,10 +507,11 @@ async function refresh(preserveSelection = false) {
 
   // Reset pagination state for the new listing
   nextContinuationToken.value = null
+  dirsPhaseActive.value = false
   filesPhaseActive.value = false
   backgroundFetching.value = false
 
-  // Create abort controller for this refresh
+  // Create abort controller for this refresh (used in single-step mode only)
   abortController.value = new AbortController()
 
   // Save selection if preserving
@@ -520,52 +524,49 @@ async function refresh(preserveSelection = false) {
 
     const useTwoStep = s3ListingBufferSize.value > 0
 
-    let data
     if (useTwoStep) {
-      // Step 1: fetch all directories immediately so the UI can display them
-      // before a single file has been listed.  The backend exhausts all S3
-      // pages collecting only CommonPrefixes; for non-S3 paths it returns the
-      // full listing (listing_complete=true) so no second step is needed.
-      data = await apiCall('/api/files/ls', 'POST',
-        { path: fullPath, mode: 'dirs' },
-        abortController.value.signal)
-    } else {
-      data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
-    }
-
-    files.value = data.files || []
-    nextContinuationToken.value = data.next_continuation_token || null
-
-    // Update store
-    appStore.setPaneFiles(props.pane, files.value)
-    appStore.setPanePath(props.pane, currentPath.value)
-    appStore.setPaneRemote(props.pane, selectedRemote.value)
-
-    // Update previous remote, path, and input path on success
-    previousRemote.value = selectedRemote.value
-    previousPath.value = currentPath.value
-    previousInputPath.value = inputPath.value
-
-    // Restore selection if preserving
-    if (preserveSelection && selectedFileNames.length > 0) {
-      const newSelection = []
-      selectedFileNames.forEach(name => {
-        const idx = files.value.findIndex(f => f.Name === name)
-        if (idx !== -1) newSelection.push(idx)
-      })
-      appStore.setPaneSelection(props.pane, newSelection)
-    } else {
+      // Two-step non-blocking listing: dirs stream first, then files.
+      // Both phases run entirely in fillBuffer() so the main spinner clears
+      // immediately and the background-fetching indicator drives the UX.
+      files.value = []
+      appStore.setPaneFiles(props.pane, [])
+      appStore.setPanePath(props.pane, currentPath.value)
+      appStore.setPaneRemote(props.pane, selectedRemote.value)
+      previousRemote.value = selectedRemote.value
+      previousPath.value = currentPath.value
+      previousInputPath.value = inputPath.value
       appStore.setPaneSelection(props.pane, [])
-    }
 
-    if (useTwoStep && !data.listing_complete) {
-      // Step 2: stream files in the background.  Directories are already shown;
-      // files will be appended progressively as S3 pages arrive.
-      filesPhaseActive.value = true
-      fillBuffer() // intentionally not awaited — runs in background
-    } else if (!useTwoStep && nextContinuationToken.value) {
-      // Classic single-step pagination (chunking enabled, first page returned a token)
-      fillBuffer() // intentionally not awaited — runs in background
+      dirsPhaseActive.value = true
+      fillBuffer() // intentionally not awaited — drives dirs then files
+    } else {
+      // Single-step: await the first (and only) page, then background-fill
+      // any remaining pages if chunking is enabled.
+      const data = await apiCall('/api/files/ls', 'POST', { path: fullPath }, abortController.value.signal)
+      files.value = data.files || []
+      nextContinuationToken.value = data.next_continuation_token || null
+
+      appStore.setPaneFiles(props.pane, files.value)
+      appStore.setPanePath(props.pane, currentPath.value)
+      appStore.setPaneRemote(props.pane, selectedRemote.value)
+      previousRemote.value = selectedRemote.value
+      previousPath.value = currentPath.value
+      previousInputPath.value = inputPath.value
+
+      if (preserveSelection && selectedFileNames.length > 0) {
+        const newSelection = []
+        selectedFileNames.forEach(name => {
+          const idx = files.value.findIndex(f => f.Name === name)
+          if (idx !== -1) newSelection.push(idx)
+        })
+        appStore.setPaneSelection(props.pane, newSelection)
+      } else {
+        appStore.setPaneSelection(props.pane, [])
+      }
+
+      if (nextContinuationToken.value) {
+        fillBuffer() // intentionally not awaited — runs in background
+      }
     }
   } catch (error) {
     // Check if error is due to abort
@@ -605,18 +606,25 @@ function abortRefresh() {
   }
 }
 
-// Fetch pages from S3 until s3ListingBufferSize more items have been appended,
-// or the listing ends.  Runs entirely in the background; aborted automatically
-// when the user navigates (refresh() replaces prefetchAbortController).
+// Background listing loop — drives three modes:
 //
-// When filesPhaseActive is true (two-step dirs-first listing), requests are
-// sent with mode:'files' so the backend skips CommonPrefixes (already shown).
-// The first call of that phase has no continuation token (fresh S3 listing).
+//   dirsPhaseActive  → sends mode:'dirs'; streams directory entries page by
+//                      page.  When the token is exhausted and listing_complete
+//                      is false (S3), transitions automatically to filesPhase.
+//   filesPhaseActive → sends mode:'files'; streams file entries page by page.
+//                      First call has no continuation token (fresh S3 listing).
+//   classic          → no mode param; resumes via nextContinuationToken (used
+//                      when s3ListingBufferSize == 0 or for non-S3 paths).
+//
+// Stops after s3ListingBufferSize items have been appended so scroll-triggered
+// loading remains responsive for very large buckets.  The buffer counter resets
+// when transitioning from dirs → files so each phase gets its own quota.
+//
+// Aborted automatically when the user navigates (refresh() aborts the
+// prefetchAbortController and resets the phase flags before starting over).
 async function fillBuffer() {
-  const inFilesPhase = filesPhaseActive.value
-  // In files phase the first call starts with no token (fresh from S3 page 1).
-  // In classic mode we need an existing token to know where to resume.
-  if (!inFilesPhase && !nextContinuationToken.value) return
+  // Need at least one active phase or a token to have work to do
+  if (!dirsPhaseActive.value && !filesPhaseActive.value && !nextContinuationToken.value) return
   if (backgroundFetching.value) return
 
   const ctrl = new AbortController()
@@ -627,38 +635,54 @@ async function fillBuffer() {
   let fetched = 0
 
   try {
-    // Loop continues while there is a token OR we just entered the files phase
-    // (first call has no token yet).
-    let firstCall = inFilesPhase
-    while ((firstCall || nextContinuationToken.value) && fetched < bufferSize) {
-      firstCall = false
+    while (true) {
+      const inDirs  = dirsPhaseActive.value
+      const inFiles = filesPhaseActive.value
+      const hasToken = !!nextContinuationToken.value
+
+      // Exit when there is nothing left to fetch or the buffer is full
+      if (!inDirs && !inFiles && !hasToken) break
+      if (fetched >= bufferSize) break
+
       const payload = { path: buildCurrentFullPath() }
-      if (inFilesPhase) {
+      if (inDirs) {
+        payload.mode = 'dirs'
+        if (hasToken) payload.continuation_token = nextContinuationToken.value
+      } else if (inFiles) {
         payload.mode = 'files'
-        if (nextContinuationToken.value) {
-          payload.continuation_token = nextContinuationToken.value
-        }
+        if (hasToken) payload.continuation_token = nextContinuationToken.value
+        // No token on first files call — starts a fresh S3 listing
       } else {
         payload.continuation_token = nextContinuationToken.value
       }
 
       const data = await apiCall('/api/files/ls', 'POST', payload, ctrl.signal)
 
-      const newFiles = data.files || []
-      fetched += newFiles.length
-      files.value = [...files.value, ...newFiles]
+      const newItems = data.files || []
+      fetched += newItems.length
+      files.value = [...files.value, ...newItems]
       nextContinuationToken.value = data.next_continuation_token || null
       appStore.setPaneFiles(props.pane, files.value)
+
+      // Phase transitions (only relevant in two-step mode)
+      if (inDirs && !nextContinuationToken.value) {
+        dirsPhaseActive.value = false
+        if (!data.listing_complete) {
+          // S3: dirs sweep finished → start streaming files
+          filesPhaseActive.value = true
+          fetched = 0 // files phase gets its own buffer quota
+        }
+        // listing_complete=true: non-S3, full listing returned — we're done
+      } else if (inFiles && !nextContinuationToken.value) {
+        filesPhaseActive.value = false
+        break
+      }
     }
   } catch (error) {
     if (error.name !== 'AbortError') {
       console.error('Failed to prefetch files:', error)
     }
   } finally {
-    // Files phase ends when there are no more tokens
-    if (inFilesPhase && !nextContinuationToken.value) {
-      filesPhaseActive.value = false
-    }
     backgroundFetching.value = false
     if (prefetchAbortController.value === ctrl) {
       prefetchAbortController.value = null

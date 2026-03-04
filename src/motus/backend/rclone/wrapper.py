@@ -169,9 +169,11 @@ class RcloneWrapper:
                 everything (original behaviour).  Ignored when dirs_only=True.
             continuation_token: opaque S3 token from a previous call; resumes
                 listing from where that call left off.
-            dirs_only: exhaust all S3 pages collecting only CommonPrefixes
-                (virtual directories).  Returned token is always None; files
-                must be fetched separately via files_only=True.
+            dirs_only: return only CommonPrefixes (virtual directories);
+                Contents are skipped.  max_items and continuation_token apply
+                normally so the caller can stream directories page-by-page.
+                When the returned token is None the dirs sweep is complete;
+                files must still be fetched separately via files_only=True.
             files_only: skip CommonPrefixes, return only object entries.  Used
                 for the second phase of the two-step dirs-first listing.
 
@@ -203,30 +205,12 @@ class RcloneWrapper:
         bucket = parts[0]
         prefix = (parts[1].rstrip('/') + '/') if len(parts) > 1 and parts[1] else ''
 
-        if dirs_only:
-            # Exhaust all S3 pages collecting only virtual directories
-            # (CommonPrefixes).  No max_items limit – we must guarantee the
-            # complete list so the UI can display all folders immediately.
-            results = []
-            kwargs = {'Bucket': bucket, 'Prefix': prefix, 'Delimiter': '/'}
-            while True:
-                resp = client.list_objects_v2(**kwargs)
-                for cp in resp.get('CommonPrefixes', []):
-                    name = cp['Prefix'][len(prefix):].rstrip('/')
-                    if name:
-                        results.append({
-                            'Path':    name,
-                            'Name':    name,
-                            'Size':    0,
-                            'IsDir':   True,
-                            'ModTime': '0001-01-01T00:00:00.000000000Z',
-                        })
-                if resp.get('IsTruncated'):
-                    kwargs['ContinuationToken'] = resp['NextContinuationToken']
-                else:
-                    break
-            return results, None
-
+        # Unified page loop for dirs-only, files-only, and mixed modes:
+        #   dirs_only  → include CommonPrefixes, skip Contents
+        #   files_only → skip CommonPrefixes, include Contents
+        #   default    → include both (original behaviour)
+        # In all cases max_items acts as a cumulative cap and a continuation
+        # token is returned so the caller can resume page-by-page.
         results = []
         kwargs = {'Bucket': bucket, 'Prefix': prefix, 'Delimiter': '/'}
         if continuation_token:
@@ -236,34 +220,33 @@ class RcloneWrapper:
         while True:
             response = client.list_objects_v2(**kwargs)
 
-            # Virtual directories (CommonPrefixes) – skipped in files_only mode
-            # because they were already returned by the dirs-first sweep.
+            # Virtual directories (CommonPrefixes)
             if not files_only:
                 for cp in response.get('CommonPrefixes', []):
-                    dir_key = cp['Prefix']               # e.g. "folder/sub/"
-                    name = dir_key[len(prefix):].rstrip('/')
+                    name = cp['Prefix'][len(prefix):].rstrip('/')
                     if name:
                         results.append({
-                            'Path': name,
-                            'Name': name,
-                            'Size': 0,
-                            'IsDir': True,
+                            'Path':    name,
+                            'Name':    name,
+                            'Size':    0,
+                            'IsDir':   True,
                             'ModTime': '0001-01-01T00:00:00.000000000Z',
                         })
 
             # Objects (files)
-            for obj in response.get('Contents', []):
-                name = obj['Key'][len(prefix):]
-                # Skip a zero-length "directory placeholder" object
-                if not name:
-                    continue
-                results.append({
-                    'Path': name,
-                    'Name': name,
-                    'Size': obj['Size'],
-                    'IsDir': False,
-                    'ModTime': obj['LastModified'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
-                })
+            if not dirs_only:
+                for obj in response.get('Contents', []):
+                    name = obj['Key'][len(prefix):]
+                    # Skip a zero-length "directory placeholder" object
+                    if not name:
+                        continue
+                    results.append({
+                        'Path':    name,
+                        'Name':    name,
+                        'Size':    obj['Size'],
+                        'IsDir':   False,
+                        'ModTime': obj['LastModified'].strftime('%Y-%m-%dT%H:%M:%S.000000000Z'),
+                    })
 
             if response.get('IsTruncated'):
                 if max_items and len(results) >= max_items:
